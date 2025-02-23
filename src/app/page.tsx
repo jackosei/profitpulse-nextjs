@@ -2,22 +2,24 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/context/AuthContext";
-import Login from "@/components/Login";
+import useProtectedRoute from "@/hooks/useProtectedRoute";
 
 export default function Home() {
-  const { user } = useAuth();
+  const { user, loading } = useProtectedRoute();
   const router = useRouter();
 
   useEffect(() => {
-    if (user) {
-      router.push("/dashboard"); // Redirect logged-in users
+    if (!loading && !user) {
+      router.push("/login"); // Redirect logged-out users to login
     }
-  }, [user, router]);
+  }, [user, loading, router]);
 
-  return (
-    <div className="flex justify-center items-center h-screen">
-      <Login />
-    </div>
-  );
+  if (loading) {
+    // Explicitly render a loading screen, not redirecting to login
+    return <p>Loading...</p>;
+  }
+
+  if (loading) return <p>Loading...</p>;
+
+  return <div className="p-6">Welcome {user?.email} to your Dashboard!</div>;
 }

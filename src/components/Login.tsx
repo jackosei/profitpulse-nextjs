@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { signInWithGoogle, signInWithEmail, logout } from "@/firebase/auth";
 import { User } from "firebase/auth";
+import { auth } from "@/firebase/config";
 
 export default function Login() {
   const [user, setUser] = useState<User | null>(null);
@@ -10,6 +11,15 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged((user) => {
+      setUser(user);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   const handleGoogleSignIn = async () => {
     setLoading(true);

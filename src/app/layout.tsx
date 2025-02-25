@@ -1,22 +1,23 @@
 import "./globals.css";
 import Providers from "@/context/Providers";
-// import Layout from "@/components/Layout";
-// import Sidebar from "@/components/Sidebar";
 import Navbar from "@/components/Navbar";
+import Sidebar from "@/components/Sidebar";
 
 const RootLayout = ({ children }: { children: React.ReactNode }) => {
   return (
     <html lang="en">
-      <body>
+      <body className="bg-dark-darker">
         <Providers>
-          <div className="flex h-screen bg-gray-100">
+          <div className="flex h-screen">
             {/* Sidebar Navigation */}
-            {/* <Sidebar /> */}
+            <Sidebar />
 
             {/* Main Content Area */}
-            <div className="flex-1 flex flex-col">
+            <div className="flex-1 flex flex-col overflow-hidden">
               <Navbar />
-              {children}
+              <main className="flex-1 overflow-y-auto p-6 bg-dark">
+                {children}
+              </main>
             </div>
           </div>
         </Providers>

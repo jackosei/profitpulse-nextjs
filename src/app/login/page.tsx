@@ -2,8 +2,10 @@
 
 import { useState } from "react";
 import { signInWithGoogle, signInWithEmail } from "@/firebase/auth";
+import { useRouter } from "next/navigation";
 
 export default function Login() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -14,6 +16,7 @@ export default function Login() {
     setError("");
     try {
       await signInWithGoogle();
+      router.push("/");
     } catch (err) {
       setError(err as string);
     } finally {
@@ -28,6 +31,7 @@ export default function Login() {
 
     try {
       await signInWithEmail(email, password);
+      router.push("/");
     } catch (err) {
       setError(err as string);
     } finally {

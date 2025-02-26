@@ -3,30 +3,42 @@ import {
   signInWithPopup,
   signOut,
   signInWithEmailAndPassword,
+  User
 } from "firebase/auth";
-import { auth } from "./config";
+import { auth } from "@/firebase/config";
 
 const provider = new GoogleAuthProvider();
 
+interface AuthResponse {
+  success: boolean;
+  user?: User;
+  message?: string;
+  cancelled?: boolean;
+  error?: any;
+}
+
 // Sign in with Google
-export const signInWithGoogle = async () => {
+export const signInWithGoogle = async (): Promise<AuthResponse> => {
   try {
     const result = await signInWithPopup(auth, provider);
-    return result.user;
-  } catch (error) {
+    return { success: true, user: result.user };
+  } catch (error: any) {
+    if (error.code === 'auth/popup-closed-by-user') {
+      return { success: false, message: 'Sign-in cancelled', cancelled: true };
+    }
     console.error("Google Sign-In Error:", error);
-    throw new Error("Failed to sign in with Google.");
+    return { success: false, message: 'Failed to sign in with Google', error };
   }
 };
 
 // Sign in with Email and Password
-export const signInWithEmail = async (email: string, password: string) => {
+export const signInWithEmail = async (email: string, password: string): Promise<AuthResponse> => {
   try {
     const result = await signInWithEmailAndPassword(auth, email, password);
-    return result.user;
+    return { success: true, user: result.user };
   } catch (error) {
     console.error("Email Sign-In Error:", error);
-    throw new Error("Invalid email or password.");
+    return { success: false, message: "Invalid email or password." };
   }
 };
 
@@ -38,4 +50,28 @@ export const logout = async () => {
     console.error("Logout Error:", error);
     throw new Error("Failed to log out.");
   }
+};
+
+export const getFirebaseToken = async () => {
+  const currentUser = auth.currentUser;
+  if (!currentUser) {
+    return null;
+  }
+  
+  return await currentUser.getIdToken(true);
+};
+
+export const setSessionCookie = async () => {
+  const token = await getFirebaseToken();
+  if (!token) return;
+
+  const response = await fetch('/api/auth/session', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ token }),
+  });
+
+  return response.ok;
 };

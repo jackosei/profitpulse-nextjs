@@ -4,8 +4,13 @@ import { useState, useEffect } from "react";
 import { signInWithGoogle, signInWithEmail, logout } from "@/firebase/auth";
 import { User } from "firebase/auth";
 import { auth } from "@/firebase/config";
+import Image from "next/image";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { setSessionCookie } from "@/firebase/auth";
 
 export default function Login() {
+  const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -15,20 +20,30 @@ export default function Login() {
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((user) => {
       setUser(user);
+      if (user) {
+        router.push('/');
+      }
       setLoading(false);
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [router]);
 
   const handleGoogleSignIn = async () => {
     setLoading(true);
-    setError("");
+    setError('');
+    
     try {
       const userData = await signInWithGoogle();
-      setUser(userData as User);
+      if (userData.success && userData.user) {
+        setUser(userData.user);
+        await setSessionCookie();
+        router.push('/');
+      } else {
+        setError(userData.message || 'Sign in failed');
+      }
     } catch (err) {
-      setError(err as string);
+      setError(typeof err === 'string' ? err : 'Failed to sign in');
     } finally {
       setLoading(false);
     }
@@ -37,78 +52,145 @@ export default function Login() {
   const handleEmailSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setError("");
+    setError('');
 
     try {
       const userData = await signInWithEmail(email, password);
-      setUser(userData as User);
+      if (userData.success && userData.user) {
+        setUser(userData.user);
+        await setSessionCookie();
+        router.push('/');
+      } else {
+        setError(userData.message || 'Sign in failed');
+      }
     } catch (err) {
-      setError(err as string);
+      setError(typeof err === 'string' ? err : 'Failed to sign in');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="flex flex-col items-center justify-center h-screen bg-gray-100">
-      <div className="w-full max-w-md bg-white p-6 rounded-lg shadow-md">
-        <h2 className="text-2xl font-semibold text-center mb-4">Login</h2>
+    <div className="flex min-h-full bg-[#1E1E1E] text-white">
+      {/* Left Section */}
+      <div className="w-1/2 p-8">
+        <div className="mb-8">
+          <h1 className="text-2xl font-semibold text-accent">ProfitPulse</h1>
+        </div>
 
-        {error && <p className="text-red-500 text-center mb-4">{error}</p>}
+        <div className="max-w-md">
+          <h2 className="text-xl mb-6">Please Enter your Account details</h2>
 
-        {user ? (
-          <div className="text-center">
-            <p className="text-gray-700">Welcome, {user.displayName}</p>
-            <button
-              className="w-full px-4 py-2 mt-4 bg-red-500 text-white rounded-lg hover:bg-red-600"
-              onClick={logout}
-            >
-              Logout
-            </button>
-          </div>
-        ) : (
-          <>
-            <form onSubmit={handleEmailSignIn} className="space-y-4">
+          {error && <p className="text-red-500 mb-4">{error}</p>}
+
+          <form onSubmit={handleEmailSignIn} className="space-y-4">
+            <div className="space-y-2">
+              <label className="block">Email</label>
               <input
                 type="email"
-                placeholder="Email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full p-3 rounded-lg bg-white/10 border border-white/20 focus:outline-none focus:ring-2 focus:ring-green-500"
+                placeholder="Johndoe@gmail.com"
                 required
               />
+            </div>
+
+            <div className="space-y-2">
+              <label className="block">Password</label>
               <input
                 type="password"
-                placeholder="Password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full p-3 rounded-lg bg-white/10 border border-white/20 focus:outline-none focus:ring-2 focus:ring-green-500"
+                placeholder="••••••••"
                 required
               />
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full p-3 text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 flex justify-center"
-              >
-                {loading ? (
-                  <span className="animate-spin border-2 border-white border-t-transparent rounded-full w-5 h-5"></span>
-                ) : (
-                  "Sign in with Email"
-                )}
-              </button>
-            </form>
+            </div>
 
-            <div className="text-center my-4">or</div>
+            <Link 
+              href="/forgot-password"
+              className="block text-sm text-right hover:text-green-500"
+            >
+              Forgot Password
+            </Link>
 
             <button
-              onClick={handleGoogleSignIn}
+              type="submit"
               disabled={loading}
-              className="w-full p-3 text-white bg-red-500 rounded-lg hover:bg-red-600 disabled:bg-gray-400"
+              className="w-full p-3 bg-green-500 rounded-lg hover:bg-green-600 disabled:bg-gray-600 transition-colors"
             >
-              {loading ? "Loading..." : "Sign in with Google"}
+              Sign in
             </button>
-          </>
-        )}
+          </form>
+
+          <div className="mt-6 space-y-4">
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-white/20"></div>
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-2 bg-[#1E1E1E] text-white/60">or continue with</span>
+              </div>
+            </div>
+
+            <div className="flex gap-4 justify-center">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  handleGoogleSignIn();
+                }}
+                className="flex items-center justify-center gap-2 w-full p-3 rounded-lg bg-white/10 hover:bg-white/20 transition-colors"
+              >
+                <Image 
+                  src="/assets/icons/google-icon.svg"
+                  alt="Google" 
+                  width={24} 
+                  height={24} 
+                />
+                <span>Sign in with Google</span>
+              </button>
+            </div>
+          </div>
+
+          <p className="mt-8 text-center text-sm text-white/60">
+            Don't have an account?{" "}
+            <Link href="/signup" className="text-white hover:text-green-500">
+              Create an account
+            </Link>
+          </p>
+        </div>
+      </div>
+
+      {/* Right Section */}
+      <div className="w-1/2 bg-green-500 p-8 flex items-center">
+        <div className="max-w-md mx-auto">
+          <div className="mb-8">
+            <h2 className="text-4xl font-semibold mb-4">Welcome Back!</h2>
+            <blockquote className="text-lg">
+              "ProfitPulse has transformed how I manage my business finances. 
+              The real-time insights and intuitive dashboard make financial tracking a breeze."
+            </blockquote>
+            <div className="mt-4">
+              <p className="font-semibold">Sarah Chen</p>
+              <p className="text-sm">Small Business Owner</p>
+            </div>
+          </div>
+
+          <div className="flex justify-between items-center">
+            <div className="flex gap-2">
+              <button className="p-2 rounded-lg bg-white/20 hover:bg-white/30">
+                <span className="sr-only">Previous</span>
+                {/* Add left arrow icon */}
+              </button>
+              <button className="p-2 rounded-lg bg-white/20 hover:bg-white/30">
+                <span className="sr-only">Next</span>
+                {/* Add right arrow icon */}
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

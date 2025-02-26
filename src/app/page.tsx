@@ -1,14 +1,14 @@
 "use client";
 
 import useProtectedRoute from "@/hooks/useProtectedRoute";
-
+import Loader from "@/components/Loader";
 export default function Home() {
   const { user, loading } = useProtectedRoute();
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
-        <p className="text-gray-400">Loading...</p>
+        <Loader />
       </div>
     );
   }
@@ -19,7 +19,7 @@ export default function Home() {
         Welcome {user?.displayName}!
       </h1>
       <p className="text-gray-400">
-        This is your dashboard. Start managing your trades.
+        Access the dashboard to start managing your trades.
       </p>
     </div>
   );

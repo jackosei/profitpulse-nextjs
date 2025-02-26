@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { navigationLinks } from "@/config/navigation";
+import { useAuth } from "@/context/AuthContext";
 import { 
   HomeIcon, 
   ChartBarIcon, 
@@ -14,14 +15,17 @@ import {
 
 // Map of icons for each route
 const iconMap = {
-  '/': <HomeIcon className="w-6 h-6" />,
+  '/dashboard': <HomeIcon className="w-6 h-6" />,
   '/trades': <ChartBarIcon className="w-6 h-6" />,
   '/settings': <CogIcon className="w-6 h-6" />,
   '/profile': <UserIcon className="w-6 h-6" />,
 };
 
 export default function Sidebar() {
+  const { user } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
+
+  if (!user) return null;
 
   return (
     <aside

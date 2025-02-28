@@ -71,11 +71,33 @@ export default function AddTradeModal({
     }
 
     const profitLoss = Number(formData.profitLoss);
+    const entryPrice = Number(formData.entryPrice);
+    const exitPrice = Number(formData.exitPrice);
+    const tradeType = formData.type;
 
-    // Calculate risk percentage
-    const risk = Math.abs(profitLoss) / accountSize * 100;
-    if (risk > maxRiskPercentage) {
-      setError(`Risk exceeds maximum allowed (${maxRiskPercentage}%)`);
+    // Calculate expected profit/loss direction based on prices and trade type
+    const priceDifference = exitPrice - entryPrice;
+    const expectedProfitableDirection = 
+      (tradeType === 'Buy' && priceDifference > 0) || 
+      (tradeType === 'Sell' && priceDifference < 0);
+    
+    // Check if profit/loss sign matches the expected direction
+    const isProfitable = profitLoss > 0;
+    
+    if (expectedProfitableDirection && !isProfitable) {
+      setError('Profit/loss amount should be positive for this trade (prices indicate a profitable trade)');
+      return false;
+    }
+    
+    if (!expectedProfitableDirection && isProfitable) {
+      setError('Profit/loss amount should be negative for this trade (prices indicate a losing trade)');
+      return false;
+    }
+
+    const maxLossAllowed = (maxRiskPercentage / 100) * accountSize; 
+
+    if (profitLoss < 0 && Math.abs(profitLoss) > maxLossAllowed) {
+      setError(`Loss exceeds maximum allowed (${maxRiskPercentage}%) of account size`);
       return false;
     }
 
@@ -101,7 +123,7 @@ export default function AddTradeModal({
         entryPrice: Number(formData.entryPrice),
         exitPrice: Number(formData.exitPrice),
         entryReason: formData.entryReason,
-        learnings: formData.learnings || undefined,
+        learnings: formData.learnings || '',
         profitLoss,
         profitLossPercentage: (profitLoss / accountSize) * 100,
         outcome,

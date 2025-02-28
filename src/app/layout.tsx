@@ -2,6 +2,7 @@ import "./globals.css";
 import Providers from "@/context/Providers";
 import Navbar from "@/components/Navbar";
 import Sidebar from "@/components/Sidebar";
+import { Toaster } from 'sonner';
 
 const RootLayout = ({ children }: { children: React.ReactNode }) => {
   return (
@@ -21,6 +22,12 @@ const RootLayout = ({ children }: { children: React.ReactNode }) => {
             </div>
           </div>
         </Providers>
+        <Toaster 
+          position="bottom-center" 
+          theme="dark"
+          closeButton
+          richColors
+        />
       </body>
     </html>
   );

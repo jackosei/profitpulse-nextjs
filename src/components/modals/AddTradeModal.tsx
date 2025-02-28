@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { createTrade, calculatePulseStats } from '@/firebase/firestore';
 import type { Trade } from '@/types/pulse';
+import { toast } from 'sonner';
+import LoadingSpinner from '@/components/LoadingSpinner';
 
 interface AddTradeModalProps {
   isOpen: boolean;
@@ -134,11 +136,36 @@ export default function AddTradeModal({
 
       await createTrade(pulseId, firestoreId, tradeData);
       await calculatePulseStats(firestoreId);
+      
+      // Show success notification with more details
+      toast.success('Trade added successfully!', {
+        description: `${tradeData.type} trade with P/L of $${tradeData.profitLoss.toFixed(2)}`,
+        duration: 4000,
+      });
+      
       onSuccess?.();
       onClose();
+      
+      // Reset form data for next time
+      setFormData({
+        date: new Date().toISOString().split('T')[0],
+        type: 'Buy',
+        lotSize: '',
+        entryPrice: '',
+        exitPrice: '',
+        entryReason: '',
+        profitLoss: '',
+        learnings: ''
+      });
     } catch (error) {
       console.error('Error adding trade:', error);
       setError('Failed to add trade. Please try again.');
+      
+      // Enhanced error toast
+      toast.error('Failed to add trade', {
+        description: 'Please try again or check your connection',
+        duration: 5000,
+      });
     } finally {
       setLoading(false);
     }
@@ -265,11 +292,11 @@ export default function AddTradeModal({
             </div>
 
             <div className="md:col-span-2 space-y-4">
-              {error && (
+              {/* {error && (
                 <div className="p-3 bg-red-900/50 border border-red-800 rounded-lg">
                   <p className="text-red-500 text-sm">{error}</p>
                 </div>
-              )}
+              )} */}
 
               <div className="flex justify-end space-x-2">
                 <button
@@ -284,7 +311,12 @@ export default function AddTradeModal({
                   disabled={loading}
                   className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {loading ? "Adding..." : "Add Trade"}
+                  {loading ? (
+                    <span className="flex items-center justify-center">
+                      <LoadingSpinner />
+                      Adding...
+                    </span>
+                  ) : "Add Trade"}
                 </button>
               </div>
             </div>

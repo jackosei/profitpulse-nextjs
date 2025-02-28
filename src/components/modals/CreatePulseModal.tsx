@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { createPulse } from '@/firebase/firestore';
+import { toast } from 'sonner';
+import LoadingSpinner from '../LoadingSpinner';
 
 interface CreatePulseModalProps {
   isOpen: boolean;
@@ -52,18 +54,38 @@ export default function CreatePulseModal({ isOpen, onClose, onSuccess }: CreateP
       if (!user) throw new Error('User not authenticated');
 
       const pulseData = {
-        ...formData,
+        name: formData.name,
+        instrument: formData.instrument,
         accountSize: Number(formData.accountSize),
         maxRiskPerTrade: Number(formData.maxRiskPerTrade),
-        userId: user.uid
+        userId: user.uid,
+        status: 'active' as const
       };
 
       await createPulse(pulseData);
+      
+      toast.success('Pulse created successfully!', {
+        description: `${pulseData.name} with ${pulseData.accountSize} account size`,
+        duration: 4000,
+      });
+      
       onSuccess?.();
       onClose();
-    } catch (error) {
+      
+      setFormData({
+        name: '',
+        instrument: '',
+        accountSize: '',
+        maxRiskPerTrade: '3'
+      });
+    } catch (error: any) {
       console.error('Error creating pulse:', error);
-      setError('Failed to create pulse. Please try again.');
+      setError(error.message || 'Failed to create pulse. Please try again.');
+      
+      toast.error('Failed to create pulse', {
+        description: error.message || 'Please try again',
+        duration: 5000,
+      });
     } finally {
       setLoading(false);
     }
@@ -130,11 +152,11 @@ export default function CreatePulseModal({ isOpen, onClose, onSuccess }: CreateP
               />
             </div>
 
-            {error && (
+            {/* {error && (
               <div className="p-3 bg-red-900/50 border border-red-800 rounded-lg">
                 <p className="text-red-500 text-sm">{error}</p>
               </div>
-            )}
+            )} */}
 
             <div className="flex justify-end space-x-2">
               <button
@@ -149,7 +171,12 @@ export default function CreatePulseModal({ isOpen, onClose, onSuccess }: CreateP
                 disabled={loading}
                 className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {loading ? "Creating..." : "Create Pulse"}
+                {loading ? (
+                  <span className="flex items-center justify-center">
+                    <LoadingSpinner />
+                    Creating...
+                  </span>
+                ) : "Create Pulse"}
               </button>
             </div>
           </div>

@@ -3,11 +3,19 @@ import Providers from "@/context/Providers";
 import Navbar from "@/components/Navbar";
 import Sidebar from "@/components/Sidebar";
 import { Toaster } from 'sonner';
+import FeedbackWidget from "@/components/FeedbackWidget";
+import { Inter } from "next/font/google";
+
+const inter = Inter({ 
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-inter',
+});
 
 const RootLayout = ({ children }: { children: React.ReactNode }) => {
   return (
-    <html lang="en">
-      <body className="bg-dark-darker">
+    <html lang="en" className={`${inter.variable}`}>
+      <body className="bg-dark-darker font-sans">
         <Providers>
           <div className="flex h-screen">
             {/* Sidebar Navigation */}
@@ -21,6 +29,7 @@ const RootLayout = ({ children }: { children: React.ReactNode }) => {
               </main>
             </div>
           </div>
+          <FeedbackWidget />
         </Providers>
         <Toaster 
           position="bottom-center" 

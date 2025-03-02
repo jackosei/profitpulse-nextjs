@@ -66,15 +66,13 @@ export default function Login() {
   };
 
   return (
-    <div className="flex min-h-full bg-[#1E1E1E] text-white">
+    <div className="flex flex-col md:flex-row min-h-full bg-[#1E1E1E] text-white">
       {/* Left Section */}
-      <div className="w-1/2 p-8">
-        <div className="mb-8">
-          <h1 className="text-2xl font-semibold text-accent">ProfitPulse</h1>
-        </div>
+      <div className="w-full md:w-1/2 p-4 md:p-8">
+       
 
-        <div className="max-w-md">
-          <h2 className="text-xl mb-6">Please Enter your Account details</h2>
+        <div className="max-w-md mx-auto">
+          <h2 className="text-xl mb-6 font-bold">Welcome Back! Please enter your account details</h2>
 
           {error && <p className="text-red-500 mb-4">{error}</p>}
 
@@ -159,7 +157,7 @@ export default function Login() {
       </div>
 
       {/* Right Section */}
-      <div className="w-1/2 bg-green-500 p-8 flex items-center">
+      <div className="hidden md:flex w-full md:w-1/2 bg-green-500 p-8 items-center">
         <div className="max-w-md mx-auto">
           <div className="mb-8">
             <h2 className="text-4xl font-semibold mb-4">Welcome Back!</h2>

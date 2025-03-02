@@ -36,13 +36,11 @@ export default function Signup() {
   };
 
   return (
-    <div className="flex min-h-[100%] bg-[#1E1E1E] text-white">
-      <div className="w-1/2 p-8">
-        <div className="mb-8">
-          <h1 className="text-2xl font-semibold text-accent">ProfitPulse</h1>
-        </div>
+    <div className="flex flex-col md:flex-row min-h-[100%] bg-[#1E1E1E] text-white w-[95%] md:w-auto">
+      <div className="w-full md:w-1/2 p-4 md:p-8">
+        
 
-        <div className="max-w-md">
+        <div className="max-w-md mx-auto">
           <h2 className="text-xl mb-6">Create your account</h2>
 
           {error && <p className="text-red-500 mb-4">{error}</p>}
@@ -100,7 +98,7 @@ export default function Signup() {
       </div>
 
       {/* Right Section */}
-      <div className="w-1/2 relative bg-green-500 p-8 flex items-center justify-center">
+      <div className="hidden md:flex w-full md:w-1/2 relative bg-green-500 p-8 items-center justify-center">
         <div className="max-w-md">
           <h2 className="text-3xl font-bold mb-6">
             Take control of your business finances

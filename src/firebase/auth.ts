@@ -1,6 +1,8 @@
 import {
   GoogleAuthProvider,
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   signOut,
   signInWithEmailAndPassword,
   User,
@@ -18,11 +20,27 @@ interface AuthResponse {
   error?: AuthError;
 }
 
+// Helper to detect mobile device
+const isMobile = () => {
+  if (typeof window === 'undefined') return false;
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+    navigator.userAgent
+  );
+};
+
 // Sign in with Google
 export const signInWithGoogle = async (): Promise<AuthResponse> => {
   try {
-    const result = await signInWithPopup(auth, provider);
-    return { success: true, user: result.user };
+    if (isMobile()) {
+      // Use redirect method for mobile
+      await signInWithRedirect(auth, provider);
+      // The result will be handled by getRedirectResult in the component
+      return { success: true };
+    } else {
+      // Use popup for desktop
+      const result = await signInWithPopup(auth, provider);
+      return { success: true, user: result.user };
+    }
   } catch (error) {
     if (error instanceof Error && 'code' in error && (error as AuthError).code === 'auth/popup-closed-by-user') {
       return { success: false, message: 'Sign-in cancelled', cancelled: true };
@@ -31,6 +49,24 @@ export const signInWithGoogle = async (): Promise<AuthResponse> => {
     return { 
       success: false, 
       message: 'Failed to sign in with Google', 
+      error: error instanceof Error && 'code' in error ? error as AuthError : undefined 
+    };
+  }
+};
+
+// Handle redirect result
+export const handleRedirectResult = async (): Promise<AuthResponse> => {
+  try {
+    const result = await getRedirectResult(auth);
+    if (result) {
+      return { success: true, user: result.user };
+    }
+    return { success: false, message: 'No redirect result' };
+  } catch (error) {
+    console.error("Redirect Result Error:", error);
+    return { 
+      success: false, 
+      message: 'Failed to complete sign-in', 
       error: error instanceof Error && 'code' in error ? error as AuthError : undefined 
     };
   }

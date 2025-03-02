@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { signInWithGoogle, signInWithEmail } from "@/firebase/auth";
+import { signInWithGoogle, signInWithEmail, handleRedirectResult } from "@/firebase/auth";
 import { auth } from "@/firebase/config";
 import Image from "next/image";
 import Link from "next/link";
@@ -12,15 +12,35 @@ export default function Login() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
+    const checkRedirectResult = async () => {
+      try {
+        const result = await handleRedirectResult();
+        if (result.success && result.user) {
+          await setSessionCookie();
+          router.push('/');
+        } else if (result.error) {
+          setError(result.message || 'Sign in failed');
+        }
+      } catch (err) {
+        console.error('Redirect error:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
     const unsubscribe = auth.onAuthStateChanged((user) => {
       if (user) {
         router.push('/');
       }
-      setLoading(false);
+      if (!user) {
+        checkRedirectResult();
+      } else {
+        setLoading(false);
+      }
     });
 
     return () => unsubscribe();
@@ -32,11 +52,9 @@ export default function Login() {
     
     try {
       const userData = await signInWithGoogle();
-      if (userData.success && userData.user) {
-        await setSessionCookie();
-        router.push('/');
-      } else {
-        setError(userData.message || 'Sign in failed');
+      // For mobile, the redirect will happen here and the result will be handled by useEffect
+      if (!userData.success && userData.message) {
+        setError(userData.message);
       }
     } catch (err) {
       setError(typeof err === 'string' ? err : 'Failed to sign in');

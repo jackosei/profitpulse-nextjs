@@ -47,22 +47,6 @@ export const createPulse = async (pulseData: Omit<Pulse, 'id' | 'createdAt' | 's
     }).replace(/\//g, '');
     const pulseId = `${pulseData.name.slice(0, 4).toUpperCase().replace(/\s+/g, '')}${dateStr}`;
 
-    const pulseRef = await addDoc(collection(db, 'pulses'), {
-      ...pulseData,
-      id: pulseId,
-      status: PULSE_STATUS.ACTIVE,
-      createdAt: serverTimestamp(),
-      stats: {
-        totalTrades: 0,
-        wins: 0,
-        losses: 0,
-        strikeRate: 0,
-        totalProfitLoss: 0,
-        averageWin: 0,
-        averageLoss: 0
-      }
-    });
-
     return { id: pulseId, ...pulseData };
   } catch (error) {
     console.error('Error creating pulse:', error);

@@ -13,7 +13,7 @@ import {
   startAfter
 } from 'firebase/firestore';
 import { db } from './config';
-import { MAX_RISK_PERCENTAGE, PULSE_STATUS, type Pulse, type Trade } from '@/types/pulse';
+import { MAX_RISK_PERCENTAGE, type Pulse, type Trade } from '@/types/pulse';
 
 const checkDuplicatePulseName = async (name: string, userId: string) => {
   const pulsesRef = collection(db, 'pulses');

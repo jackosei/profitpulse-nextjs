@@ -14,7 +14,7 @@ export default function Home() {
   }
 
   return (
-    <div className="p-6">
+    <div className="p-2 md:p-6">
       <h1 className="text-2xl font-bold text-accent mb-4">
         Welcome {user?.displayName}!
       </h1>

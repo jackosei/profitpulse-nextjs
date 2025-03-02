@@ -85,7 +85,7 @@ export default function PulseDetailsPage() {
   if (!pulse) return <div className="p-6">Pulse not found</div>;
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-0 md:p-6 space-y-6">
       {/* Header */}
       <div className="flex justify-between items-start">
         <div>

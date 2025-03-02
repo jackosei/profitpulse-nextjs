@@ -4,9 +4,16 @@ import { useAuth } from "@/context/AuthContext";
 import { auth } from "@/firebase/config";
 import Link from "next/link";
 import Image from "next/image";
+import { useState } from "react";
+import { UserCircleIcon } from "@heroicons/react/24/outline";
 
 export default function Navbar() {
   const { user } = useAuth();
+  const [showDropdown, setShowDropdown] = useState(false);
+
+  const toggleDropdown = () => {
+    setShowDropdown(!showDropdown);
+  };
 
   return (
     <header className="sticky top-0 z-10 w-full bg-dark border-b border-gray-800">
@@ -24,9 +31,13 @@ export default function Navbar() {
 
           <div className="flex items-center gap-4">
             {user ? (
-              <>
-                <div className="flex items-center gap-3">
-                  {user.photoURL && (
+              <div className="relative">
+                {/* Profile Image/Avatar Button */}
+                <button
+                  onClick={toggleDropdown}
+                  className="flex items-center justify-center w-8 h-8 rounded-full overflow-hidden focus:outline-none focus:ring-2 focus:ring-accent"
+                >
+                  {user.photoURL ? (
                     <Image
                       src={user.photoURL}
                       alt={user.displayName || "User"}
@@ -34,16 +45,42 @@ export default function Navbar() {
                       height={32}
                       className="rounded-full"
                     />
+                  ) : (
+                    <UserCircleIcon className="w-8 h-8 text-gray-400" />
                   )}
-                  <span className="text-gray-300">{user.displayName}</span>
-                </div>
-                <button 
-                  onClick={() => auth.signOut()}
-                  className="btn-primary bg-red-500 hover:bg-red-600"
-                >
-                  Logout
                 </button>
-              </>
+
+                {/* Dropdown Menu */}
+                {showDropdown && (
+                  <div className="absolute right-0 mt-2 w-48 bg-dark border border-gray-800 rounded-lg shadow-lg py-1 z-50">
+                    {/* User Info - Only visible on desktop */}
+                    <div className="hidden md:block px-4 py-2 border-b border-gray-800">
+                      <p className="text-sm text-gray-300">{user.displayName}</p>
+                      <p className="text-xs text-gray-500">{user.email}</p>
+                    </div>
+                    
+                    {/* Navigation Links */}
+                    <Link
+                      href="/profile"
+                      className="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-800"
+                      onClick={() => setShowDropdown(false)}
+                    >
+                      Profile Settings
+                    </Link>
+                    
+                    {/* Logout Button */}
+                    <button
+                      onClick={() => {
+                        auth.signOut();
+                        setShowDropdown(false);
+                      }}
+                      className="w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-gray-800"
+                    >
+                      Logout
+                    </button>
+                  </div>
+                )}
+              </div>
             ) : (
               <>
                 <Link 

@@ -40,12 +40,6 @@ export default function AddTradeModal({
   });
   const [error, setError] = useState('');
 
-  const calculateProfitLoss = (type: string, entryPrice: number, exitPrice: number, lotSize: number) => {
-    const priceDiff = exitPrice - entryPrice;
-    const multiplier = type === 'Buy' ? 1 : -1;
-    return priceDiff * multiplier * lotSize;
-  };
-
   const validateForm = () => {
     if (!formData.lotSize || Number(formData.lotSize) <= 0) {
       setError('Please enter a valid lot size');
@@ -292,11 +286,11 @@ export default function AddTradeModal({
             </div>
 
             <div className="md:col-span-2 space-y-4">
-              {/* {error && (
+              {error && (
                 <div className="p-3 bg-red-900/50 border border-red-800 rounded-lg">
                   <p className="text-red-500 text-sm">{error}</p>
                 </div>
-              )} */}
+              )}
 
               <div className="flex justify-end space-x-2">
                 <button

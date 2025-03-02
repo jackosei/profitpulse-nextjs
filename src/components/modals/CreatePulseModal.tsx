@@ -78,12 +78,12 @@ export default function CreatePulseModal({ isOpen, onClose, onSuccess }: CreateP
         accountSize: '',
         maxRiskPerTrade: '3'
       });
-    } catch (error: any) {
+    } catch (error: Error | unknown) {
       console.error('Error creating pulse:', error);
-      setError(error.message || 'Failed to create pulse. Please try again.');
+      setError(error instanceof Error ? error.message : 'Failed to create pulse. Please try again.');
       
       toast.error('Failed to create pulse', {
-        description: error.message || 'Please try again',
+        description: error instanceof Error ? error.message : 'Please try again',
         duration: 5000,
       });
     } finally {
@@ -152,11 +152,11 @@ export default function CreatePulseModal({ isOpen, onClose, onSuccess }: CreateP
               />
             </div>
 
-            {/* {error && (
+            {error && (
               <div className="p-3 bg-red-900/50 border border-red-800 rounded-lg">
                 <p className="text-red-500 text-sm">{error}</p>
               </div>
-            )} */}
+            )}
 
             <div className="flex justify-end space-x-2">
               <button

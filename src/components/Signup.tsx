@@ -28,8 +28,8 @@ export default function Signup() {
     try {
       await createUserWithEmailAndPassword(auth, email, password);
       router.push('/');
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: Error | unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to create account');
     } finally {
       setLoading(false);
     }
@@ -107,7 +107,7 @@ export default function Signup() {
           </h2>
           <p className="mb-8 text-lg">
             Track expenses, monitor revenue, and make data-driven decisions with
-            ProfitPulse's comprehensive financial dashboard.
+            ProfitPulse&apos;s comprehensive financial dashboard.
           </p>
           <div className="relative h-64 w-full">
             <Image

@@ -3,7 +3,8 @@ import {
   signInWithPopup,
   signOut,
   signInWithEmailAndPassword,
-  User
+  User,
+  AuthError
 } from "firebase/auth";
 import { auth } from "@/firebase/config";
 
@@ -14,7 +15,7 @@ interface AuthResponse {
   user?: User;
   message?: string;
   cancelled?: boolean;
-  error?: any;
+  error?: AuthError;
 }
 
 // Sign in with Google
@@ -22,12 +23,16 @@ export const signInWithGoogle = async (): Promise<AuthResponse> => {
   try {
     const result = await signInWithPopup(auth, provider);
     return { success: true, user: result.user };
-  } catch (error: any) {
-    if (error.code === 'auth/popup-closed-by-user') {
+  } catch (error) {
+    if (error instanceof Error && 'code' in error && (error as AuthError).code === 'auth/popup-closed-by-user') {
       return { success: false, message: 'Sign-in cancelled', cancelled: true };
     }
     console.error("Google Sign-In Error:", error);
-    return { success: false, message: 'Failed to sign in with Google', error };
+    return { 
+      success: false, 
+      message: 'Failed to sign in with Google', 
+      error: error instanceof Error && 'code' in error ? error as AuthError : undefined 
+    };
   }
 };
 

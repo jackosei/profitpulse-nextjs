@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { getUserPulses } from '@/firebase/firestore';
 import type { Pulse } from '@/types/pulse';
@@ -15,7 +15,7 @@ export default function DashboardPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const router = useRouter();
 
-  const fetchPulses = async () => {
+  const fetchPulses = useCallback(async () => {
     if (!user) return;
     try {
       const userPulses = await getUserPulses(user.uid);
@@ -25,11 +25,11 @@ export default function DashboardPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
 
   useEffect(() => {
     fetchPulses();
-  }, [user]);
+  }, [fetchPulses]);
 
   if (loading) {
     return <Loader />;

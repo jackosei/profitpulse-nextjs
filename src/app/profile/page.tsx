@@ -61,8 +61,8 @@ export default function ProfileForm() {
       }
 
       setSuccess("Profile updated successfully!");
-    } catch (err: any) {
-      setError(err.message || "Failed to update profile");
+    } catch (err: Error | unknown) {
+      setError(err instanceof Error ? err.message : "Failed to update profile");
     } finally {
       setLoading(false);
     }
@@ -74,8 +74,8 @@ export default function ProfileForm() {
     if (window.confirm("Are you sure you want to delete your account? This action cannot be undone.")) {
       try {
         await user.delete();
-      } catch (err: any) {
-        setError(err.message || "Failed to delete account");
+      } catch (err: Error | unknown) {
+        setError(err instanceof Error ? err.message : "Failed to delete account");
       }
     }
   };

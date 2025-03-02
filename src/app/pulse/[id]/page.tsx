@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { getPulseById, calculatePulseStats, getMoreTrades } from '@/firebase/firestore';
+import { getPulseById, getMoreTrades } from '@/firebase/firestore';
 import type { Pulse, Trade } from '@/types/pulse';
 import Loader from '@/components/Loader';
 import AddTradeModal from '@/components/modals/AddTradeModal';
@@ -19,7 +19,7 @@ export default function PulseDetailsPage() {
   const [hasMore, setHasMore] = useState(false);
   const [lastVisible, setLastVisible] = useState<string | null>(null);
 
-  const fetchPulse = async () => {
+  const fetchPulse = useCallback(async () => {
     if (!user || !id) return;
     try {
       const pulseData = await getPulseById(id as string, user.uid);
@@ -32,9 +32,9 @@ export default function PulseDetailsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user, id]);
 
-  const loadMoreTrades = async () => {
+  const loadMoreTrades = useCallback(async () => {
     if (!pulse || !lastVisible || loadingMore) return;
     
     setLoadingMore(true);
@@ -54,7 +54,7 @@ export default function PulseDetailsPage() {
     } finally {
       setLoadingMore(false);
     }
-  };
+  }, [pulse, lastVisible, loadingMore]);
 
   // Add intersection observer for infinite scroll
   const observerTarget = useRef<HTMLDivElement>(null);
@@ -74,11 +74,11 @@ export default function PulseDetailsPage() {
     }
 
     return () => observer.disconnect();
-  }, [hasMore, lastVisible]);
+  }, [hasMore, loadMoreTrades]);
 
   useEffect(() => {
     fetchPulse();
-  }, [id, user]);
+  }, [fetchPulse]);
 
   if (loading) return <Loader />;
   if (error) return <div className="p-6 text-red-500">{error}</div>;

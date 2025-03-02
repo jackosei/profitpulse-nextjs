@@ -1,8 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { signInWithGoogle, signInWithEmail, logout } from "@/firebase/auth";
-import { User } from "firebase/auth";
+import { signInWithGoogle, signInWithEmail } from "@/firebase/auth";
 import { auth } from "@/firebase/config";
 import Image from "next/image";
 import Link from "next/link";
@@ -11,7 +10,6 @@ import { setSessionCookie } from "@/firebase/auth";
 
 export default function Login() {
   const router = useRouter();
-  const [user, setUser] = useState<User | null>(null);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -19,7 +17,6 @@ export default function Login() {
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((user) => {
-      setUser(user);
       if (user) {
         router.push('/');
       }
@@ -36,7 +33,6 @@ export default function Login() {
     try {
       const userData = await signInWithGoogle();
       if (userData.success && userData.user) {
-        setUser(userData.user);
         await setSessionCookie();
         router.push('/');
       } else {
@@ -57,7 +53,6 @@ export default function Login() {
     try {
       const userData = await signInWithEmail(email, password);
       if (userData.success && userData.user) {
-        setUser(userData.user);
         await setSessionCookie();
         router.push('/');
       } else {
@@ -155,7 +150,7 @@ export default function Login() {
           </div>
 
           <p className="mt-8 text-center text-sm text-white/60">
-            Don't have an account?{" "}
+            Don&apos;t have an account?{" "}
             <Link href="/signup" className="text-white hover:text-green-500">
               Create an account
             </Link>
@@ -169,8 +164,8 @@ export default function Login() {
           <div className="mb-8">
             <h2 className="text-4xl font-semibold mb-4">Welcome Back!</h2>
             <blockquote className="text-lg">
-              "ProfitPulse has transformed how I manage my business finances. 
-              The real-time insights and intuitive dashboard make financial tracking a breeze."
+              &quot;ProfitPulse has transformed how I manage my business finances. 
+              The real-time insights and intuitive dashboard make financial tracking a breeze.&quot;
             </blockquote>
             <div className="mt-4">
               <p className="font-semibold">Sarah Chen</p>

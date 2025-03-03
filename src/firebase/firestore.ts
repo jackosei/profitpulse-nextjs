@@ -13,7 +13,7 @@ import {
   startAfter
 } from 'firebase/firestore';
 import { db } from './config';
-import { MAX_RISK_PERCENTAGE, type Pulse, type Trade } from '@/types/pulse';
+import { MAX_RISK_PERCENTAGE, type Pulse, type Trade, PULSE_STATUS } from '@/types/pulse';
 
 const checkDuplicatePulseName = async (name: string, userId: string) => {
   const pulsesRef = collection(db, 'pulses');
@@ -47,7 +47,28 @@ export const createPulse = async (pulseData: Omit<Pulse, 'id' | 'createdAt' | 's
     }).replace(/\//g, '');
     const pulseId = `${pulseData.name.slice(0, 4).toUpperCase().replace(/\s+/g, '')}${dateStr}`;
 
-    return { id: pulseId, ...pulseData };
+    // Create the document with generated ID and timestamp
+    const pulseWithId = {
+      ...pulseData,
+      id: pulseId,
+      createdAt: serverTimestamp(),
+      status: PULSE_STATUS.ACTIVE,
+      stats: {
+        totalTrades: 0,
+        wins: 0,
+        losses: 0,
+        strikeRate: 0,
+        totalProfitLoss: 0,
+        averageWin: 0,
+        averageLoss: 0
+      }
+    };
+
+    // Add document to Firestore
+    const pulsesRef = collection(db, 'pulses');
+    await addDoc(pulsesRef, pulseWithId);
+
+    return pulseWithId;
   } catch (error) {
     console.error('Error creating pulse:', error);
     throw error;

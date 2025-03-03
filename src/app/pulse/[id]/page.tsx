@@ -1,20 +1,24 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { getPulseById, getMoreTrades } from '@/firebase/firestore';
 import type { Pulse, Trade } from '@/types/pulse';
 import Loader from '@/components/Loader';
 import AddTradeModal from '@/components/modals/AddTradeModal';
+import DeletePulseModal from '@/components/modals/DeletePulseModal';
+import { TrashIcon } from '@heroicons/react/24/outline';
 
 export default function PulseDetailsPage() {
   const { id } = useParams();
+  const router = useRouter();
   const { user } = useAuth();
   const [pulse, setPulse] = useState<Pulse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showAddTradeModal, setShowAddTradeModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const [lastVisible, setLastVisible] = useState<string | null>(null);
@@ -80,6 +84,10 @@ export default function PulseDetailsPage() {
     fetchPulse();
   }, [fetchPulse]);
 
+  const handlePulseDeleted = useCallback(() => {
+    router.push('/dashboard');
+  }, [router]);
+
   if (loading) return <Loader />;
   if (error) return <div className="p-6 text-red-500">{error}</div>;
   if (!pulse) return <div className="p-6">Pulse not found</div>;
@@ -92,9 +100,18 @@ export default function PulseDetailsPage() {
           <h1 className="text-2xl font-bold text-foreground">{pulse.name}</h1>
           <p className="text-gray-400">{pulse.instrument}</p>
         </div>
-        <div className="text-right">
-          <p className="text-sm text-gray-400">Account Size</p>
-          <p className="text-xl font-bold text-foreground">${pulse.accountSize}</p>
+        <div className="flex items-start gap-4">
+          <div className="text-right">
+            <p className="text-sm text-gray-400">Account Size</p>
+            <p className="text-xl font-bold text-foreground">${pulse.accountSize}</p>
+          </div>
+          <button
+            onClick={() => setShowDeleteModal(true)}
+            className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors"
+            aria-label="Delete pulse"
+          >
+            <TrashIcon className="w-5 h-5" />
+          </button>
         </div>
       </div>
 
@@ -194,6 +211,16 @@ export default function PulseDetailsPage() {
         userId={user!.uid}
         maxRiskPercentage={pulse.maxRiskPerTrade}
         accountSize={pulse.accountSize}
+      />
+
+      <DeletePulseModal
+        isOpen={showDeleteModal}
+        onClose={() => setShowDeleteModal(false)}
+        pulse={{
+          id: pulse.id,
+          name: pulse.name
+        }}
+        onSuccess={handlePulseDeleted}
       />
     </div>
   );

@@ -10,7 +10,9 @@ import {
   updateDoc,
   orderBy,
   limit,
-  startAfter
+  startAfter,
+  deleteDoc,
+  writeBatch
 } from 'firebase/firestore';
 import { db } from './config';
 import { MAX_RISK_PERCENTAGE, type Pulse, type Trade, PULSE_STATUS } from '@/types/pulse';
@@ -236,6 +238,50 @@ export const calculatePulseStats = async (firestoreId: string) => {
     return stats;
   } catch (error) {
     console.error('Error calculating pulse stats:', error);
+    throw error;
+  }
+};
+
+export const deletePulse = async (pulseId: string, userId: string, confirmationName: string) => {
+  try {
+    // Get pulse data to verify ownership and name
+    const pulsesRef = collection(db, 'pulses');
+    const q = query(pulsesRef, 
+      where('id', '==', pulseId),
+      where('userId', '==', userId)
+    );
+    const querySnapshot = await getDocs(q);
+    
+    if (querySnapshot.empty) {
+      throw new Error('Pulse not found');
+    }
+
+    const pulseDoc = querySnapshot.docs[0];
+    const pulseData = pulseDoc.data() as Pulse;
+
+    // Verify confirmation name matches
+    if (pulseData.name !== confirmationName) {
+      throw new Error('Confirmation name does not match');
+    }
+
+    // Delete all trades in the pulse
+    const batch = writeBatch(db);
+    const tradesRef = collection(db, 'pulses', pulseDoc.id, 'trades');
+    const tradesSnapshot = await getDocs(tradesRef);
+    
+    tradesSnapshot.docs.forEach((tradeDoc) => {
+      batch.delete(tradeDoc.ref);
+    });
+
+    // Delete the pulse document
+    batch.delete(pulseDoc.ref);
+
+    // Commit the batch
+    await batch.commit();
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error deleting pulse:', error);
     throw error;
   }
 }; 

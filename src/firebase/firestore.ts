@@ -77,16 +77,21 @@ export const createPulse = async (pulseData: Omit<Pulse, 'id' | 'createdAt' | 's
   }
 };
 
-export const getUserPulses = async (userId: string) => {
+export const getUserPulses = async (userId: string, status?: typeof PULSE_STATUS[keyof typeof PULSE_STATUS]) => {
   try {
     const pulsesRef = collection(db, 'pulses');
-    const q = query(pulsesRef, where('userId', '==', userId));
+    let q = query(pulsesRef, where('userId', '==', userId));
+    
+    if (status) {
+      q = query(q, where('status', '==', status));
+    }
+    
     const querySnapshot = await getDocs(q);
     
     return querySnapshot.docs.map(doc => ({
-      id: doc.id,
+      firestoreId: doc.id,
       ...doc.data()
-    })) as Pulse[];
+    })) as (Pulse & { firestoreId: string })[];
   } catch (error) {
     console.error('Error fetching pulses:', error);
     throw error;
@@ -305,6 +310,29 @@ export const archivePulse = async (pulseId: string, userId: string) => {
     return { success: true };
   } catch (error) {
     console.error('Error archiving pulse:', error);
+    throw error;
+  }
+};
+
+export const unarchivePulse = async (pulseId: string, userId: string) => {
+  try {
+    const pulsesRef = collection(db, 'pulses');
+    const q = query(pulsesRef, 
+      where('id', '==', pulseId),
+      where('userId', '==', userId)
+    );
+    const querySnapshot = await getDocs(q);
+    
+    if (querySnapshot.empty) {
+      throw new Error('Pulse not found');
+    }
+
+    const pulseDoc = querySnapshot.docs[0];
+    await updateDoc(pulseDoc.ref, { status: PULSE_STATUS.ACTIVE });
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error unarchiving pulse:', error);
     throw error;
   }
 }; 

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { getUserPulses } from '@/firebase/firestore';
 import type { Pulse } from '@/types/pulse';
+import { PULSE_STATUS } from '@/types/pulse';
 import CreatePulseModal from '@/components/modals/CreatePulseModal';
 import Loader from '@/components/Loader';
 import { useRouter } from 'next/navigation';
@@ -18,7 +19,7 @@ export default function DashboardPage() {
   const fetchPulses = useCallback(async () => {
     if (!user) return;
     try {
-      const userPulses = await getUserPulses(user.uid);
+      const userPulses = await getUserPulses(user.uid, PULSE_STATUS.ACTIVE);
       setPulses(userPulses);
     } catch (error) {
       console.error('Error fetching pulses:', error);

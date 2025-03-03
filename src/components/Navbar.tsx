@@ -68,6 +68,14 @@ export default function Navbar() {
                       Profile Settings
                     </Link>
                     
+                    <Link
+                      href="/profile/archived"
+                      className="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-800"
+                      onClick={() => setShowDropdown(false)}
+                    >
+                      Archived Pulses
+                    </Link>
+                    
                     {/* Logout Button */}
                     <button
                       onClick={() => {

@@ -56,7 +56,7 @@ export default function DashboardPage() {
     : 0;
 
   return (
-    <div className="p-0 md:p-6">
+    <div className="p-0 pb-20 md:p-6">
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
         <button

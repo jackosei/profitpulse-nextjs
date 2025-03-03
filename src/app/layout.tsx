@@ -5,7 +5,6 @@ import Sidebar from "@/components/Sidebar"
 import { Toaster } from "sonner"
 import FeedbackWidget from "@/components/FeedbackWidget"
 import { Inter } from "next/font/google"
-import { Analytics } from "@vercel/analytics/react"
 
 const inter = Inter({
 	subsets: ["latin"],
@@ -33,7 +32,6 @@ const RootLayout = ({ children }: { children: React.ReactNode }) => {
 					<FeedbackWidget />
 				</Providers>
 				<Toaster position="bottom-center" theme="dark" closeButton richColors />
-				<Analytics />
 			</body>
 		</html>
 	)

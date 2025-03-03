@@ -1,7 +1,6 @@
 import {
   GoogleAuthProvider,
   signInWithPopup,
-  signInWithRedirect,
   getRedirectResult,
   signOut,
   signInWithEmailAndPassword,
@@ -20,27 +19,11 @@ interface AuthResponse {
   error?: AuthError;
 }
 
-// Helper to detect mobile device
-const isMobile = () => {
-  if (typeof window === 'undefined') return false;
-  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
-    navigator.userAgent
-  );
-};
-
 // Sign in with Google
 export const signInWithGoogle = async (): Promise<AuthResponse> => {
   try {
-    if (isMobile()) {
-      // Use redirect method for mobile
-      await signInWithRedirect(auth, provider);
-      // The result will be handled by getRedirectResult in the component
-      return { success: true };
-    } else {
-      // Use popup for desktop
-      const result = await signInWithPopup(auth, provider);
-      return { success: true, user: result.user };
-    }
+    const result = await signInWithPopup(auth, provider);
+    return { success: true, user: result.user };
   } catch (error) {
     if (error instanceof Error && 'code' in error && (error as AuthError).code === 'auth/popup-closed-by-user') {
       return { success: false, message: 'Sign-in cancelled', cancelled: true };
@@ -101,7 +84,6 @@ export const getFirebaseToken = async () => {
   
   return await currentUser.getIdToken(true);
 };
-
 export const setSessionCookie = async () => {
   const token = await getFirebaseToken();
   if (!token) return;
@@ -116,3 +98,4 @@ export const setSessionCookie = async () => {
 
   return response.ok;
 };
+

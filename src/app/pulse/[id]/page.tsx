@@ -169,7 +169,7 @@ export default function PulseDetailsPage() {
   if (!pulse) return <div className="p-6">Pulse not found</div>;
 
   return (
-    <div className="min-h-screen p-0 md:p-6 space-y-4 md:space-y-6">
+    <div className="min-h-screen p-0 pb-20 md:p-6 space-y-4 md:space-y-6">
       <PulseHeader
         name={pulse.name}
         instrument={pulse.instrument}

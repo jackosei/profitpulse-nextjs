@@ -100,7 +100,7 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto p-0 md:p-6">
+    <div className="max-w-2xl mx-auto p-0 pb-20 md:p-6">
       <h1 className="text-2xl font-bold text-foreground mb-6">Account</h1>
 
       {/* Profile Section */}

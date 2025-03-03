@@ -3,19 +3,83 @@
 @tailwind utilities;
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --background: #0e1420;
+  --foreground: #ffffff;
+  --primary: #00b07c;
 }
 
 body {
   color: var(--foreground);
   background: var(--background);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Add smooth transition for width changes */
+* {
+  @apply transition-[width];
+}
+
+/* Hide scrollbar for Chrome, Safari and Opera */
+.overflow-y-auto::-webkit-scrollbar {
+  display: none;
+}
+
+/* Hide scrollbar for IE, Edge and Firefox */
+.overflow-y-auto {
+  -ms-overflow-style: none;
+  /* IE and Edge */
+  scrollbar-width: none;
+  /* Firefox */
+}
+
+/* Dark theme overrides */
+.bg-white {
+  @apply bg-[#151f2e];
+}
+
+.text-gray-900 {
+  @apply text-gray-100;
+}
+
+.text-gray-700,
+.text-gray-600 {
+  @apply text-gray-400;
+}
+
+.border-gray-200 {
+  @apply border-gray-800;
+}
+
+.hover\:bg-gray-100:hover,
+.hover\:bg-gray-200:hover {
+  @apply hover:bg-gray-800;
+}
+
+.shadow-md {
+  @apply shadow-black/20;
+}
+
+/* Custom button styles */
+.btn-primary {
+  @apply bg-accent text-white px-4 py-2 rounded-lg hover:bg-accent-hover transition-colors;
+}
+
+/* Custom input styles */
+.input-dark {
+  @apply bg-[#1a2536] border border-gray-800 rounded-lg px-3 py-2 text-gray-100;
+}
+
+/* Selected/active state */
+.selected {
+  @apply bg-[#1a2536] text-accent;
+}
+
+/* Success/Profit color */
+.text-profit {
+  @apply text-accent-light;
+}
+
+/* Loss color */
+.text-loss {
+  @apply text-red-500;
 }

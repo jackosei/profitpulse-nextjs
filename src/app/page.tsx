@@ -1,25 +1,26 @@
 "use client";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
 import useProtectedRoute from "@/hooks/useProtectedRoute";
-
+import Loader from "@/components/Loader";
 export default function Home() {
   const { user, loading } = useProtectedRoute();
-  const router = useRouter();
-
-  useEffect(() => {
-    if (!loading && !user) {
-      router.push("/login"); // Redirect logged-out users to login
-    }
-  }, [user, loading, router]);
 
   if (loading) {
-    // Explicitly render a loading screen, not redirecting to login
-    return <p>Loading...</p>;
+    return (
+      <div className="flex items-center justify-center h-full">
+        <Loader />
+      </div>
+    );
   }
 
-  if (loading) return <p>Loading...</p>;
-
-  return <div className="p-6">Welcome {user?.email} to your Dashboard!</div>;
+  return (
+    <div className="p-2 md:p-6">
+      <h1 className="text-2xl font-bold text-accent mb-4">
+        Welcome {user?.displayName}!
+      </h1>
+      <p className="text-gray-400">
+        Access the dashboard to start managing your trades.
+      </p>
+    </div>
+  );
 }

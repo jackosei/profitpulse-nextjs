@@ -284,4 +284,27 @@ export const deletePulse = async (pulseId: string, userId: string, confirmationN
     console.error('Error deleting pulse:', error);
     throw error;
   }
+};
+
+export const archivePulse = async (pulseId: string, userId: string) => {
+  try {
+    const pulsesRef = collection(db, 'pulses');
+    const q = query(pulsesRef, 
+      where('id', '==', pulseId),
+      where('userId', '==', userId)
+    );
+    const querySnapshot = await getDocs(q);
+    
+    if (querySnapshot.empty) {
+      throw new Error('Pulse not found');
+    }
+
+    const pulseDoc = querySnapshot.docs[0];
+    await updateDoc(pulseDoc.ref, { status: PULSE_STATUS.ARCHIVED });
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error archiving pulse:', error);
+    throw error;
+  }
 }; 

@@ -39,8 +39,8 @@ export default function ProfilePage() {
     try {
       const pulses = await getUserPulses(user.uid, PULSE_STATUS.ARCHIVED);
       setArchivedPulses(pulses);
-    } catch (error) {
-      console.error('Error fetching archived pulses:', error);
+    } catch {
+      console.error('Error fetching archived pulses');
     } finally {
       setLoadingPulses(false);
     }
@@ -56,7 +56,7 @@ export default function ProfilePage() {
       await unarchivePulse(pulse.id, user.uid);
       toast.success('Pulse unarchived successfully');
       fetchArchivedPulses();
-    } catch (error) {
+    } catch {
       toast.error('Failed to unarchive pulse');
     }
   };

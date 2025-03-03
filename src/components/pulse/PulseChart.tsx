@@ -189,7 +189,7 @@ export default function PulseChart({ trades, timeRange }: PulseChartProps) {
           minRotation: 50,
           autoSkip: true,
           maxTicksLimit: 8,
-          callback: (value, index, values) => {
+          callback: (value, index) => {
             const label = chartData.labels[index];
             // For weekly view, show only the date
             if (selectedTimeFrame === 'week' && label?.startsWith('Week of ')) {
@@ -228,18 +228,18 @@ export default function PulseChart({ trades, timeRange }: PulseChartProps) {
     },
     elements: {
       point: {
-        radius: (ctx) => {
+        radius: () => {
           // Smaller points on mobile
           return window.innerWidth < 768 ? 2 : 4;
         },
-        hoverRadius: (ctx) => {
+        hoverRadius: () => {
           // Larger hover area on mobile for better touch targets
           return window.innerWidth < 768 ? 8 : 6;
         },
       },
       line: {
         tension: 0.4,
-        borderWidth: (ctx) => {
+        borderWidth: () => {
           // Thinner line on mobile
           return window.innerWidth < 768 ? 1.5 : 2;
         },

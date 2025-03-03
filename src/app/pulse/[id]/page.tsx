@@ -18,14 +18,6 @@ import ArchivePulseModal from '@/components/modals/ArchivePulseModal';
 type TimeRange = '7D' | '30D' | '90D' | '1Y' | 'ALL';
 type ComparisonType = 'PERIOD' | 'START';
 
-const TIME_RANGES = [
-  { label: 'Last 7 Days', value: '7D' },
-  { label: 'Last 30 Days', value: '30D' },
-  { label: 'Last Quarter', value: '90D' },
-  { label: 'Last Year', value: '1Y' },
-  { label: 'All Time', value: 'ALL' },
-] as const;
-
 export default function PulseDetailsPage() {
   const { id } = useParams();
   const router = useRouter();
@@ -100,7 +92,7 @@ export default function PulseDetailsPage() {
       await archivePulse(pulse.id, user.uid);
       toast.success('Pulse archived successfully');
       router.push('/dashboard');
-    } catch (error) {
+    } catch {
       toast.error('Failed to archive pulse');
     }
   };

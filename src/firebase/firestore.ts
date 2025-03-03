@@ -11,7 +11,6 @@ import {
   orderBy,
   limit,
   startAfter,
-  deleteDoc,
   writeBatch
 } from 'firebase/firestore';
 import { db } from './config';

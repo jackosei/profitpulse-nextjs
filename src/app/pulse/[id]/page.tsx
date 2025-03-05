@@ -37,11 +37,13 @@ export default function PulseDetailsPage() {
 		totalPL: { current: number; previous: number; initial: number }
 		plPercentage: { current: number; previous: number; initial: number }
 		trades: { current: number; previous: number; initial: number }
+		profitFactor: { current: number; previous: number; initial: number }
 	}>({
 		winRate: { current: 0, previous: 0, initial: 0 },
 		totalPL: { current: 0, previous: 0, initial: 0 },
 		plPercentage: { current: 0, previous: 0, initial: 0 },
 		trades: { current: 0, previous: 0, initial: 0 },
+		profitFactor: { current: 0, previous: 0, initial: 0 },
 	})
 	const [showArchiveModal, setShowArchiveModal] = useState(false)
 
@@ -157,11 +159,26 @@ export default function PulseDetailsPage() {
 				const total = periodTrades.length
 				const pl = periodTrades.reduce((sum, t) => sum + t.profitLoss, 0)
 
+				// Calculate profit factor
+				const winningTrades = periodTrades.filter((t) => t.outcome === "Win")
+				const losingTrades = periodTrades.filter((t) => t.outcome === "Loss")
+				const totalGrossProfit = winningTrades.reduce(
+					(sum, t) => sum + t.profitLoss,
+					0
+				)
+				const totalGrossLoss = losingTrades.reduce(
+					(sum, t) => sum + Math.abs(t.profitLoss),
+					0
+				)
+				const profitFactor =
+					totalGrossLoss > 0 ? totalGrossProfit / totalGrossLoss : 0
+
 				return {
 					winRate: total > 0 ? (wins / total) * 100 : 0,
 					totalPL: pl,
 					plPercentage: pulse?.accountSize ? (pl / pulse.accountSize) * 100 : 0,
 					trades: total,
+					profitFactor: profitFactor,
 				}
 			}
 
@@ -189,6 +206,11 @@ export default function PulseDetailsPage() {
 					current: currentStats.trades,
 					previous: previousStats.trades,
 					initial: initialStats.trades,
+				},
+				profitFactor: {
+					current: currentStats.profitFactor,
+					previous: previousStats.profitFactor,
+					initial: initialStats.profitFactor,
 				},
 			})
 		},

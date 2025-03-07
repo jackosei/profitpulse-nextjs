@@ -1,9 +1,14 @@
-import ProtectedRoute from "@/components/ProtectedRoute";
+import ProtectedRoute from "@/components/ProtectedRoute"
+import { Metadata } from "next"
+
+export const metadata: Metadata = {
+	title: "Dashboard",
+}
 
 export default function DashboardLayout({
-  children,
+	children,
 }: {
-  children: React.ReactNode;
+	children: React.ReactNode
 }) {
-  return <ProtectedRoute>{children}</ProtectedRoute>;
-} 
+	return <ProtectedRoute>{children}</ProtectedRoute>
+}

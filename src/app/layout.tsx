@@ -5,12 +5,21 @@ import Sidebar from "@/components/Sidebar"
 import { Toaster } from "sonner"
 import FeedbackWidget from "@/components/FeedbackWidget"
 import { Inter } from "next/font/google"
+import { Metadata } from "next"
 
 const inter = Inter({
 	subsets: ["latin"],
 	display: "swap",
 	variable: "--font-inter",
 })
+
+export const metadata: Metadata = {
+	title: {
+		template: "%s | ProfitPulse",
+		default: "ProfitPulse - Trade Tracking Made Simple",
+	},
+	description: "Track and analyze your trading performance with ProfitPulse",
+}
 
 const RootLayout = ({ children }: { children: React.ReactNode }) => {
 	return (

@@ -3,9 +3,29 @@
 @tailwind utilities;
 
 :root {
+  /* Base theme colors */
   --background: #0e1420;
-  --foreground: #ffffff;
-  --primary: #00b07c;
+  --foreground: #fefefe;
+
+  /* Dark theme variations */
+  --dark: #151f2e;
+  --dark-lighter: #1a2536;
+  --dark-darker: #0e1420;
+
+  /* Accent (green) theme */
+  --accent: #08835a;
+  --accent-hover: #00946a;
+  --accent-light: #00c688;
+
+  /* Status colors */
+  --success: #10b981;
+  /* emerald-500 */
+  --error: #ef4444;
+  /* red-500 */
+
+  /* Gray scale */
+  --gray-400: #9ca3af;
+  --gray-800: #1f2937;
 }
 
 body {
@@ -66,20 +86,20 @@ body {
 
 /* Custom input styles */
 .input-dark {
-  @apply bg-[#1a2536] border border-gray-800 rounded-lg px-3 py-2 text-gray-100;
+  @apply bg-dark-lighter border border-gray-800 rounded-lg px-3 py-2 text-gray-100;
 }
 
 /* Selected/active state */
 .selected {
-  @apply bg-[#1a2536] text-accent;
+  @apply bg-dark-lighter text-accent;
 }
 
 /* Success/Profit color */
 .text-profit {
-  @apply text-accent-light;
+  @apply text-success;
 }
 
 /* Loss color */
 .text-loss {
-  @apply text-red-500;
+  @apply text-error;
 }

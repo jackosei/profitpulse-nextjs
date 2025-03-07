@@ -19,7 +19,10 @@ export default function CreatePulseModal({ isOpen, onClose, onSuccess }: CreateP
     name: '',
     instrument: '',
     accountSize: '',
-    maxRiskPerTrade: ''
+    maxRiskPerTrade: '',
+    maxLossPerDay: '',
+    maxLossPerWeek: '',
+    maxRiskPerDay: ''
   });
   const [error, setError] = useState('');
 
@@ -36,6 +39,21 @@ export default function CreatePulseModal({ isOpen, onClose, onSuccess }: CreateP
 
     if (Number(formData.maxRiskPerTrade) > 3) {
       setError('Maximum risk per trade cannot exceed 3%');
+      return false;
+    }
+
+    if (Number(formData.maxLossPerDay) > 5) {
+      setError('Maximum loss per day cannot exceed 5%');
+      return false;
+    }
+
+    if (Number(formData.maxLossPerWeek) > 10) {
+      setError('Maximum loss per week cannot exceed 10%');
+      return false;
+    }
+
+    if (Number(formData.maxRiskPerDay) > 9) {
+      setError('Maximum risk per day cannot exceed 9%');
       return false;
     }
 
@@ -58,6 +76,9 @@ export default function CreatePulseModal({ isOpen, onClose, onSuccess }: CreateP
         instrument: formData.instrument,
         accountSize: Number(formData.accountSize),
         maxRiskPerTrade: Number(formData.maxRiskPerTrade),
+        maxLossPerDay: Number(formData.maxLossPerDay),
+        maxLossPerWeek: Number(formData.maxLossPerWeek),
+        maxRiskPerDay: Number(formData.maxRiskPerDay),
         userId: user.uid,
         status: 'active' as const
       };
@@ -76,7 +97,10 @@ export default function CreatePulseModal({ isOpen, onClose, onSuccess }: CreateP
         name: '',
         instrument: '',
         accountSize: '',
-        maxRiskPerTrade: '3'
+        maxRiskPerTrade: '3',
+        maxLossPerDay: '5',
+        maxLossPerWeek: '10',
+        maxRiskPerDay: '9'
       });
     } catch (error: Error | unknown) {
       console.error('Error creating pulse:', error);
@@ -149,6 +173,51 @@ export default function CreatePulseModal({ isOpen, onClose, onSuccess }: CreateP
                 className="input-dark w-full disabled:opacity-50 disabled:cursor-not-allowed"
                 value={formData.maxRiskPerTrade}
                 onChange={(e) => setFormData(prev => ({ ...prev, maxRiskPerTrade: e.target.value }))}
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm text-gray-400 mb-2">Max Loss Per Day (%)</label>
+              <input
+                type="number"
+                required
+                min="0"
+                max="5"
+                step="0.1"
+                disabled={loading}
+                className="input-dark w-full disabled:opacity-50 disabled:cursor-not-allowed"
+                value={formData.maxLossPerDay}
+                onChange={(e) => setFormData(prev => ({ ...prev, maxLossPerDay: e.target.value }))}
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm text-gray-400 mb-2">Max Loss Per Week (%)</label>
+              <input
+                type="number"
+                required
+                min="0"
+                max="10"
+                step="0.1"
+                disabled={loading}
+                className="input-dark w-full disabled:opacity-50 disabled:cursor-not-allowed"
+                value={formData.maxLossPerWeek}
+                onChange={(e) => setFormData(prev => ({ ...prev, maxLossPerWeek: e.target.value }))}
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm text-gray-400 mb-2">Max Risk Per Day (%)</label>
+              <input
+                type="number"
+                required
+                min="0"
+                max="9"
+                step="0.1"
+                disabled={loading}
+                className="input-dark w-full disabled:opacity-50 disabled:cursor-not-allowed"
+                value={formData.maxRiskPerDay}
+                onChange={(e) => setFormData(prev => ({ ...prev, maxRiskPerDay: e.target.value }))}
               />
             </div>
 

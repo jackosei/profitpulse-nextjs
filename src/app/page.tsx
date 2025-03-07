@@ -38,7 +38,7 @@ export default function Home() {
 
   return (
     <main className="min-h-screen ">
-      <div className="p-2 md:p-6 max-w-5xl mx-auto space-y-6">
+      <div className="p-2 md:p-6 max-w-5xl mx-auto space-y-6 flex flex-col gap-6">
         {/* Header Section */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
           <div className="px-4">
@@ -57,8 +57,11 @@ export default function Home() {
           </div>
         </div>
 
+        {/* Divider */}
+        <hr className="border-gray-700/50" />
+
         {/* Quote Section */}
-        <div className="relative py-12 px-6 overflow-hidden group">
+        <div className="relative py-12 px-6 overflow-hidden group !mt-0 md:!mt-4">
           {quoteLoading ? (
             <div className="flex justify-center">
               <Loader />
@@ -84,6 +87,9 @@ export default function Home() {
             </div>
           ) : null}
         </div>
+
+        {/* Divider */}
+        <hr className="border-gray-700/50" />
 
         {/* Gratitude Journal */}
         <div className="bg-gray-800/40 backdrop-blur-sm rounded-xl border border-gray-700/50 shadow-lg overflow-hidden">

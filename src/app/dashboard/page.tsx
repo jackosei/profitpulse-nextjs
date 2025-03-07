@@ -7,6 +7,7 @@ import type { Pulse } from "@/types/pulse"
 import { PULSE_STATUS } from "@/types/pulse"
 import CreatePulseModal from "@/components/modals/CreatePulseModal"
 import Loader from "@/components/Loader"
+import { formatCurrency, formatRatio } from "@/utils/format"
 
 // Import our new components
 import TimeRangeSelector, {
@@ -69,15 +70,28 @@ export default function DashboardPage() {
 			? (aggregateStats.totalWins / aggregateStats.totalTrades) * 100
 			: 0
 
-	const avgWin =
-		aggregateStats.totalWins > 0
-			? (aggregateStats.totalProfitLoss / aggregateStats.totalWins).toFixed(0)
-			: "0"
+	// Calculate weighted average win and loss
+	const { totalWinAmount, totalLossAmount, totalWins, totalLosses } = pulses.reduce((acc, pulse) => {
+		if (!pulse.stats) return acc;
+		
+		const winAmount = pulse.stats.averageWin * pulse.stats.wins;
+		const lossAmount = Math.abs(pulse.stats.averageLoss * pulse.stats.losses);
+		
+		return {
+			totalWinAmount: acc.totalWinAmount + winAmount,
+			totalLossAmount: acc.totalLossAmount + lossAmount,
+			totalWins: acc.totalWins + pulse.stats.wins,
+			totalLosses: acc.totalLosses + pulse.stats.losses
+		};
+	}, { totalWinAmount: 0, totalLossAmount: 0, totalWins: 0, totalLosses: 0 });
 
-	const avgLoss =
-		aggregateStats.totalLosses > 0
-			? (aggregateStats.totalProfitLoss / aggregateStats.totalLosses).toFixed(0)
-			: "0"
+	const avgWin = totalWins > 0 ? (totalWinAmount / totalWins).toFixed(2) : "0";
+	const avgLoss = totalLosses > 0 ? (totalLossAmount / totalLosses).toFixed(2) : "0";
+
+	// Calculate aggregate profit factor
+	const aggregateProfitFactor = totalLossAmount > 0 
+		? (totalWinAmount / totalLossAmount).toFixed(2)
+		: "0";
 
 	return (
 		<div className="p-0 md:p-6 max-w-[1600px] mx-auto">
@@ -94,29 +108,39 @@ export default function DashboardPage() {
 			</div>
 
 			{/* Stats Overview */}
-			<div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4 mb-3 md:mb-6">
+			<div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-3 md:mb-6">
 				<StatCard
 					title="Profit/Loss"
-					value={aggregateStats.totalProfitLoss.toFixed(2)}
+					value={formatCurrency(aggregateStats.totalProfitLoss)}
 					change={periodChange.profitLoss}
 					changePercentage={periodChange.profitLossPercentage}
 					timeRange={selectedTimeRange}
+					prefix=""
 				/>
 
 				<StatCard
-					title="Average Win ($)"
-					value={avgWin}
+					title="Profit Factor"
+					value={formatRatio(aggregateProfitFactor)}
+					timeRange={selectedTimeRange}
+					prefix=""
+				/>
+
+				<StatCard
+					title="Average Win"
+					value={formatCurrency(avgWin)}
 					change={periodChange.avgWin}
 					changePercentage={periodChange.avgWinPercentage}
 					timeRange={selectedTimeRange}
+					prefix=""
 				/>
 
 				<StatCard
-					title="Average Loss ($)"
-					value={avgLoss}
+					title="Average Loss"
+					value={formatCurrency(avgLoss)}
 					change={periodChange.avgLoss}
 					changePercentage={periodChange.avgLossPercentage}
 					timeRange={selectedTimeRange}
+					prefix=""
 				/>
 			</div>
 
@@ -131,9 +155,8 @@ export default function DashboardPage() {
 				<SmallStatCard value={aggregateStats.totalWins} label="Wins" />
 
 				<SmallStatCard
-					value={strikeRate.toFixed(0)}
+					value={formatRatio(strikeRate, { decimals: 0, suffix: "%" })}
 					label="Strike rate"
-					suffix="%"
 				/>
 			</div>
 

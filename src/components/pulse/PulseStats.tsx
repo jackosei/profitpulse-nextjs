@@ -1,3 +1,5 @@
+import { formatCurrency, formatRatio } from "@/utils/format"
+
 interface StatProps {
 	current: number
 	previous: number
@@ -62,7 +64,7 @@ export default function PulseStats({ stats, comparisonType }: PulseStatsProps) {
 			<div className="bg-dark p-3 md:p-4 rounded-lg border border-gray-800 relative">
 				<h3 className="text-gray-400 text-xs md:text-sm">Win Rate</h3>
 				<p className="text-lg md:text-2xl font-bold text-foreground mt-1">
-					{stats.winRate.current.toFixed(1)}%
+					{formatRatio(stats.winRate.current, { suffix: "%" })}
 				</p>
 				{stats.winRate[comparisonType === "PERIOD" ? "previous" : "initial"] >
 					0 && (
@@ -73,9 +75,9 @@ export default function PulseStats({ stats, comparisonType }: PulseStatsProps) {
 			<div className="bg-dark p-3 md:p-4 rounded-lg border border-gray-800 relative">
 				<h3 className="text-gray-400 text-xs md:text-sm">Profit/Loss</h3>
 				<p className="text-lg md:text-2xl font-bold text-foreground mt-1">
-					${stats.totalPL.current.toFixed(2)}{" "}
+					{formatCurrency(stats.totalPL.current)}{" "}
 					<span className="text-sm text-gray-400">
-						({stats.plPercentage.current.toFixed(2)}%)
+						({formatRatio(stats.plPercentage.current, { suffix: "%" })})
 					</span>
 				</p>
 				{stats.totalPL[comparisonType === "PERIOD" ? "previous" : "initial"] !==
@@ -83,7 +85,7 @@ export default function PulseStats({ stats, comparisonType }: PulseStatsProps) {
 					<StatChange
 						{...stats.totalPL}
 						comparisonType={comparisonType}
-						format={(val) => val.toFixed(1)}
+						format={(val) => formatRatio(val)}
 					/>
 				)}
 			</div>
@@ -91,7 +93,7 @@ export default function PulseStats({ stats, comparisonType }: PulseStatsProps) {
 			<div className="bg-dark p-3 md:p-4 rounded-lg border border-gray-800 relative">
 				<h3 className="text-gray-400 text-xs md:text-sm">Profit Factor</h3>
 				<p className="text-lg md:text-2xl font-bold text-foreground mt-1">
-					{stats.profitFactor?.current.toFixed(2) || "0.00"}
+					{formatRatio(stats.profitFactor?.current || 0)}
 				</p>
 				{stats.profitFactor &&
 					stats.profitFactor[
@@ -100,7 +102,7 @@ export default function PulseStats({ stats, comparisonType }: PulseStatsProps) {
 						<StatChange
 							{...stats.profitFactor}
 							comparisonType={comparisonType}
-							format={(val) => val.toFixed(1)}
+							format={(val) => formatRatio(val)}
 						/>
 					)}
 			</div>
@@ -115,7 +117,7 @@ export default function PulseStats({ stats, comparisonType }: PulseStatsProps) {
 					<StatChange
 						{...stats.trades}
 						comparisonType={comparisonType}
-						format={(val) => val.toFixed(0)}
+						format={(val) => formatRatio(val, { decimals: 0 })}
 						isTradeCount
 					/>
 				)}

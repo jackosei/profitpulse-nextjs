@@ -1,6 +1,7 @@
 import { memo, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import type { Pulse } from "@/types/pulse"
+import { formatCurrency, formatRatio } from "@/utils/format"
 
 interface PulsesTableProps {
 	pulses: Pulse[]
@@ -31,18 +32,13 @@ function PulseTableRow({ pulse }: { pulse: Pulse }) {
 			<td className="p-4 font-medium text-sm">{pulse.name}</td>
 			<td className="p-4 text-gray-400 text-sm">{pulse.instrument}</td>
 			<td className="p-4 text-gray-400 text-sm whitespace-nowrap">
-				$
-				{pulse.accountSize.toLocaleString("en-US", {
-					minimumFractionDigits: 2,
-					maximumFractionDigits: 2,
-				})}
+				{formatCurrency(pulse.accountSize)}
 			</td>
 			<td className="p-4 text-sm">{pulse.stats?.totalTrades || 0}</td>
 			<td className="p-4 text-sm whitespace-nowrap">
 				{pulse.stats && pulse.stats.totalTrades > 0
-					? ((pulse.stats.wins / pulse.stats.totalTrades) * 100).toFixed(0)
-					: 0}
-				%
+					? formatRatio((pulse.stats.wins / pulse.stats.totalTrades) * 100, { suffix: "%", decimals: 0 })
+					: "0%"}
 			</td>
 			<td className="p-4 text-sm whitespace-nowrap">
 				<span
@@ -54,7 +50,7 @@ function PulseTableRow({ pulse }: { pulse: Pulse }) {
 							: "text-gray-400"
 					}
 				>
-					${pulse.stats?.totalProfitLoss?.toFixed(2) || "0.00"}
+					{formatCurrency(pulse.stats?.totalProfitLoss || 0)}
 				</span>
 			</td>
 			<td className="p-4">

@@ -14,6 +14,7 @@ import { Line } from 'react-chartjs-2';
 import type { Trade } from '@/types/pulse';
 import { Menu } from '@headlessui/react';
 import { ChevronDownIcon } from '@heroicons/react/24/outline';
+import { formatCurrency } from "@/utils/format"
 
 // Register Chart.js components
 ChartJS.register(
@@ -149,7 +150,7 @@ export default function PulseChart({ trades, timeRange }: PulseChartProps) {
         mode: 'nearest',
         intersect: false,
         callbacks: {
-          label: (context) => `$${context.parsed.y.toFixed(2)}`,
+          label: (context) => formatCurrency(context.parsed.y),
         },
         backgroundColor: '#1a2536',
         titleColor: '#9ca3af',
@@ -213,7 +214,7 @@ export default function PulseChart({ trades, timeRange }: PulseChartProps) {
             size: 10,
             family: 'system-ui'
           },
-          callback: (value) => `$${value}`,
+          callback: (value) => formatCurrency(value),
           maxTicksLimit: 6,
         },
         border: {

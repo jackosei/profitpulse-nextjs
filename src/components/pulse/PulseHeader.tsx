@@ -7,6 +7,7 @@ import {
   ChevronDownIcon,
   ArrowsRightLeftIcon
 } from '@heroicons/react/24/outline';
+import { formatCurrency } from "@/utils/format"
 
 type TimeRange = '7D' | '30D' | '90D' | '1Y' | 'ALL';
 type ComparisonType = 'PERIOD' | 'START';
@@ -59,7 +60,7 @@ export default function PulseHeader({
           <div className="text-right">
             <p className="text-xs text-gray-400">Account Size</p>
             <p className="text-base font-semibold text-foreground">
-              ${accountSize.toLocaleString()}
+              {formatCurrency(accountSize)}
             </p>
           </div>
 

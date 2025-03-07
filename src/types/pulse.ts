@@ -4,6 +4,7 @@ export const MAX_RISK_PERCENTAGE = 3
 export const PULSE_STATUS = {
 	ACTIVE: "active",
 	ARCHIVED: "archived",
+	LOCKED: "locked",
 } as const
 
 export type PulseStatus = (typeof PULSE_STATUS)[keyof typeof PULSE_STATUS]
@@ -15,11 +16,15 @@ export interface Pulse {
 	instrument: string
 	accountSize: number
 	maxRiskPerTrade: number
+	maxLossPerDay: number
+	maxLossPerWeek: number
+	maxRiskPerDay: number
 	userId: string
 	createdAt: Timestamp
 	status: PulseStatus
 	trades?: Trade[]
 	stats?: PulseStats
+	ruleViolations?: string[]
 }
 
 export interface Trade {

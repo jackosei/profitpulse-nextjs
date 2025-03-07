@@ -237,6 +237,15 @@ export const createTrade = async (
 export const calculatePulseStats = async (firestoreId: string) => {
 	try {
 		const tradesRef = collection(db, "pulses", firestoreId, "trades")
+		const pulseRef = doc(db, "pulses", firestoreId)
+		
+		// Get pulse data for rule checking
+		const pulseDoc = await getDoc(pulseRef)
+		if (!pulseDoc.exists()) {
+			throw new Error("Pulse not found")
+		}
+		const pulseData = pulseDoc.data() as Pulse
+
 		const tradesSnapshot = await getDocs(tradesRef)
 
 		const stats = {
@@ -255,8 +264,31 @@ export const calculatePulseStats = async (firestoreId: string) => {
 		let totalGrossProfit = 0
 		let totalGrossLoss = 0
 
+		// Group trades by date for daily stats
+		const dailyStats: { [key: string]: { loss: number; risk: number } } = {}
+		const weeklyStats: { [key: string]: { loss: number } } = {}
+
 		tradesSnapshot.forEach((doc) => {
 			const trade = doc.data() as Trade
+			const tradeDate = new Date(trade.date)
+			const dateKey = tradeDate.toISOString().split('T')[0]
+			const weekKey = getWeekKey(tradeDate)
+
+			// Initialize daily stats
+			if (!dailyStats[dateKey]) {
+				dailyStats[dateKey] = { loss: 0, risk: 0 }
+			}
+			if (!weeklyStats[weekKey]) {
+				weeklyStats[weekKey] = { loss: 0 }
+			}
+
+			// Update daily and weekly stats
+			if (trade.outcome === "Loss") {
+				dailyStats[dateKey].loss += Math.abs(trade.profitLoss)
+				weeklyStats[weekKey].loss += Math.abs(trade.profitLoss)
+			}
+			dailyStats[dateKey].risk += (trade.lotSize * pulseData.maxRiskPerTrade) / 100
+
 			stats.totalTrades += 1
 			stats.totalProfitLoss += trade.profitLoss
 
@@ -268,6 +300,32 @@ export const calculatePulseStats = async (firestoreId: string) => {
 				stats.losses += 1
 				losingTrades.push(trade.profitLoss)
 				totalGrossLoss += Math.abs(trade.profitLoss)
+			}
+		})
+
+		// Check for rule violations
+		let ruleViolations: string[] = []
+
+		// Check daily loss limit
+		Object.entries(dailyStats).forEach(([date, stats]) => {
+			const dailyLossPercentage = (stats.loss / pulseData.accountSize) * 100
+			if (dailyLossPercentage > pulseData.maxLossPerDay) {
+				ruleViolations.push(`Daily loss limit exceeded on ${date}: ${dailyLossPercentage.toFixed(2)}% vs ${pulseData.maxLossPerDay}%`)
+			}
+		})
+
+		// Check weekly loss limit
+		Object.entries(weeklyStats).forEach(([week, stats]) => {
+			const weeklyLossPercentage = (stats.loss / pulseData.accountSize) * 100
+			if (weeklyLossPercentage > pulseData.maxLossPerWeek) {
+				ruleViolations.push(`Weekly loss limit exceeded for week of ${week}: ${weeklyLossPercentage.toFixed(2)}% vs ${pulseData.maxLossPerWeek}%`)
+			}
+		})
+
+		// Check daily risk limit
+		Object.entries(dailyStats).forEach(([date, stats]) => {
+			if (stats.risk > pulseData.maxRiskPerDay) {
+				ruleViolations.push(`Daily risk limit exceeded on ${date}: ${stats.risk.toFixed(2)}% vs ${pulseData.maxRiskPerDay}%`)
 			}
 		})
 
@@ -287,15 +345,26 @@ export const calculatePulseStats = async (firestoreId: string) => {
 		stats.profitFactor =
 			totalGrossLoss > 0 ? totalGrossProfit / totalGrossLoss : 0
 
-		// Update the pulse with the new stats
-		const pulseRef = doc(db, "pulses", firestoreId)
-		await updateDoc(pulseRef, { stats })
+		// Update the pulse with the new stats and lock status if rules are violated
+		await updateDoc(pulseRef, { 
+			stats,
+			status: ruleViolations.length > 0 ? 'locked' : PULSE_STATUS.ACTIVE,
+			ruleViolations: ruleViolations.length > 0 ? ruleViolations : null
+		})
 
 		return stats
 	} catch (error) {
 		console.error("Error calculating pulse stats:", error)
 		throw error
 	}
+}
+
+// Helper function to get week key
+function getWeekKey(date: Date): string {
+    const d = new Date(date)
+    d.setHours(0, 0, 0, 0)
+    d.setDate(d.getDate() - d.getDay()) // Set to previous Sunday
+    return d.toISOString().split('T')[0]
 }
 
 export const deletePulse = async (

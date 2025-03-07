@@ -15,9 +15,8 @@ import {
 
 // Map of icons for each route
 const iconMap = {
-  '/dashboard': <HomeIcon className="w-6 h-6" />,
-  '/trades': <ChartBarIcon className="w-6 h-6" />,
-  '/settings': <CogIcon className="w-6 h-6" />,
+  '/': <HomeIcon className="w-6 h-6" />,
+  '/dashboard': <ChartBarIcon className="w-6 h-6" />,
   '/profile': <UserIcon className="w-6 h-6" />,
 };
 
@@ -34,7 +33,7 @@ export default function Sidebar() {
         <div className={`h-full ${collapsed ? "w-16" : "w-64"}`}>
           <div className="p-4 border-b border-gray-200">
             <button
-              className="w-full flex justify-center items-center h-8 text-gray-700 hover:bg-gray-100 rounded transition-colors"
+              className={`w-full flex justify-center items-center h-8 text-gray-700 hover:bg-gray-100 hover:text-accent rounded transition-colors ${collapsed ? "text-accent" : "text-gray-700"}`}
               onClick={() => setCollapsed(!collapsed)}
               aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
             >
@@ -51,7 +50,7 @@ export default function Sidebar() {
                 <li key={link.href}>
                   <Link
                     href={link.href}
-                    className="flex items-center p-2 text-gray-700 hover:bg-gray-100 rounded transition-colors"
+                    className={`flex ${collapsed ? "justify-center" : "justify-start"} items-center p-2 text-gray-700 hover:bg-gray-100 hover:text-accent rounded transition-colors text-gray-700`}
                   >
                     <span className="flex-shrink-0">
                       {iconMap[link.href as keyof typeof iconMap]}

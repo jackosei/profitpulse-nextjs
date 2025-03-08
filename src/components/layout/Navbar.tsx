@@ -1,7 +1,7 @@
 "use client";
 
 import { useAuth } from "@/context/AuthContext";
-import { auth } from "@/services/config";
+import { auth } from "@/services/firestoreConfig";
 import Link from "next/link";
 import Image from "next/image";
 import { useState } from "react";

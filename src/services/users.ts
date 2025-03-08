@@ -1,5 +1,5 @@
 import { doc, getDoc, setDoc, updateDoc, serverTimestamp, collection, query, where, getDocs } from 'firebase/firestore';
-import { db } from './config';
+import { db } from './firestoreConfig';
 import type { UserProfile, UserRole } from '@/types/user';
 import { DEFAULT_USER_ROLE } from '@/types/user';
 

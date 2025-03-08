@@ -13,7 +13,7 @@ import {
 	startAfter,
 	writeBatch,
 } from "firebase/firestore"
-import { db } from "./config"
+import { db } from "./firestoreConfig"
 import {
 	MAX_RISK_PERCENTAGE,
 	type Pulse,

@@ -8,7 +8,7 @@ import {
   ReactNode,
 } from "react";
 import { User } from "firebase/auth";
-import { auth } from "@/services/config";
+import { auth } from "@/services/firestoreConfig";
 import { getUserProfile, createUserProfile } from "@/services/users";
 import type { UserProfile } from "@/types/user";
 

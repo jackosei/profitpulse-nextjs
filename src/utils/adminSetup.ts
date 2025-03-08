@@ -1,6 +1,6 @@
-import { updateUserRole, getUserProfile } from "@/firebase/users";
+import { updateUserRole, getUserProfile } from "@/services/users";
 import { collection, query, where, getDocs, limit } from 'firebase/firestore';
-import { db } from '@/firebase/config';
+import { db } from '@/services/config';
 import type { UserRole } from "@/types/user";
 
 /**

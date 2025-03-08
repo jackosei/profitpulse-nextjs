@@ -2,9 +2,9 @@
 
 import { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { createPulse } from '@/firebase/firestore';
+import { createPulse } from '@/services/firestore';
 import { toast } from 'sonner';
-import LoadingSpinner from '../LoadingSpinner';
+import LoadingSpinner from '@/components/ui/LoadingSpinner';
 
 interface CreatePulseModalProps {
   isOpen: boolean;

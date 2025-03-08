@@ -1,7 +1,7 @@
 "use client"
 
 import useProtectedRoute from "@/hooks/useProtectedRoute"
-import Loader from "@/components/Loader"
+import Loader from "@/components/ui/Loader"
 
 export default function PulseLayout({
 	children,

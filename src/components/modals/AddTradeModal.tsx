@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from 'react';
-import { createTrade, calculatePulseStats } from '@/firebase/firestore';
+import { createTrade, calculatePulseStats } from '@/services/firestore';
 import type { Trade } from '@/types/pulse';
 import { toast } from 'sonner';
-import LoadingSpinner from '@/components/LoadingSpinner';
+import LoadingSpinner from '@/components/ui/LoadingSpinner';
 
 interface AddTradeModalProps {
   isOpen: boolean;

@@ -1,12 +1,12 @@
 "use client";
 
 import useProtectedRoute from "@/hooks/useProtectedRoute";
-import Loader from "@/components/Loader";
-import Clock from "@/components/Clock";
-import GratitudeJournal from "@/components/GratitudeJournal";
-import { getDailyQuote } from "@/firebase/quotes";
+import Loader from "@/components/ui/Loader";
+import Clock from "@/components/ui/Clock";
+import GratitudeJournal from "@/components/features/GratitudeJournal";
+import { getDailyQuote } from "@/services/quotes";
 import { useEffect, useState } from "react";
-import type { Quote } from "@/firebase/quotes";
+import type { Quote } from "@/services/quotes";
 
 export default function Home() {
   const { user, loading } = useProtectedRoute();
@@ -69,9 +69,9 @@ export default function Home() {
           ) : quote ? (
             <div className="relative">
               {/* Opening quote */}
-              <div className="absolute -left-2 md:-left-3 -top-16 md:-top-32 text-[6rem] md:text-[12rem] font-serif italic text-accent/5 select-none">"</div>
+              <div className="absolute -left-2 md:-left-3 -top-16 md:-top-32 text-[6rem] md:text-[12rem] font-serif italic text-accent/5 select-none">&ldquo;</div>
               {/* Closing quote */}
-              <div className="absolute -bottom-16 md:-bottom-32 -right-2 md:-right-3 text-[6rem] md:text-[12rem] font-serif italic text-accent/5 select-none rotate-180 ">"</div>
+              <div className="absolute -bottom-16 md:-bottom-32 -right-2 md:-right-3 text-[6rem] md:text-[12rem] font-serif italic text-accent/5 select-none rotate-180 ">&rdquo;</div>
               
               <div className="relative z-10 max-w-2xl mx-auto">
                 <p className="text-xl md:text-2xl font-light tracking-wide font-mono text-gray-100 leading-relaxed">

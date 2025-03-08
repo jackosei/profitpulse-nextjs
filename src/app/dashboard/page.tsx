@@ -2,11 +2,11 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { useAuth } from "@/context/AuthContext"
-import { getUserPulses } from "@/firebase/firestore"
+import { getUserPulses } from "@/services/firestore"
 import type { Pulse } from "@/types/pulse"
 import { PULSE_STATUS } from "@/types/pulse"
 import CreatePulseModal from "@/components/modals/CreatePulseModal"
-import Loader from "@/components/Loader"
+import Loader from "@/components/ui/Loader"
 import { formatCurrency, formatRatio } from "@/utils/format"
 
 // Import our new components

@@ -3,10 +3,10 @@
 import { useState, useEffect } from 'react';
 import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react';
 import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
-import { deletePulse } from '@/firebase/firestore';
+import { deletePulse } from '@/services/firestore';
 import { useAuth } from '@/context/AuthContext';
 import { toast } from 'sonner';
-import LoadingSpinner from '../LoadingSpinner';
+import LoadingSpinner from '@/components/ui/LoadingSpinner';
 
 interface DeletePulseModalProps {
   isOpen: boolean;

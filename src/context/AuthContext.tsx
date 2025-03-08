@@ -8,8 +8,8 @@ import {
   ReactNode,
 } from "react";
 import { User } from "firebase/auth";
-import { auth } from "@/firebase/config";
-import { getUserProfile, createUserProfile } from "@/firebase/users";
+import { auth } from "@/services/config";
+import { getUserProfile, createUserProfile } from "@/services/users";
 import type { UserProfile } from "@/types/user";
 
 interface AuthContextType {

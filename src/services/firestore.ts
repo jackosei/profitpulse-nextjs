@@ -304,7 +304,7 @@ export const calculatePulseStats = async (firestoreId: string) => {
 		})
 
 		// Check for rule violations
-		let ruleViolations: string[] = []
+		const ruleViolations: string[] = []
 
 		// Check daily loss limit
 		Object.entries(dailyStats).forEach(([date, stats]) => {

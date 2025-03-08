@@ -5,12 +5,12 @@ import {
 	signInWithGoogle,
 	signInWithEmail,
 	handleRedirectResult,
-} from "@/firebase/auth"
-import { auth } from "@/firebase/config"
+} from "@/services/auth"
+import { auth } from "@/services/config"
 import Image from "next/image"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { setSessionCookie } from "@/firebase/auth"
+import { setSessionCookie } from "@/services/auth"
 
 export default function Login() {
 	const router = useRouter()

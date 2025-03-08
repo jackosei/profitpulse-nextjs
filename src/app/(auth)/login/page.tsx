@@ -1,6 +1,6 @@
 "use client";
 
-import Login from "@/components/Login";
+import Login from "@/components/auth/Login";
 import useProtectedRoute from "@/hooks/useProtectedRoute";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";

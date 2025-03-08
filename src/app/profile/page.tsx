@@ -3,10 +3,10 @@
 import { useState, useEffect, useCallback } from "react";
 import { updateProfile, updateEmail, updatePassword } from "firebase/auth";
 import useProtectedRoute from "@/hooks/useProtectedRoute";
-import { getUserPulses, unarchivePulse } from '@/firebase/firestore';
+import { getUserPulses, unarchivePulse } from '@/services/firestore';
 import { PULSE_STATUS } from '@/types/pulse';
 import type { Pulse } from '@/types/pulse';
-import Loader from "@/components/Loader";
+import Loader from "@/components/ui/Loader";
 import { toast } from 'sonner';
 import { ChevronDownIcon } from '@heroicons/react/24/outline';
 import DeleteAccountModal from '@/components/modals/DeleteAccountModal';

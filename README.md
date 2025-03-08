@@ -1,29 +1,51 @@
-# Profit Pulse
+# ProfitPulse - Trade Tracking Made Simple
 
-Profit Pulse is a Forex trading results tracker built with Next.js, TypeScript, and Tailwind CSS. This app helps traders log their trades, track statistics, and analyze performance.
+ProfitPulse is a Next.js application for tracking and analyzing trading performance.
+
+## Project Structure
+
+The project follows a well-organized directory structure:
+
+```
+src/
+├── app/                   # Next.js app router pages
+├── components/
+│   ├── auth/              # Authentication components
+│   ├── layout/            # Layout components
+│   ├── ui/                # Reusable UI components
+│   ├── features/          # Feature-specific components
+│   ├── dashboard/         # Dashboard-specific components
+│   ├── pulse/             # Pulse-specific components
+│   └── modals/            # Modal components
+├── context/               # React context providers
+├── hooks/                 # Custom React hooks
+├── services/              # API and Firebase services
+│   ├── auth.ts            # Authentication services
+│   ├── firestore.ts       # Firestore services
+│   └── api/               # Other API services
+├── types/                 # TypeScript type definitions
+└── utils/                 # Utility functions
+```
+
+## Getting Started
+
+1. Clone the repository
+2. Install dependencies with `yarn install`
+3. Set up environment variables (see `.env.example`)
+4. Run the development server with `yarn dev`
 
 ## Features
 
 - User authentication
-- Dashboard with stats and trade logging
-- Responsive layout with sidebar and navbar
-- Analytics and performance tracking
+- Trade tracking and analysis
+- Performance metrics and visualization
+- Dashboard with key statistics
+- Gratitude journaling
 
-## Tech Stack
+## Technologies
 
-- **Frontend**: Next.js, TypeScript, Tailwind CSS
-- **Backend**: Firebase (for authentication and database)
-
-## Installation
-
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/your-username/your-repo-name.git
-   ```
-2. Install dependencies:
-
-   npm install
-
-3. Start the development server:
-
-   npm run dev
+- Next.js 14
+- React
+- TypeScript
+- Tailwind CSS
+- Firebase (Authentication, Firestore)

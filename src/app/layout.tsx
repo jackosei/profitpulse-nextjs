@@ -1,9 +1,9 @@
 import "./globals.css"
 import Providers from "@/context/Providers"
-import Navbar from "@/components/Navbar"
-import Sidebar from "@/components/Sidebar"
+import Navbar from "@/components/layout/Navbar"
+import Sidebar from "@/components/layout/Sidebar"
 import { Toaster } from "sonner"
-import FeedbackWidget from "@/components/FeedbackWidget"
+import FeedbackWidget from "@/components/ui/FeedbackWidget"
 import { Inter } from "next/font/google"
 import { Metadata } from "next"
 

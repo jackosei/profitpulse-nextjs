@@ -2,8 +2,6 @@ import {
   collection,
   getDocs,
   addDoc,
-  query,
-  where,
   serverTimestamp,
 } from "firebase/firestore";
 import { db } from "./config";
@@ -13,7 +11,10 @@ export interface Quote {
   text: string;
   author: string;
   category: string;
-  createdAt?: any;
+  createdAt?: {
+    seconds: number;
+    nanoseconds: number;
+  } | null;
 }
 
 // Function to seed quotes if they don't exist

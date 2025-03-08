@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
-import { adminDb } from '@/firebase/admin';
+import { adminDb } from '@/services/admin';
 import * as admin from 'firebase-admin';
-import { DEFAULT_USER_ROLE } from '@/types/user';
 
 // Rate limiting
 const MAX_ATTEMPTS = 5;

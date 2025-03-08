@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
-import { getUserProfile } from "@/firebase/users";
+import { getUserProfile } from "@/services/users";
 
 export default function AdminSetup() {
   const { user } = useAuth();

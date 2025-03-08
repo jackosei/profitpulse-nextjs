@@ -7,7 +7,7 @@ import {
   User,
   AuthError
 } from "firebase/auth";
-import { auth } from "@/firebase/config";
+import { auth } from "@/services/config";
 
 const provider = new GoogleAuthProvider();
 

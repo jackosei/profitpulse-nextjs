@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { publicRoutes, authRoutes } from '@/config/routes'
 // import { cookies } from 'next/headers'
-// import { auth as adminAuth } from '@/firebase/admin'
+// import { auth as adminAuth } from '@/services/admin'
 
 export function middleware(request: NextRequest) {
   const session = request.cookies.get('session')?.value

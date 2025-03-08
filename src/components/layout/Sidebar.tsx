@@ -7,7 +7,6 @@ import { useAuth } from "@/context/AuthContext";
 import { 
   HomeIcon, 
   ChartBarIcon, 
-  Cog6ToothIcon as CogIcon, 
   Bars3Icon as MenuIcon,
   XMarkIcon as XIcon,
   UserIcon,

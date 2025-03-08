@@ -1,4 +1,4 @@
-import { Timestamp } from "firebase/firestore";
+
 
 export type UserRole = 'user' | 'admin';
 
@@ -7,8 +7,8 @@ export interface UserProfile {
   email: string;
   displayName: string | null;
   role: UserRole;
-  createdAt: Timestamp; // Firestore Timestamp
-  updatedAt: Timestamp; // Firestore Timestamp
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export const DEFAULT_USER_ROLE: UserRole = 'user';

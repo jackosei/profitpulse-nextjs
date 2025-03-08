@@ -15,7 +15,7 @@ export async function createUserProfile(
   try {
     console.log(`Creating user profile for ${uid} with role ${role}`);
     const userRef = doc(db, 'users', uid);
-    const now = serverTimestamp();
+    const now = new Date();
 
     const userData: UserProfile = {
       uid,

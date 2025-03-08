@@ -7,48 +7,63 @@ import {
   useEffect,
   ReactNode,
 } from "react";
-import { onAuthStateChanged, User } from "firebase/auth";
+import { User } from "firebase/auth";
 import { auth } from "@/firebase/config";
-import Loader from "@/components/Loader";
+import { getUserProfile, createUserProfile } from "@/firebase/users";
+import type { UserProfile } from "@/types/user";
 
 interface AuthContextType {
   user: User | null;
+  userProfile: UserProfile | null;
   loading: boolean;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const AuthContext = createContext<AuthContextType>({
+  user: null,
+  userProfile: null,
+  loading: true,
+});
 
-export const AuthProvider = ({ children }: { children: ReactNode }) => {
+export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(
-      auth,
-      (user) => {
-        setUser(user);
-        setLoading(false);
-      },
-      (error) => {
-        console.error("Error in auth state change:", error);
-        setLoading(false); // Ensure loading state is turned off in case of error
+    const unsubscribe = auth.onAuthStateChanged(async (user) => {
+      setUser(user);
+      
+      if (user) {
+        // Get or create user profile
+        let profile = await getUserProfile(user.uid);
+        
+        if (!profile) {
+          // Create new profile if it doesn't exist
+          profile = await createUserProfile(
+            user.uid,
+            user.email || '',
+            user.displayName
+          );
+        }
+        
+        setUserProfile(profile);
+      } else {
+        setUserProfile(null);
       }
-    );
+      
+      setLoading(false);
+    });
 
     return () => unsubscribe();
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, loading }}>
-      {loading ? <Loader /> : children}
+    <AuthContext.Provider value={{ user, userProfile, loading }}>
+      {children}
     </AuthContext.Provider>
   );
-};
+}
 
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error("useAuth must be used within an AuthProvider");
-  }
-  return context;
-};
+export function useAuth() {
+  return useContext(AuthContext);
+}

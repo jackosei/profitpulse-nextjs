@@ -5,7 +5,7 @@ import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react';
 import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import { useAuth } from '@/context/AuthContext';
 import { toast } from 'sonner';
-import LoadingSpinner from '../LoadingSpinner';
+import LoadingSpinner from '@/components/ui/LoadingSpinner';
 
 interface DeleteAccountModalProps {
   isOpen: boolean;

@@ -3,6 +3,7 @@
 import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
+import Loader from "@/components/ui/Loader";
 
 export default function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -15,7 +16,7 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
   }, [user, loading, router]);
 
   if (loading) {
-    return <div>Loading...</div>; // Add a proper loading spinner
+    return <Loader />
   }
 
   return user ? <>{children}</> : null;

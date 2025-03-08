@@ -1,4 +1,4 @@
-import ProtectedRoute from "@/components/ProtectedRoute"
+import ProtectedRoute from "@/components/auth/ProtectedRoute"
 import { Metadata } from "next"
 
 export const metadata: Metadata = {

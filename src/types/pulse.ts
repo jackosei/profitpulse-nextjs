@@ -1,6 +1,9 @@
 import { Timestamp } from "firebase/firestore"
 
 export const MAX_RISK_PERCENTAGE = 3
+export const MAX_DAILY_DRAWDOWN = 5 // Default maximum daily loss as percentage of account
+export const MAX_TOTAL_DRAWDOWN = 10 // Default maximum total loss as percentage of account
+
 export const PULSE_STATUS = {
 	ACTIVE: "active",
 	ARCHIVED: "archived",
@@ -13,18 +16,31 @@ export interface Pulse {
 	id: string
 	firestoreId?: string
 	name: string
-	instrument: string
+	instruments: string[]
 	accountSize: number
 	maxRiskPerTrade: number
-	maxLossPerDay: number
-	maxLossPerWeek: number
-	maxRiskPerDay: number
+	maxDailyDrawdown: number // User-defined max daily loss percentage
+	maxTotalDrawdown: number // User-defined max total drawdown percentage
 	userId: string
 	createdAt: Timestamp
 	status: PulseStatus
 	trades?: Trade[]
 	stats?: PulseStats
 	ruleViolations?: string[]
+	note?: string
+	dailyLoss?: { [date: string]: number } // Track daily losses
+	totalDrawdown?: number // Track current total drawdown
+	hasBeenUpdated?: boolean
+	lastUpdate?: {
+		date: Timestamp
+		reason: string
+		previousValues: {
+			accountSize: number
+			maxRiskPerTrade: number
+			maxDailyDrawdown: number
+			maxTotalDrawdown: number
+		}
+	}
 }
 
 export interface Trade {

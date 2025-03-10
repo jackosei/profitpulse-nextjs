@@ -8,6 +8,7 @@ import type { Pulse, Trade } from "@/types/pulse"
 import Loader from "@/components/ui/Loader"
 import AddTradeModal from "@/components/modals/AddTradeModal"
 import DeletePulseModal from "@/components/modals/DeletePulseModal"
+import UpdatePulseModal from "@/components/modals/UpdatePulseModal"
 import PulseHeader from "@/components/pulse/PulseHeader"
 import PulseStats from "@/components/pulse/PulseStats"
 import PulseChart from "@/components/pulse/PulseChart"
@@ -46,6 +47,7 @@ export default function PulseDetailsPage() {
 		profitFactor: { current: 0, previous: 0, initial: 0 },
 	})
 	const [showArchiveModal, setShowArchiveModal] = useState(false)
+	const [showUpdateModal, setShowUpdateModal] = useState(false)
 
 	const fetchPulse = useCallback(async () => {
 		if (!user || !id) return
@@ -236,7 +238,7 @@ export default function PulseDetailsPage() {
 		<div className="min-h-screen p-0 md:p-6 space-y-4 md:space-y-6">
 			<PulseHeader
 				name={pulse.name}
-				instrument={pulse.instrument}
+				instrument={pulse.instruments?.join(', ') || 'N/A'}
 				accountSize={pulse.accountSize}
 				createdAt={pulse.createdAt}
 				selectedTimeRange={selectedTimeRange}
@@ -247,6 +249,12 @@ export default function PulseDetailsPage() {
 				}
 				onArchive={() => setShowArchiveModal(true)}
 				onDelete={() => setShowDeleteModal(true)}
+				onUpdate={() => setShowUpdateModal(true)}
+				maxRiskPerTrade={pulse.maxRiskPerTrade}
+				maxDailyDrawdown={pulse.maxDailyDrawdown}
+				maxTotalDrawdown={pulse.maxTotalDrawdown}
+				status={pulse.status}
+				ruleViolations={pulse.ruleViolations}
 			/>
 
 			<PulseStats stats={periodStats} comparisonType={comparisonType} />
@@ -279,6 +287,13 @@ export default function PulseDetailsPage() {
 				userId={user!.uid}
 				maxRiskPercentage={pulse.maxRiskPerTrade}
 				accountSize={pulse.accountSize}
+			/>
+
+			<UpdatePulseModal
+				isOpen={showUpdateModal}
+				onClose={() => setShowUpdateModal(false)}
+				onSuccess={fetchPulse}
+				pulse={pulse}
 			/>
 
 			<DeletePulseModal

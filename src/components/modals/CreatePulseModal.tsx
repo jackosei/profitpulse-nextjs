@@ -5,6 +5,7 @@ import { useAuth } from '@/context/AuthContext';
 import { createPulse } from '@/services/firestore';
 import { toast } from 'sonner';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
+import { MAX_RISK_PERCENTAGE, MAX_DAILY_DRAWDOWN, MAX_TOTAL_DRAWDOWN } from '@/types/pulse';
 
 interface CreatePulseModalProps {
   isOpen: boolean;
@@ -17,14 +18,40 @@ export default function CreatePulseModal({ isOpen, onClose, onSuccess }: CreateP
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
-    instrument: '',
+    instruments: [] as string[],
     accountSize: '',
     maxRiskPerTrade: '',
-    maxLossPerDay: '',
-    maxLossPerWeek: '',
-    maxRiskPerDay: ''
+    maxDailyDrawdown: '',
+    maxTotalDrawdown: '',
+    note: ''
   });
+  const [instrumentInput, setInstrumentInput] = useState('');
   const [error, setError] = useState('');
+
+  const handleAddInstrument = (value: string) => {
+    const trimmedValue = value.trim();
+    if (trimmedValue && !formData.instruments.includes(trimmedValue)) {
+      setFormData(prev => ({
+        ...prev,
+        instruments: [...prev.instruments, trimmedValue]
+      }));
+    }
+    setInstrumentInput('');
+  };
+
+  const handleRemoveInstrument = (instrumentToRemove: string) => {
+    setFormData(prev => ({
+      ...prev,
+      instruments: prev.instruments.filter(instrument => instrument !== instrumentToRemove)
+    }));
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      handleAddInstrument(instrumentInput);
+    }
+  };
 
   const validateForm = () => {
     if (formData.name.length < 3) {
@@ -37,23 +64,18 @@ export default function CreatePulseModal({ isOpen, onClose, onSuccess }: CreateP
       return false;
     }
 
-    if (Number(formData.maxRiskPerTrade) > 3) {
-      setError('Maximum risk per trade cannot exceed 3%');
+    if (Number(formData.maxRiskPerTrade) > MAX_RISK_PERCENTAGE ) {
+      setError(`Maximum risk per trade cannot exceed ${MAX_RISK_PERCENTAGE}%`);
       return false;
     }
 
-    if (Number(formData.maxLossPerDay) > 5) {
-      setError('Maximum loss per day cannot exceed 5%');
+    if (Number(formData.maxDailyDrawdown) > MAX_DAILY_DRAWDOWN ) {
+      setError(`Maximum daily drawdown cannot exceed ${MAX_DAILY_DRAWDOWN}%`);
       return false;
     }
 
-    if (Number(formData.maxLossPerWeek) > 10) {
-      setError('Maximum loss per week cannot exceed 10%');
-      return false;
-    }
-
-    if (Number(formData.maxRiskPerDay) > 9) {
-      setError('Maximum risk per day cannot exceed 9%');
+    if (Number(formData.maxTotalDrawdown) > MAX_TOTAL_DRAWDOWN ) {
+      setError(`Maximum total drawdown cannot exceed ${MAX_TOTAL_DRAWDOWN}%`);
       return false;
     }
 
@@ -73,14 +95,14 @@ export default function CreatePulseModal({ isOpen, onClose, onSuccess }: CreateP
 
       const pulseData = {
         name: formData.name,
-        instrument: formData.instrument,
+        instruments: formData.instruments,
         accountSize: Number(formData.accountSize),
         maxRiskPerTrade: Number(formData.maxRiskPerTrade),
-        maxLossPerDay: Number(formData.maxLossPerDay),
-        maxLossPerWeek: Number(formData.maxLossPerWeek),
-        maxRiskPerDay: Number(formData.maxRiskPerDay),
+        maxDailyDrawdown: Number(formData.maxDailyDrawdown),
+        maxTotalDrawdown: Number(formData.maxTotalDrawdown),
         userId: user.uid,
-        status: 'active' as const
+        status: 'active' as const,
+        note: formData.note
       };
 
       await createPulse(pulseData);
@@ -95,12 +117,12 @@ export default function CreatePulseModal({ isOpen, onClose, onSuccess }: CreateP
       
       setFormData({
         name: '',
-        instrument: '',
+        instruments: [],
         accountSize: '',
         maxRiskPerTrade: '3',
-        maxLossPerDay: '5',
-        maxLossPerWeek: '10',
-        maxRiskPerDay: '9'
+        maxDailyDrawdown: '5',
+        maxTotalDrawdown: '20',
+        note: ''
       });
     } catch (error: Error | unknown) {
       console.error('Error creating pulse:', error);
@@ -137,14 +159,33 @@ export default function CreatePulseModal({ isOpen, onClose, onSuccess }: CreateP
             </div>
 
             <div>
-              <label className="block text-sm text-gray-400 mb-2">Trading Pair/Instrument</label>
+              <label className="block text-sm text-gray-400 mb-2">Trading Pairs/Instruments</label>
+              <div className="flex flex-wrap gap-2 mb-2">
+                {formData.instruments.map((instrument) => (
+                  <span
+                    key={instrument}
+                    className="bg-gray-800 text-gray-200 px-2 py-1 rounded-md text-sm flex items-center"
+                  >
+                    {instrument}
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveInstrument(instrument)}
+                      className="ml-2 text-gray-400 hover:text-gray-200"
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+              </div>
               <input
                 type="text"
-                required
                 disabled={loading}
                 className="input-dark w-full disabled:opacity-50 disabled:cursor-not-allowed"
-                value={formData.instrument}
-                onChange={(e) => setFormData(prev => ({ ...prev, instrument: e.target.value }))}
+                value={instrumentInput}
+                onChange={(e) => setInstrumentInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                onBlur={() => handleAddInstrument(instrumentInput)}
+                placeholder="Type and press Enter or comma to add"
               />
             </div>
 
@@ -167,7 +208,7 @@ export default function CreatePulseModal({ isOpen, onClose, onSuccess }: CreateP
                 type="number"
                 required
                 min="0"
-                max="3"
+                max="10"
                 step="0.1"
                 disabled={loading}
                 className="input-dark w-full disabled:opacity-50 disabled:cursor-not-allowed"
@@ -177,47 +218,43 @@ export default function CreatePulseModal({ isOpen, onClose, onSuccess }: CreateP
             </div>
 
             <div>
-              <label className="block text-sm text-gray-400 mb-2">Max Loss Per Day (%)</label>
+              <label className="block text-sm text-gray-400 mb-2">Max Daily Drawdown (%)</label>
               <input
                 type="number"
                 required
                 min="0"
-                max="5"
+                max="30"
                 step="0.1"
                 disabled={loading}
                 className="input-dark w-full disabled:opacity-50 disabled:cursor-not-allowed"
-                value={formData.maxLossPerDay}
-                onChange={(e) => setFormData(prev => ({ ...prev, maxLossPerDay: e.target.value }))}
+                value={formData.maxDailyDrawdown}
+                onChange={(e) => setFormData(prev => ({ ...prev, maxDailyDrawdown: e.target.value }))}
               />
             </div>
 
             <div>
-              <label className="block text-sm text-gray-400 mb-2">Max Loss Per Week (%)</label>
+              <label className="block text-sm text-gray-400 mb-2">Max Total Drawdown (%)</label>
               <input
                 type="number"
                 required
                 min="0"
-                max="10"
+                max="50"
                 step="0.1"
                 disabled={loading}
                 className="input-dark w-full disabled:opacity-50 disabled:cursor-not-allowed"
-                value={formData.maxLossPerWeek}
-                onChange={(e) => setFormData(prev => ({ ...prev, maxLossPerWeek: e.target.value }))}
+                value={formData.maxTotalDrawdown}
+                onChange={(e) => setFormData(prev => ({ ...prev, maxTotalDrawdown: e.target.value }))}
               />
             </div>
 
             <div>
-              <label className="block text-sm text-gray-400 mb-2">Max Risk Per Day (%)</label>
-              <input
-                type="number"
-                required
-                min="0"
-                max="9"
-                step="0.1"
+              <label className="block text-sm text-gray-400 mb-2">Note (Optional)</label>
+              <textarea
                 disabled={loading}
-                className="input-dark w-full disabled:opacity-50 disabled:cursor-not-allowed"
-                value={formData.maxRiskPerDay}
-                onChange={(e) => setFormData(prev => ({ ...prev, maxRiskPerDay: e.target.value }))}
+                className="input-dark w-full h-24 disabled:opacity-50 disabled:cursor-not-allowed"
+                value={formData.note}
+                onChange={(e) => setFormData(prev => ({ ...prev, note: e.target.value }))}
+                placeholder="Add any additional notes about this pulse..."
               />
             </div>
 

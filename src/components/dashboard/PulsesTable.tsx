@@ -23,14 +23,62 @@ function PulseTableRow({ pulse }: { pulse: Pulse }) {
 		[router, pulse.id]
 	)
 
+	// Calculate risk indicators
+	const dailyLoss = pulse.dailyLoss || {}
+	const todayKey = new Date().toISOString().split('T')[0]
+	const todayLoss = dailyLoss[todayKey] || 0
+	const todayLossPercentage = (todayLoss / pulse.accountSize) * 100
+	const totalDrawdownPercentage = ((pulse.totalDrawdown || 0) / pulse.accountSize) * 100
+
+	const getRiskIndicator = () => {
+		if (pulse.status === 'locked') {
+			return {
+				color: 'text-red-500',
+				icon: '🔒',
+				text: 'Locked - Risk Limits Exceeded'
+			}
+		}
+		if (todayLossPercentage > pulse.maxDailyDrawdown * 0.8) {
+			return {
+				color: 'text-yellow-500',
+				icon: '⚠️',
+				text: 'Near Daily Drawdown Limit'
+			}
+		}
+		if (totalDrawdownPercentage > pulse.maxTotalDrawdown * 0.8) {
+			return {
+				color: 'text-yellow-500',
+				icon: '⚠️',
+				text: 'Near Total Drawdown Limit'
+			}
+		}
+		return null
+	}
+
+	const riskIndicator = getRiskIndicator()
+
 	return (
 		<tr
 			key={pulse.id}
-			className="group hover:bg-gray-800/50 cursor-pointer"
+			className={`group hover:bg-gray-800/50 cursor-pointer ${pulse.status === 'locked' ? 'bg-red-900/10' : ''}`}
 			onClick={handleRowClick}
 		>
-			<td className="p-4 font-medium text-sm">{pulse.name}</td>
-			<td className="p-4 text-gray-400 text-sm">{pulse.instrument}</td>
+			<td className="p-4 font-medium text-sm">
+				<div className="flex items-center gap-2">
+					{pulse.name}
+					{riskIndicator && (
+						<span
+							className={`${riskIndicator.color} text-xs`}
+							title={riskIndicator.text}
+						>
+							{riskIndicator.icon}
+						</span>
+					)}
+				</div>
+			</td>
+			<td className="p-4 text-gray-400 text-sm">
+				{Array.isArray(pulse.instruments) ? pulse.instruments.join(', ') : 'No instruments'}
+			</td>
 			<td className="p-4 text-gray-400 text-sm whitespace-nowrap">
 				{formatCurrency(pulse.accountSize)}
 			</td>

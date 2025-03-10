@@ -233,7 +233,6 @@ export const createTrade = async (
 		// Check if this is a losing trade
 		if (tradeData.outcome === "Loss") {
 			const lossAmount = Math.abs(tradeData.profitLoss)
-			const lossPercentage = (lossAmount / pulseData.accountSize) * 100
 			
 			// Get the date key for this trade
 			const tradeDate = tradeData.date.split('T')[0]

@@ -233,7 +233,7 @@ export default function ProfilePage() {
                   <div className="flex justify-between items-center">
                     <div>
                       <h3 className="font-medium text-foreground">{pulse.name}</h3>
-                      <p className="text-sm text-gray-400">{pulse.instrument}</p>
+                      <p className="text-sm text-gray-400">{pulse.instruments}</p>
                     </div>
                     <div className="flex items-center gap-4">
                       <div className="text-right">

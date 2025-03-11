@@ -56,56 +56,58 @@ export default function DeletePulseModal({ isOpen, onClose, pulse, onSuccess }: 
     <Dialog open={isOpen} onClose={onClose} className="relative z-50">
       <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
       
-      <div className="fixed inset-0 flex items-center justify-center p-4">
-        <DialogPanel className="mx-auto max-w-md rounded-lg bg-dark p-6 border border-gray-800">
-          <div className="flex items-center gap-4 mb-6">
-            <div className="flex-shrink-0 w-12 h-12 rounded-full bg-red-100 flex items-center justify-center">
-              <ExclamationTriangleIcon className="h-6 w-6 text-red-600" />
+      <div className="fixed inset-0 overflow-y-auto">
+        <div className="flex min-h-full items-center justify-center p-4">
+          <DialogPanel className="w-full max-w-md rounded-lg bg-dark p-6 border border-gray-800">
+            <div className="flex items-center gap-4 mb-6">
+              <div className="flex-shrink-0 w-12 h-12 rounded-full bg-red-100 flex items-center justify-center">
+                <ExclamationTriangleIcon className="h-6 w-6 text-red-600" />
+              </div>
+              <div>
+                <DialogTitle className="text-lg font-semibold text-foreground">
+                  Delete Pulse
+                </DialogTitle>
+                <p className="text-sm text-gray-400">
+                  This action cannot be undone
+                </p>
+              </div>
             </div>
-            <div>
-              <DialogTitle className="text-lg font-semibold text-foreground">
-                Delete Pulse
-              </DialogTitle>
-              <p className="text-sm text-gray-400">
-                This action cannot be undone
-              </p>
+
+            <p className="mb-4 text-gray-300">
+              To confirm deletion, please type <span className="font-semibold">{pulse.name}</span>
+            </p>
+
+            <input
+              type="text"
+              value={confirmationName}
+              onChange={(e) => setConfirmationName(e.target.value)}
+              placeholder="Type pulse name to confirm"
+              className="w-full p-3 rounded-lg bg-white/10 border border-white/20 focus:outline-none focus:ring-2 focus:ring-red-500 mb-4"
+            />
+
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={onClose}
+                className="px-4 py-2 rounded-lg hover:bg-white/10 text-gray-300"
+                disabled={loading}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={!isConfirmationValid || loading}
+                className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loading ? 
+                <span className="flex items-center justify-center">
+                <LoadingSpinner />
+                Deleting...
+              </span>
+                : 'Delete Pulse'}
+              </button>
             </div>
-          </div>
-
-          <p className="mb-4 text-gray-300">
-            To confirm deletion, please type <span className="font-semibold">{pulse.name}</span>
-          </p>
-
-          <input
-            type="text"
-            value={confirmationName}
-            onChange={(e) => setConfirmationName(e.target.value)}
-            placeholder="Type pulse name to confirm"
-            className="w-full p-3 rounded-lg bg-white/10 border border-white/20 focus:outline-none focus:ring-2 focus:ring-red-500 mb-4"
-          />
-
-          <div className="flex justify-end gap-3">
-            <button
-              onClick={onClose}
-              className="px-4 py-2 rounded-lg hover:bg-white/10 text-gray-300"
-              disabled={loading}
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleDelete}
-              disabled={!isConfirmationValid || loading}
-              className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loading ? 
-              <span className="flex items-center justify-center">
-              <LoadingSpinner />
-              Deleting...
-            </span>
-              : 'Delete Pulse'}
-            </button>
-          </div>
-        </DialogPanel>
+          </DialogPanel>
+        </div>
       </div>
     </Dialog>
   );

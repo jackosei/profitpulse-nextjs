@@ -1,5 +1,6 @@
 import { Trade } from '@/types/pulse';
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState, useCallback } from 'react';
+import TradeDetailsModal from '@/components/modals/TradeDetailsModal';
 
 interface TradeHistoryProps {
   trades: Trade[];
@@ -17,6 +18,7 @@ export default function TradeHistory({
   onAddTrade,
 }: TradeHistoryProps) {
   const observerTarget = useRef<HTMLDivElement>(null);
+  const [selectedTrade, setSelectedTrade] = useState<Trade | null>(null);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -34,6 +36,16 @@ export default function TradeHistory({
 
     return () => observer.disconnect();
   }, [hasMore, onLoadMore]);
+
+  const handleViewDetails = useCallback((trade: Trade, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setSelectedTrade(trade);
+  }, []);
+
+  const closeDetailsModal = useCallback(() => {
+    setSelectedTrade(null);
+  }, []);
 
   return (
     <div className="bg-dark rounded-lg border border-gray-800">
@@ -58,6 +70,7 @@ export default function TradeHistory({
               <th className="p-3 md:p-4 text-left text-xs md:text-sm text-gray-400 hidden md:table-cell">Entry Reason</th>
               <th className="p-3 md:p-4 text-left text-xs md:text-sm text-gray-400">Outcome</th>
               <th className="p-3 md:p-4 text-right text-xs md:text-sm text-gray-400">P/L</th>
+              <th className="p-3 md:p-4 text-center text-xs md:text-sm text-gray-400">Details</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-800">
@@ -71,11 +84,22 @@ export default function TradeHistory({
                 <td className="p-3 md:p-4 text-sm md:text-base text-right text-foreground">
                   ${trade.profitLoss.toFixed(2)}
                 </td>
+                <td className="p-3 md:p-4 text-center">
+                  <button 
+                    className="text-gray-400 hover:text-white" 
+                    onClick={(e) => handleViewDetails(trade, e)}
+                    title="View Trade Details"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </button>
+                </td>
               </tr>
             ))}
             {(!trades || trades.length === 0) && (
               <tr>
-                <td colSpan={6} className="p-3 md:p-4 text-center text-sm text-gray-400">
+                <td colSpan={7} className="p-3 md:p-4 text-center text-sm text-gray-400">
                   No trades recorded yet
                 </td>
               </tr>
@@ -91,6 +115,14 @@ export default function TradeHistory({
         >
           {loadingMore ? "Loading more trades..." : "Scroll for more"}
         </div>
+      )}
+
+      {selectedTrade && (
+        <TradeDetailsModal
+          isOpen={!!selectedTrade}
+          onClose={closeDetailsModal}
+          trade={selectedTrade}
+        />
       )}
     </div>
   );

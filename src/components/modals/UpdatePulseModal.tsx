@@ -5,7 +5,9 @@ import { useAuth } from '@/context/AuthContext';
 import { updatePulse } from '@/services/firestore';
 import { toast } from 'sonner';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
-import { MAX_RISK_PERCENTAGE, MAX_DAILY_DRAWDOWN, MAX_TOTAL_DRAWDOWN, type Pulse } from '@/types/pulse';
+import { MAX_RISK_PERCENTAGE, MAX_DAILY_DRAWDOWN, MAX_TOTAL_DRAWDOWN, type Pulse, type TradeRule } from '@/types/pulse';
+import { PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { v4 as uuidv4 } from 'uuid';
 
 interface UpdatePulseModalProps {
   isOpen: boolean;
@@ -25,7 +27,37 @@ export default function UpdatePulseModal({ isOpen, onClose, onSuccess, pulse }: 
     instruments: (pulse?.instruments ?? []).join(', '),
     updateReason: ''
   });
+  const [tradingRules, setTradingRules] = useState<TradeRule[]>(pulse?.tradingRules || []);
+  const [ruleInput, setRuleInput] = useState('');
+  const [isRuleRequired, setIsRuleRequired] = useState(false);
   const [error, setError] = useState('');
+
+  const handleAddRule = () => {
+    const trimmedRule = ruleInput.trim();
+    if (trimmedRule) {
+      setTradingRules([
+        ...tradingRules, 
+        { 
+          id: uuidv4(), 
+          description: trimmedRule, 
+          isRequired: isRuleRequired 
+        }
+      ]);
+      setRuleInput('');
+      setIsRuleRequired(false);
+    }
+  };
+
+  const handleRemoveRule = (ruleId: string) => {
+    setTradingRules(tradingRules.filter(rule => rule.id !== ruleId));
+  };
+
+  const handleRuleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleAddRule();
+    }
+  };
 
   const validateForm = () => {
     if (!formData.updateReason.trim()) {
@@ -82,6 +114,7 @@ export default function UpdatePulseModal({ isOpen, onClose, onSuccess, pulse }: 
         maxDailyDrawdown: Number(formData.maxDailyDrawdown),
         maxTotalDrawdown: Number(formData.maxTotalDrawdown),
         instruments: formData.instruments.split(',').map(i => i.trim()).filter(i => i),
+        tradingRules: tradingRules,
         updateReason: formData.updateReason
       };
 
@@ -210,6 +243,69 @@ export default function UpdatePulseModal({ isOpen, onClose, onSuccess, pulse }: 
                         value={formData.maxTotalDrawdown}
                         onChange={(e) => setFormData(prev => ({ ...prev, maxTotalDrawdown: e.target.value }))}
                       />
+                    </div>
+
+                    {/* Trading Rules Section */}
+                    <div>
+                      <label className="block text-sm text-gray-400 mb-2">Trading Rules</label>
+                      <div className="flex flex-wrap gap-2 mb-2">
+                        {tradingRules.map((rule) => (
+                          <div
+                            key={rule.id}
+                            className={`bg-gray-800 text-gray-200 px-3 py-2 rounded-md text-sm flex items-center justify-between w-full ${
+                              rule.isRequired ? 'border-l-2 border-accent' : ''
+                            }`}
+                          >
+                            <div className="flex items-center">
+                              {rule.isRequired && (
+                                <span className="text-accent text-xs mr-2 font-medium">REQUIRED</span>
+                              )}
+                              <span>{rule.description}</span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveRule(rule.id)}
+                              className="ml-2 text-gray-400 hover:text-red-500"
+                            >
+                              <TrashIcon className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <input
+                          type="text"
+                          disabled={loading}
+                          className="input-dark flex-grow disabled:opacity-50 disabled:cursor-not-allowed"
+                          value={ruleInput}
+                          onChange={(e) => setRuleInput(e.target.value)}
+                          onKeyDown={handleRuleKeyDown}
+                          placeholder="E.g., Always check economic calendar before trading"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleAddRule}
+                          disabled={!ruleInput.trim()}
+                          className="p-2 bg-accent hover:bg-accent-hover text-white rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <PlusIcon className="w-5 h-5" />
+                        </button>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          id="isRuleRequired"
+                          checked={isRuleRequired}
+                          onChange={(e) => setIsRuleRequired(e.target.checked)}
+                          className="h-4 w-4 rounded border-gray-700 text-accent focus:ring-accent"
+                        />
+                        <label htmlFor="isRuleRequired" className="text-sm text-gray-300">
+                          Mark as required rule
+                        </label>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Add rules that you must follow for every trade. Required rules must be checked before adding a trade.
+                      </p>
                     </div>
 
                     <div>

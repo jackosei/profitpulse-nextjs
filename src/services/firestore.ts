@@ -36,7 +36,9 @@ const checkDuplicatePulseName = async (name: string, userId: string) => {
 }
 
 export const createPulse = async (
-	pulseData: Omit<Pulse, "id" | "createdAt" | "status">
+	pulseData: Omit<Pulse, "id" | "createdAt" | "status"> & { 
+		tradingRules?: Array<{id: string; description: string; isRequired: boolean}> 
+	}
 ) => {
 	try {
 		// Validate inputs
@@ -520,6 +522,7 @@ export const updatePulse = async (
 		maxDailyDrawdown: number;
 		maxTotalDrawdown: number;
 		instruments: string[];
+		tradingRules?: Array<{id: string; description: string; isRequired: boolean}>;
 		updateReason: string;
 	}
 ) => {
@@ -550,8 +553,7 @@ export const updatePulse = async (
 			accountSize: pulseData.accountSize || 0,
 			maxRiskPerTrade: pulseData.maxRiskPerTrade || 0,
 			maxDailyDrawdown: pulseData.maxDailyDrawdown || 0,
-			maxTotalDrawdown: pulseData.maxTotalDrawdown || 0,
-			instruments: pulseData.instruments || []
+			maxTotalDrawdown: pulseData.maxTotalDrawdown || 0
 		}
 
 		// Validate update data
@@ -567,7 +569,8 @@ export const updatePulse = async (
 			throw new Error(`Maximum total drawdown cannot exceed ${MAX_TOTAL_DRAWDOWN}%`)
 		}
 
-		await updateDoc(pulseDoc.ref, {
+		// Create update object with all fields
+		const pulseUpdate = {
 			accountSize: updateData.accountSize,
 			maxRiskPerTrade: updateData.maxRiskPerTrade,
 			maxDailyDrawdown: updateData.maxDailyDrawdown,
@@ -579,7 +582,15 @@ export const updatePulse = async (
 				reason: updateData.updateReason,
 				previousValues
 			}
-		})
+		}
+
+		// Add trading rules if they exist
+		if (updateData.tradingRules) {
+			Object.assign(pulseUpdate, { tradingRules: updateData.tradingRules });
+		}
+
+		// Update document
+		await updateDoc(pulseDoc.ref, pulseUpdate)
 
 		return { success: true }
 	} catch (error) {
@@ -587,3 +598,19 @@ export const updatePulse = async (
 		throw error
 	}
 }
+
+export const getPulse = async (firestoreId: string) => {
+	try {
+		const pulseRef = doc(db, "pulses", firestoreId);
+		const pulseSnap = await getDoc(pulseRef);
+		
+		if (!pulseSnap.exists()) {
+			throw new Error("Pulse not found");
+		}
+		
+		return pulseSnap.data() as Pulse;
+	} catch (error) {
+		console.error("Error fetching pulse:", error);
+		throw error;
+	}
+};

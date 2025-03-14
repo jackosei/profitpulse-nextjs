@@ -12,6 +12,12 @@ export const PULSE_STATUS = {
 
 export type PulseStatus = (typeof PULSE_STATUS)[keyof typeof PULSE_STATUS]
 
+export interface TradeRule {
+	id: string
+	description: string
+	isRequired: boolean
+}
+
 export interface Pulse {
 	id: string
 	firestoreId?: string
@@ -27,6 +33,7 @@ export interface Pulse {
 	trades?: Trade[]
 	stats?: PulseStats
 	ruleViolations?: string[]
+	tradingRules?: TradeRule[] // Trading rules checklist
 	note?: string
 	dailyLoss?: { [date: string]: number } // Track daily losses
 	totalDrawdown?: number // Track current total drawdown
@@ -59,6 +66,7 @@ export interface Trade {
 	createdAt: Timestamp
 	instrument: string
 	learnings?: string
+	followedRules?: string[] // IDs of rules that were followed
 }
 
 export interface PulseStats {

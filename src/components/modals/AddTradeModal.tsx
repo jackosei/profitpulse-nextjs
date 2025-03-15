@@ -6,6 +6,7 @@ import type { Trade, Pulse, AddTradeModalProps } from '@/types/pulse';
 import { toast } from 'sonner';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import { CheckIcon, ShieldExclamationIcon } from '@heroicons/react/24/outline';
+import { TRADING_INSTRUMENTS } from '@/types/tradingInstruments';
 
 
 
@@ -28,12 +29,14 @@ export default function AddTradeModal({
     exitPrice: '',
     entryReason: '',
     profitLoss: '',
-    learnings: ''
+    learnings: '',
+    instrument: ''
   });
   const [error, setError] = useState('');
   const [pulse, setPulse] = useState<Pulse | null>(null);
   const [followedRules, setFollowedRules] = useState<string[]>([]);
   const [loadingPulse, setLoadingPulse] = useState(true);
+  const [availableInstruments, setAvailableInstruments] = useState<string[]>([]);
 
   // Fetch pulse data including rules when modal opens
   useEffect(() => {
@@ -45,6 +48,15 @@ export default function AddTradeModal({
           setPulse(pulseData);
           // Initialize followed rules to empty
           setFollowedRules([]);
+          
+          // Set available instruments from pulse configuration
+          if (Array.isArray(pulseData.instruments) && pulseData.instruments.length > 0) {
+            setAvailableInstruments(pulseData.instruments);
+            // Auto-select first instrument if available
+            if (pulseData.instruments.length === 1) {
+              setFormData(prev => ({ ...prev, instrument: pulseData.instruments[0] }));
+            }
+          }
         } catch (error) {
           console.error('Error fetching pulse:', error);
           toast.error('Could not load pulse data');
@@ -74,6 +86,11 @@ export default function AddTradeModal({
     
     if (missingRequiredRules.length > 0) {
       setError(`Please confirm all required trading rules: ${missingRequiredRules.map(r => r.description).join(', ')}`);
+      return false;
+    }
+
+    if (!formData.instrument) {
+      setError('Please select an instrument');
       return false;
     }
 
@@ -161,7 +178,7 @@ export default function AddTradeModal({
         outcome,
         pulseId,
         userId,
-        instrument: '',
+        instrument: formData.instrument,
         followedRules
       };
 
@@ -170,7 +187,7 @@ export default function AddTradeModal({
       
       // Show success notification with more details
       toast.success('Trade added successfully!', {
-        description: `${tradeData.type} trade with P/L of $${tradeData.profitLoss.toFixed(2)}`,
+        description: `${tradeData.type} trade on ${tradeData.instrument} with P/L of $${tradeData.profitLoss.toFixed(2)}`,
         duration: 4000,
       });
       
@@ -186,7 +203,8 @@ export default function AddTradeModal({
         exitPrice: '',
         entryReason: '',
         profitLoss: '',
-        learnings: ''
+        learnings: '',
+        instrument: ''
       });
       setFollowedRules([]);
     } catch (error) {
@@ -204,6 +222,12 @@ export default function AddTradeModal({
   };
 
   if (!isOpen) return null;
+
+  // Get instrument display name
+  const getInstrumentName = (symbol: string) => {
+    const instrument = TRADING_INSTRUMENTS.find(i => i.symbol === symbol);
+    return instrument ? `${instrument.name} - ${instrument.description}` : symbol;
+  };
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50">
@@ -234,6 +258,29 @@ export default function AddTradeModal({
                       </div>
 
                       <div>
+                        <label className="block text-sm text-gray-400 mb-2">Instrument</label>
+                        <select
+                          required
+                          disabled={loading || availableInstruments.length === 0}
+                          className="input-dark w-full disabled:opacity-50 disabled:cursor-not-allowed h-[44.5px]"
+                          value={formData.instrument}
+                          onChange={(e) => setFormData(prev => ({ ...prev, instrument: e.target.value }))}
+                        >
+                          <option value="">Select Instrument</option>
+                          {availableInstruments.map((instrument) => (
+                            <option key={instrument} value={instrument}>
+                              {getInstrumentName(instrument)}
+                            </option>
+                          ))}
+                        </select>
+                        {availableInstruments.length === 0 && (
+                          <p className="text-xs text-red-500 mt-1">
+                            No instruments configured. Please update pulse settings.
+                          </p>
+                        )}
+                      </div>
+
+                      <div>
                         <label className="block text-sm text-gray-400 mb-2">Entry Price</label>
                         <input
                           type="number"
@@ -258,18 +305,6 @@ export default function AddTradeModal({
                           className="input-dark w-full disabled:opacity-50 disabled:cursor-not-allowed"
                           value={formData.exitPrice}
                           onChange={(e) => setFormData(prev => ({ ...prev, exitPrice: e.target.value }))}
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-sm text-gray-400 mb-2">Entry Reason</label>
-                        <textarea
-                          required
-                          disabled={loading}
-                          rows={3}
-                          className="input-dark w-full disabled:opacity-50 disabled:cursor-not-allowed"
-                          value={formData.entryReason}
-                          onChange={(e) => setFormData(prev => ({ ...prev, entryReason: e.target.value }))}
                         />
                       </div>
                     </div>
@@ -316,6 +351,20 @@ export default function AddTradeModal({
                         />
                       </div>
 
+                      <div>
+                        <label className="block text-sm text-gray-400 mb-2">Entry Reason</label>
+                        <textarea
+                          required
+                          disabled={loading}
+                          rows={3}
+                          className="input-dark w-full disabled:opacity-50 disabled:cursor-not-allowed"
+                          value={formData.entryReason}
+                          onChange={(e) => setFormData(prev => ({ ...prev, entryReason: e.target.value }))}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="md:col-span-2">
                       <div>
                         <label className="block text-sm text-gray-400 mb-2">Learnings (Optional)</label>
                         <textarea

@@ -1,4 +1,4 @@
-import { Trade } from '@/types/pulse';
+import { Trade, Pulse } from '@/types/pulse';
 import { useRef, useEffect, useState, useCallback } from 'react';
 import TradeDetailsModal from '@/components/modals/TradeDetailsModal';
 
@@ -8,6 +8,7 @@ interface TradeHistoryProps {
   loadingMore: boolean;
   onLoadMore: () => void;
   onAddTrade: () => void;
+  pulse?: Pulse;
 }
 
 export default function TradeHistory({
@@ -16,6 +17,7 @@ export default function TradeHistory({
   loadingMore,
   onLoadMore,
   onAddTrade,
+  pulse,
 }: TradeHistoryProps) {
   const observerTarget = useRef<HTMLDivElement>(null);
   const [selectedTrade, setSelectedTrade] = useState<Trade | null>(null);
@@ -66,8 +68,9 @@ export default function TradeHistory({
             <tr>
               <th className="p-3 md:p-4 text-left text-xs md:text-sm text-gray-400">Date</th>
               <th className="p-3 md:p-4 text-left text-xs md:text-sm text-gray-400">Type</th>
+              <th className="p-3 md:p-4 text-left text-xs md:text-sm text-gray-400">Instrument</th>
               <th className="p-3 md:p-4 text-left text-xs md:text-sm text-gray-400 hidden md:table-cell">Lot Size</th>
-              <th className="p-3 md:p-4 text-left text-xs md:text-sm text-gray-400 hidden md:table-cell">Entry Reason</th>
+              <th className="p-3 md:p-4 text-left text-xs md:text-sm text-gray-400 hidden lg:table-cell">Entry Reason</th>
               <th className="p-3 md:p-4 text-left text-xs md:text-sm text-gray-400">Outcome</th>
               <th className="p-3 md:p-4 text-right text-xs md:text-sm text-gray-400">P/L</th>
               <th className="p-3 md:p-4 text-center text-xs md:text-sm text-gray-400">Details</th>
@@ -78,8 +81,11 @@ export default function TradeHistory({
               <tr key={trade.id} className="hover:bg-gray-800/50">
                 <td className="p-3 md:p-4 text-sm md:text-base text-foreground">{trade.date}</td>
                 <td className="p-3 md:p-4 text-sm md:text-base text-foreground">{trade.type}</td>
+                <td className="p-3 md:p-4 text-sm md:text-base text-foreground">{trade.instrument || 'N/A'}</td>
                 <td className="p-3 md:p-4 text-sm md:text-base text-foreground hidden md:table-cell">{trade.lotSize}</td>
-                <td className="p-3 md:p-4 text-sm md:text-base text-foreground hidden md:table-cell">{trade.entryReason}</td>
+                <td className="p-3 md:p-4 text-sm md:text-base text-foreground hidden lg:table-cell">
+                  {trade.entryReason.length > 30 ? `${trade.entryReason.substring(0, 30)}...` : trade.entryReason}
+                </td>
                 <td className="p-3 md:p-4 text-sm md:text-base text-foreground">{trade.outcome}</td>
                 <td className="p-3 md:p-4 text-sm md:text-base text-right text-foreground">
                   ${trade.profitLoss.toFixed(2)}
@@ -99,7 +105,7 @@ export default function TradeHistory({
             ))}
             {(!trades || trades.length === 0) && (
               <tr>
-                <td colSpan={7} className="p-3 md:p-4 text-center text-sm text-gray-400">
+                <td colSpan={8} className="p-3 md:p-4 text-center text-sm text-gray-400">
                   No trades recorded yet
                 </td>
               </tr>
@@ -122,6 +128,7 @@ export default function TradeHistory({
           isOpen={!!selectedTrade}
           onClose={closeDetailsModal}
           trade={selectedTrade}
+          pulse={pulse}
         />
       )}
     </div>

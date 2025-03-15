@@ -276,6 +276,7 @@ export default function PulseDetailsPage() {
 				loadingMore={loadingMore}
 				onLoadMore={loadMoreTrades}
 				onAddTrade={() => setShowAddTradeModal(true)}
+				pulse={pulse}
 			/>
 
 			<AddTradeModal

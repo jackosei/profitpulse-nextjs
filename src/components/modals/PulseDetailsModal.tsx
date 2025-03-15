@@ -156,16 +156,6 @@ export default function PulseDetailsModal({ isOpen, onClose, pulse }: PulseDetai
             </div>
           )}
 
-          {/* Notes */}
-          {pulse.note && (
-            <div>
-              <h3 className="text-lg font-semibold text-foreground mb-2">Notes</h3>
-              <div className="bg-gray-800/30 p-4 rounded-md">
-                <p className="text-base text-foreground whitespace-pre-line">{pulse.note}</p>
-              </div>
-            </div>
-          )}
-
           {/* Trading Rules Section */}
           {pulse.tradingRules && pulse.tradingRules.length > 0 && (
             <div className="mt-6">
@@ -187,6 +177,17 @@ export default function PulseDetailsModal({ isOpen, onClose, pulse }: PulseDetai
               </div>
             </div>
           )}
+          
+          {/* Notes */}
+          {pulse.note && (
+            <div>
+              <h3 className="text-lg font-semibold text-foreground mb-2">Notes</h3>
+              <div className="bg-gray-800/30 p-4 rounded-md">
+                <p className="text-base text-foreground whitespace-pre-line">{pulse.note}</p>
+              </div>
+            </div>
+          )}
+
         </div>
       </div>
     </div>

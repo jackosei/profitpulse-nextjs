@@ -7,16 +7,8 @@ import { deletePulse } from '@/services/firestore';
 import { useAuth } from '@/context/AuthContext';
 import { toast } from 'sonner';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
+import { DeletePulseModalProps } from '@/types/pulse';
 
-interface DeletePulseModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  pulse: {
-    id: string;
-    name: string;
-  };
-  onSuccess: () => void;
-}
 
 export default function DeletePulseModal({ isOpen, onClose, pulse, onSuccess }: DeletePulseModalProps) {
   const [confirmationName, setConfirmationName] = useState('');

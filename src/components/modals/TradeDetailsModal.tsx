@@ -1,13 +1,8 @@
-import { Trade } from '@/types/pulse';
+import { TradeDetailsModalProps } from '@/types/pulse';
 import { formatCurrency } from '@/utils/format';
 
-interface TradeDetailsModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  trade: Trade;
-}
 
-export default function TradeDetailsModal({ isOpen, onClose, trade }: TradeDetailsModalProps) {
+export default function TradeDetailsModal({ isOpen, onClose, trade, pulse }: TradeDetailsModalProps) {
   if (!isOpen) return null;
 
   return (
@@ -106,6 +101,33 @@ export default function TradeDetailsModal({ isOpen, onClose, trade }: TradeDetai
               <h3 className="text-lg font-semibold text-foreground mb-2">Learnings & Notes</h3>
               <div className="bg-gray-800/30 p-4 rounded-md">
                 <p className="text-base text-foreground whitespace-pre-line">{trade.learnings}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Rules Followed Section */}
+          {trade.followedRules && trade.followedRules.length > 0 && (
+            <div className="mt-6">
+              <h3 className="text-lg font-semibold mb-3">Rules Followed</h3>
+              <div className="space-y-2 bg-dark-lighter p-3 rounded-lg">
+                {trade.followedRules.map((ruleId, index) => {
+                  // Find the rule in the pulse's trading rules if available
+                  const ruleDetails = pulse?.tradingRules?.find(r => r.id === ruleId);
+                  
+                  return (
+                    <div key={index} className="flex items-center gap-2 p-2">
+                      <svg className="w-4 h-4 text-green-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      <span>
+                        {ruleDetails?.description || `Rule ${index + 1}`}
+                        {ruleDetails?.isRequired && (
+                          <span className="ml-2 text-xs text-accent">(Required)</span>
+                        )}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}

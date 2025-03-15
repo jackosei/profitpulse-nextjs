@@ -79,3 +79,38 @@ export interface PulseStats {
 	averageLoss: number
 	profitFactor?: number
 }
+
+export interface TradeDetailsModalProps {
+	isOpen: boolean;
+	onClose: () => void;
+	trade: Trade;
+	pulse?: Pulse; // Add this to access pulse data for rule lookup
+  }
+  
+
+  export interface PulseDetailsModalProps {
+	isOpen: boolean;
+	onClose: () => void;
+	pulse: Pulse;
+  }
+
+  export interface AddTradeModalProps {
+	isOpen: boolean;
+	onClose: () => void;
+	onSuccess?: () => void;
+	pulseId: string;
+	firestoreId: string;
+	userId: string;
+	maxRiskPercentage: number;
+	accountSize: number;
+  }
+
+  export interface DeletePulseModalProps {
+	isOpen: boolean;
+	onClose: () => void;
+	pulse: {
+	  id: string;
+	  name: string;
+	};
+	onSuccess: () => void;
+  }

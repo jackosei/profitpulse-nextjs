@@ -1,11 +1,7 @@
-import { Pulse } from '@/types/pulse';
+import {  PulseDetailsModalProps } from '@/types/pulse';
 import { formatCurrency, formatRatio } from '@/utils/format';
 
-interface PulseDetailsModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  pulse: Pulse;
-}
+
 
 export default function PulseDetailsModal({ isOpen, onClose, pulse }: PulseDetailsModalProps) {
   if (!isOpen) return null;
@@ -79,7 +75,7 @@ export default function PulseDetailsModal({ isOpen, onClose, pulse }: PulseDetai
                 <p className="text-base text-foreground">{pulse.maxTotalDrawdown}%</p>
               </div>
               <div>
-                <p className="text-sm text-gray-400">Current Today's Loss</p>
+                <p className="text-sm text-gray-400">Current Today&apos;s Loss</p>
                 <p className={`text-base ${todayLossPercentage > 0 ? 'text-error' : 'text-foreground'}`}>
                   {formatCurrency(todayLoss)} ({todayLossPercentage.toFixed(1)}%)
                 </p>
@@ -166,6 +162,28 @@ export default function PulseDetailsModal({ isOpen, onClose, pulse }: PulseDetai
               <h3 className="text-lg font-semibold text-foreground mb-2">Notes</h3>
               <div className="bg-gray-800/30 p-4 rounded-md">
                 <p className="text-base text-foreground whitespace-pre-line">{pulse.note}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Trading Rules Section */}
+          {pulse.tradingRules && pulse.tradingRules.length > 0 && (
+            <div className="mt-6">
+              <h3 className="text-lg font-semibold mb-3">Trading Rules</h3>
+              <div className="space-y-2 bg-dark-lighter p-3 rounded-lg">
+                {pulse.tradingRules.map((rule) => (
+                  <div 
+                    key={rule.id}
+                    className={`p-2 rounded-md ${rule.isRequired ? 'border-l-2 border-l-accent' : ''}`}
+                  >
+                    <div className="flex items-start gap-2">
+                      {rule.isRequired && (
+                        <span className="text-accent text-xs font-medium mt-0.5">REQUIRED</span>
+                      )}
+                      <span>{rule.description}</span>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           )}

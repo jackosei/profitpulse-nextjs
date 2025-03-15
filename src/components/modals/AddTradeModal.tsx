@@ -2,21 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import { createTrade, calculatePulseStats, getPulse } from '@/services/firestore';
-import type { Trade, TradeRule, Pulse } from '@/types/pulse';
+import type { Trade, Pulse, AddTradeModalProps } from '@/types/pulse';
 import { toast } from 'sonner';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import { CheckIcon, ShieldExclamationIcon } from '@heroicons/react/24/outline';
 
-interface AddTradeModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onSuccess?: () => void;
-  pulseId: string;
-  firestoreId: string;
-  userId: string;
-  maxRiskPercentage: number;
-  accountSize: number;
-}
+
 
 export default function AddTradeModal({
   isOpen,

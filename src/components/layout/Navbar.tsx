@@ -144,14 +144,12 @@ export default function Navbar() {
         </div>
       </div>
 
-      {/* Only render calculator modal if we have pulse data */}
-      {currentPulse && (
-        <LotSizeCalculatorModal
-          isOpen={isCalculatorOpen}
-          onClose={() => setIsCalculatorOpen(false)}
-          pulse={currentPulse}
-        />
-      )}
+      {/* Calculator Modal - Now works with or without pulse data */}
+      <LotSizeCalculatorModal
+        isOpen={isCalculatorOpen}
+        onClose={() => setIsCalculatorOpen(false)}
+        pulse={currentPulse || undefined}
+      />
     </header>
   );
 }

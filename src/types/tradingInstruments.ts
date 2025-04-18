@@ -148,7 +148,8 @@ export interface TradingInstrument {
       symbol: 'XAU/USD',
       type: 'metals',
       lotSizeMultiplier: 100,
-      pipCalculation: 'percentage',
+      pipCalculation: 'standard',
+      pipValue: 0.1,
       minLotSize: 0.01,
       maxLotSize: 50,
       description: 'Gold vs US Dollar'

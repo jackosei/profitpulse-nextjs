@@ -1,73 +1,48 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { ArrowPathIcon } from "@heroicons/react/24/outline";
 import {
   TRADING_INSTRUMENTS,
   type TradingInstrument,
 } from "@/types/tradingInstruments";
 import type { Pulse } from "@/types/pulse";
-import { formatCurrency } from "@/utils/format";
+
 interface LotSizeCalculatorProps {
-  pulse: Pulse;
+  pulse?: Pulse;
 }
 
 export default function LotSizeCalculator({ pulse }: LotSizeCalculatorProps) {
   const [formData, setFormData] = useState({
-    accountSize: pulse.accountSize.toString(),
-    riskPercentage: "1",
+    accountSize: pulse?.accountSize.toString() || "",
+    riskPercentage: "1", // Default to 1% risk
     stopLossPips: "",
-    instrument: "",
+    instrument: pulse?.instruments?.[0] || "", // Pre-select first instrument if in pulse
     lotType: "standard" as "standard" | "mini" | "micro",
   });
 
-  const [selectedInstrument, setSelectedInstrument] =
-    useState<TradingInstrument | null>(null);
+  const [selectedInstrument, setSelectedInstrument] = useState<TradingInstrument | null>(
+    pulse?.instruments?.[0] 
+      ? TRADING_INSTRUMENTS.find(i => i.symbol === pulse.instruments[0]) || null 
+      : null
+  );
   const [lotSize, setLotSize] = useState<number | null>(null);
   const [riskAmount, setRiskAmount] = useState<number | null>(null);
   const [error, setError] = useState("");
 
-  // Memoize pulseInstruments
-  const pulseInstruments = useMemo(
-    () => (Array.isArray(pulse.instruments) ? pulse.instruments : []),
-    [pulse.instruments]
-  );
-
-  // Filter trading instruments based on pulse configuration
-  const availableInstruments = TRADING_INSTRUMENTS.filter((instrument) =>
-    pulseInstruments.includes(instrument.symbol)
-  );
-
-  // Auto-select instrument if pulse has only one
+  // Update selected instrument when pulse changes
   useEffect(() => {
-    if (pulseInstruments.length === 1) {
-      const defaultInstrument = TRADING_INSTRUMENTS.find(
-        (i) => i.symbol === pulseInstruments[0]
-      );
-      if (defaultInstrument) {
-        setSelectedInstrument(defaultInstrument);
-        setFormData((prev) => ({
+    if (pulse?.instruments?.[0]) {
+      const instrument = TRADING_INSTRUMENTS.find(i => i.symbol === pulse.instruments[0]);
+      if (instrument) {
+        setSelectedInstrument(instrument);
+        setFormData(prev => ({
           ...prev,
-          instrument: defaultInstrument.symbol,
+          instrument: instrument.symbol
         }));
       }
     }
-  }, [pulseInstruments]);
-
-  // If no instruments are available, show a message
-  if (availableInstruments.length === 0) {
-    return (
-      <div className="bg-dark p-4 rounded-lg border border-gray-800">
-        <h2 className="text-lg font-semibold mb-4">Position Size Calculator</h2>
-        <div className="p-4 bg-red-900/50 border border-red-800 rounded-lg">
-          <p className="text-red-500">
-            No trading instruments configured for this pulse. Please configure
-            instruments in pulse settings.
-          </p>
-        </div>
-      </div>
-    );
-  }
+  }, [pulse]);
 
   const handleInstrumentChange = (symbol: string) => {
     const instrument = TRADING_INSTRUMENTS.find((i) => i.symbol === symbol);
@@ -88,6 +63,11 @@ export default function LotSizeCalculator({ pulse }: LotSizeCalculatorProps) {
     const stopLossPips = parseFloat(formData.stopLossPips);
 
     // Validation
+    if (isNaN(accountSize) || accountSize <= 0) {
+      setError("Please enter a valid account size");
+      return;
+    }
+
     if (isNaN(stopLossPips) || stopLossPips <= 0) {
       setError("Please enter a valid stop loss in pips/points");
       return;
@@ -96,10 +76,12 @@ export default function LotSizeCalculator({ pulse }: LotSizeCalculatorProps) {
     if (
       isNaN(riskPercentage) ||
       riskPercentage <= 0 ||
-      riskPercentage > pulse.maxRiskPerTrade
+      (pulse && riskPercentage > pulse.maxRiskPerTrade)
     ) {
       setError(
-        `Risk percentage must be between 0 and ${pulse.maxRiskPerTrade}%`
+        pulse
+          ? `Risk percentage must be between 0 and ${pulse.maxRiskPerTrade}%`
+          : "Risk percentage must be greater than 0"
       );
       return;
     }
@@ -111,45 +93,75 @@ export default function LotSizeCalculator({ pulse }: LotSizeCalculatorProps) {
     let calculatedLotSize: number;
 
     if (selectedInstrument.pipCalculation === "standard") {
-      // For forex pairs
-      const standardLotPipValue = 10; // $10 per pip for 1.0 standard lot
-      const dollarPerPip = maxRiskAmount / stopLossPips;
-      calculatedLotSize = dollarPerPip / standardLotPipValue;
-
-      // No conversion during calculation - keep everything in standard lots
-      // We'll only convert for display purposes
+      // For forex pairs and metals with standard pip calculation
+      let pipValue: number;
+      
+      if (selectedInstrument.type === "metals") {
+        // For metals (XAUUSD, XAGUSD)
+        // Metals use fixed pip values per ounce
+        pipValue = selectedInstrument.pipValue || 0.1; // Default to $0.10 for gold
+        const dollarPerPip = maxRiskAmount / stopLossPips;
+        calculatedLotSize = dollarPerPip / (pipValue * 100); // Convert to standard lots (100 oz)
+      } else {
+        // For forex pairs
+        pipValue = 10; // $10 per pip for 1.0 standard lot
+        const dollarPerPip = maxRiskAmount / stopLossPips;
+        calculatedLotSize = dollarPerPip / pipValue;
+      }
     } else {
-      // For instruments with percentage-based calculation
+      // For indices and other instruments with percentage-based calculation
       calculatedLotSize =
         maxRiskAmount / (stopLossPips * selectedInstrument.lotSizeMultiplier);
     }
 
-    // Ensure lot size is within instrument limits in standard lots
+    // Ensure lot size is within instrument limits
     calculatedLotSize = Math.min(
       Math.max(calculatedLotSize, selectedInstrument.minLotSize),
       selectedInstrument.maxLotSize
     );
 
-    // Round to 2 decimal places for standard lots
-    setLotSize(parseFloat(calculatedLotSize.toFixed(2)));
+    // Round to appropriate decimal places based on instrument type
+    const decimals = selectedInstrument.type === "metals" ? 2 : 2;
+    setLotSize(parseFloat(calculatedLotSize.toFixed(decimals)));
   };
 
   // Function to convert and format display value
   const getDisplayValue = () => {
     if (!lotSize || !selectedInstrument) return "";
 
-    if (selectedInstrument.pipCalculation === "standard") {
-      // For display purposes, convert standard lots to selected lot type
-      switch (formData.lotType) {
-        case "standard":
-          return lotSize.toFixed(2);
-        case "mini":
-          return (lotSize * 10).toFixed(1);
-        case "micro":
-          return (lotSize * 100).toFixed(0);
-      }
+    // Convert lot size based on selected lot type for all instruments
+    switch (formData.lotType) {
+      case "standard":
+        return lotSize.toFixed(2);
+      case "mini":
+        return (lotSize * 10).toFixed(1);
+      case "micro":
+        return (lotSize * 100).toFixed(0);
     }
-    return lotSize.toFixed(2);
+  };
+
+  // Add this function after the existing state declarations
+  const getLotTypeInfo = (type: "standard" | "mini" | "micro") => {
+    switch (type) {
+      case "standard":
+        return {
+          label: "Standard Lots",
+          description: "1.0 lot = $10 per pip",
+          multiplier: 1,
+        };
+      case "mini":
+        return {
+          label: "Mini Lots",
+          description: "1.0 lot = $1 per pip",
+          multiplier: 0.1,
+        };
+      case "micro":
+        return {
+          label: "Micro Lots",
+          description: "1.0 lot = $0.10 per pip",
+          multiplier: 0.01,
+        };
+    }
   };
 
   return (
@@ -168,7 +180,7 @@ export default function LotSizeCalculator({ pulse }: LotSizeCalculatorProps) {
             onChange={(e) => handleInstrumentChange(e.target.value)}
           >
             <option value="">Select Instrument</option>
-            {availableInstruments.map((instrument) => (
+            {TRADING_INSTRUMENTS.map((instrument) => (
               <option key={instrument.symbol} value={instrument.symbol}>
                 {instrument.name} - {instrument.description}
               </option>
@@ -182,13 +194,18 @@ export default function LotSizeCalculator({ pulse }: LotSizeCalculatorProps) {
               Account Size ($)
             </label>
             <input
-              type="text"
+              type="number"
+              min="0"
+              step="0.01"
               className="input-dark w-full"
-              value={formatCurrency(formData.accountSize, {
-                decimals: 0,
-                prefix: "$",
-              })}
-              disabled
+              value={formData.accountSize}
+              onChange={(e) =>
+                setFormData((prev) => ({
+                  ...prev,
+                  accountSize: e.target.value,
+                }))
+              }
+              placeholder="Enter account size"
             />
           </div>
 
@@ -199,7 +216,7 @@ export default function LotSizeCalculator({ pulse }: LotSizeCalculatorProps) {
             <input
               type="number"
               min="0.10"
-              max={pulse.maxRiskPerTrade}
+              max={pulse?.maxRiskPerTrade}
               step="0.10"
               className="input-dark w-full"
               value={formData.riskPercentage}
@@ -210,24 +227,17 @@ export default function LotSizeCalculator({ pulse }: LotSizeCalculatorProps) {
                 }))
               }
             />
-            <p className="text-xs text-gray-500 mt-1">
-              Max: {pulse.maxRiskPerTrade}%
-            </p>
+            {pulse && (
+              <p className="text-xs text-gray-500 mt-1">
+                Max: {pulse.maxRiskPerTrade}%
+              </p>
+            )}
           </div>
 
-          <div
-            className={
-              selectedInstrument?.pipCalculation === "standard"
-                ? "md:col-span-1"
-                : "md:col-span-2"
-            }
-          >
+          <div className="md:col-span-2">
             <label className="block text-sm text-gray-400 mb-2">
               Stop Loss (
-              {selectedInstrument?.pipCalculation === "standard"
-                ? "Pips"
-                : "Points"}
-              )
+              {selectedInstrument?.pipCalculation === "standard" ? "Pips" : "Points"})
             </label>
             <input
               type="number"
@@ -242,41 +252,45 @@ export default function LotSizeCalculator({ pulse }: LotSizeCalculatorProps) {
                 }))
               }
               placeholder={`Enter ${
-                selectedInstrument?.pipCalculation === "standard"
-                  ? "pips"
-                  : "points"
+                selectedInstrument?.pipCalculation === "standard" ? "pips" : "points"
               }`}
             />
           </div>
 
-          {selectedInstrument?.pipCalculation === "standard" && (
-            <div>
-              <label className="block text-sm text-gray-400 mb-2">
-                Lot Type
-              </label>
-              <select
-                className="input-dark w-full"
-                value={formData.lotType}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    lotType: e.target.value as "standard" | "mini" | "micro",
-                  }))
-                }
-              >
-                <option value="standard">Standard Lots</option>
-                <option value="mini">Mini Lots</option>
-                <option value="micro">Micro Lots</option>
-              </select>
-              <p className="text-xs text-gray-500 mt-1">
-                {formData.lotType === "standard"
-                  ? "1.0 lot = $10 per pip"
-                  : formData.lotType === "mini"
-                  ? "1.0 lot = $1 per pip"
-                  : "1.0 lot = $0.10 per pip"}
-              </p>
+          {/* Lot Type Selection - Always show */}
+          <div className="md:col-span-2">
+            <label className="block text-sm text-gray-400 mb-2">
+              Lot Type
+              <span className="ml-2 text-xs text-gray-500">
+                (Select based on your broker&apos;s available lot sizes)
+              </span>
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+              {(["standard", "mini", "micro"] as const).map((type) => {
+                const info = getLotTypeInfo(type);
+                return (
+                  <button
+                    key={type}
+                    type="button"
+                    onClick={() =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        lotType: type,
+                      }))
+                    }
+                    className={`p-2 rounded-md border transition-colors ${
+                      formData.lotType === type
+                        ? "bg-accent/20 border-accent text-accent"
+                        : "bg-gray-800/50 border-gray-700 hover:bg-gray-800"
+                    }`}
+                  >
+                    <div className="text-sm font-medium">{info.label}</div>
+                    <div className="text-xs text-gray-400">{info.description}</div>
+                  </button>
+                );
+              })}
             </div>
-          )}
+          </div>
         </div>
 
         {error && (
@@ -301,13 +315,18 @@ export default function LotSizeCalculator({ pulse }: LotSizeCalculatorProps) {
               <div>
                 <p className="text-sm text-gray-400">Position Size:</p>
                 <p className="text-xl font-bold text-accent">
-                  {getDisplayValue()}
+                  {getDisplayValue()} {getLotTypeInfo(formData.lotType).label}
                 </p>
-
                 {selectedInstrument && (
                   <p className="text-xs text-gray-500 mt-1">
-                    Min: {selectedInstrument.minLotSize} | Max:{" "}
-                    {selectedInstrument.maxLotSize}
+                    Min: {selectedInstrument.minLotSize} | Max: {selectedInstrument.maxLotSize}
+                    {selectedInstrument.type === "metals" && (
+                      <span className="block mt-1">
+                        {formData.lotType === "standard" && `(${lotSize * 100} ounces)`}
+                        {formData.lotType === "mini" && `(${lotSize * 10} ounces)`}
+                        {formData.lotType === "micro" && `(${lotSize} ounces)`}
+                      </span>
+                    )}
                   </p>
                 )}
               </div>
@@ -319,9 +338,7 @@ export default function LotSizeCalculator({ pulse }: LotSizeCalculatorProps) {
                 {selectedInstrument && (
                   <p className="text-xs text-gray-500 mt-1">
                     {selectedInstrument.pipCalculation === "standard"
-                      ? `${(
-                          riskAmount / parseFloat(formData.stopLossPips)
-                        ).toFixed(2)}$ per pip`
+                      ? `${(riskAmount / parseFloat(formData.stopLossPips)).toFixed(2)}$ per pip`
                       : "Based on points calculation"}
                   </p>
                 )}

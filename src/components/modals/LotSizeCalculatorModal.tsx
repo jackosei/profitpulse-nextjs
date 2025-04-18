@@ -6,7 +6,7 @@ import { Pulse } from '@/types/pulse';
 interface LotSizeCalculatorModalProps {
   isOpen: boolean;
   onClose: () => void;
-  pulse: Pulse;
+  pulse?: Pulse;
 }
 
 export default function LotSizeCalculatorModal({
@@ -35,8 +35,10 @@ export default function LotSizeCalculatorModal({
               <LotSizeCalculator pulse={pulse} />
               
               <div className="mt-6 text-sm text-gray-500">
-                <p>This calculator helps you determine the appropriate position size based on your pulse&apos;s risk management parameters.</p>
-                <p className="mt-1">Note: Always verify calculations and adjust according to your trading strategy.</p>
+                <p>This calculator helps you determine the appropriate position size based on your risk management parameters.</p>
+                {pulse && (
+                  <p className="mt-1">Note: Using pulse settings for account size and risk limits.</p>
+                )}
               </div>
               
               <div className="flex justify-end mt-4">

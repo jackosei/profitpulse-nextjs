@@ -10,12 +10,14 @@ import {
   Bars3Icon as MenuIcon,
   XMarkIcon as XIcon,
   UserIcon,
+  ChartPieIcon,
 } from '@heroicons/react/24/outline';
 
 // Map of icons for each route
 const iconMap = {
   '/': <HomeIcon className="w-6 h-6" />,
   '/dashboard': <ChartBarIcon className="w-6 h-6" />,
+  '/pulses': <ChartPieIcon className="w-6 h-6" />,
   '/profile': <UserIcon className="w-6 h-6" />,
 };
 

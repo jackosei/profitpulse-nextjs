@@ -55,6 +55,8 @@ export interface Trade {
 	pulseId: string
 	userId: string
 	date: string
+	entryTime?: string  // New field for trade entry time
+	exitTime?: string   // New field for trade exit time
 	type: "Buy" | "Sell"
 	lotSize: number
 	entryPrice: number
@@ -67,6 +69,26 @@ export interface Trade {
 	instrument: string
 	learnings?: string
 	followedRules?: string[] // IDs of rules that were followed
+	
+	// Psychological factors
+	emotionalState?: "Calm" | "Excited" | "Fearful" | "Greedy" | "Anxious" | "Confident" | "Other"
+	emotionalIntensity?: number // 1-10 scale
+	mentalState?: "Clear" | "Distracted" | "Tired" | "Focused" | "Rushed" | "Other"
+	
+	// Decision quality
+	planAdherence?: "Fully" | "Partially" | "Deviated" // Did they follow their plan?
+	impulsiveEntry?: boolean // Was this an impulse trade?
+	
+	// Context factors
+	marketCondition?: "Trending" | "Ranging" | "Volatile" | "Calm" | "News-driven"
+	timeOfDay?: string // To identify time-based patterns
+	tradingEnvironment?: "Home" | "Office" | "Mobile" | "Other"
+	
+	// Post-trade reflection
+	wouldRepeat?: boolean // Would make the same trade again?
+	emotionalImpact?: "Positive" | "Negative" | "Neutral" // How the trade affected mood/confidence
+	mistakesIdentified?: string[]
+	improvementIdeas?: string
 }
 
 export interface PulseStats {

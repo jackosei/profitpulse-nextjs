@@ -30,6 +30,8 @@ export interface TradeCreateData {
   pulseId: string;
   userId: string;
   date: string;
+  entryTime?: string;  
+  exitTime?: string;   
   type: "Buy" | "Sell";
   lotSize: number;
   entryPrice: number;
@@ -41,6 +43,30 @@ export interface TradeCreateData {
   instrument: string;
   learnings?: string;
   followedRules?: string[];
+  
+  // Screenshots
+  entryScreenshot?: string;
+  exitScreenshot?: string;
+  
+  // Psychological factors
+  emotionalState?: "Calm" | "Excited" | "Fearful" | "Greedy" | "Anxious" | "Confident" | "Other";
+  emotionalIntensity?: number;
+  mentalState?: "Clear" | "Distracted" | "Tired" | "Focused" | "Rushed" | "Other";
+  
+  // Decision quality
+  planAdherence?: "Fully" | "Partially" | "Deviated";
+  impulsiveEntry?: boolean;
+  
+  // Context factors
+  marketCondition?: "Trending" | "Ranging" | "Volatile" | "Calm" | "News-driven";
+  timeOfDay?: string;
+  tradingEnvironment?: "Home" | "Office" | "Mobile" | "Other";
+  
+  // Post-trade reflection
+  wouldRepeat?: boolean;
+  emotionalImpact?: "Positive" | "Negative" | "Neutral";
+  mistakesIdentified?: string[];
+  improvementIdeas?: string;
 }
 
 /**

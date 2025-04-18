@@ -2,12 +2,12 @@
 
 import { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { updatePulse } from '@/services/firestore';
 import { toast } from 'sonner';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import { MAX_RISK_PERCENTAGE, MAX_DAILY_DRAWDOWN, MAX_TOTAL_DRAWDOWN, type Pulse, type TradeRule } from '@/types/pulse';
 import { PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
 import { v4 as uuidv4 } from 'uuid';
+import { usePulse } from '@/hooks/usePulse';
 
 interface UpdatePulseModalProps {
   isOpen: boolean;
@@ -18,7 +18,9 @@ interface UpdatePulseModalProps {
 
 export default function UpdatePulseModal({ isOpen, onClose, onSuccess, pulse }: UpdatePulseModalProps) {
   const { user } = useAuth();
+  const { updatePulse, loading: apiLoading } = usePulse();
   const [loading, setLoading] = useState(false);
+  const isSubmitting = loading || apiLoading;
   const [formData, setFormData] = useState({
     accountSize: (pulse?.accountSize ?? 0).toString(),
     maxRiskPerTrade: (pulse?.maxRiskPerTrade ?? 0).toString(),
@@ -118,7 +120,11 @@ export default function UpdatePulseModal({ isOpen, onClose, onSuccess, pulse }: 
         updateReason: formData.updateReason
       };
 
-      await updatePulse(pulse.id, user.uid, updateData);
+      const success = await updatePulse(pulse.id, user.uid, updateData);
+      
+      if (!success) {
+        throw new Error('Failed to update pulse');
+      }
       
       toast.success('Pulse updated successfully!', {
         description: 'The pulse settings have been updated.',
@@ -180,7 +186,7 @@ export default function UpdatePulseModal({ isOpen, onClose, onSuccess, pulse }: 
                         type="number"
                         required
                         min="0"
-                        disabled={loading}
+                        disabled={isSubmitting}
                         className="input-dark w-full disabled:opacity-50 disabled:cursor-not-allowed"
                         value={formData.accountSize}
                         onChange={(e) => setFormData(prev => ({ ...prev, accountSize: e.target.value }))}
@@ -192,7 +198,7 @@ export default function UpdatePulseModal({ isOpen, onClose, onSuccess, pulse }: 
                       <input
                         type="text"
                         required
-                        disabled={loading}
+                        disabled={isSubmitting}
                         className="input-dark w-full disabled:opacity-50 disabled:cursor-not-allowed"
                         value={formData.instruments}
                         onChange={(e) => setFormData(prev => ({ ...prev, instruments: e.target.value }))}
@@ -208,7 +214,7 @@ export default function UpdatePulseModal({ isOpen, onClose, onSuccess, pulse }: 
                         min="0"
                         max={MAX_RISK_PERCENTAGE}
                         step="0.1"
-                        disabled={loading}
+                        disabled={isSubmitting}
                         className="input-dark w-full disabled:opacity-50 disabled:cursor-not-allowed"
                         value={formData.maxRiskPerTrade}
                         onChange={(e) => setFormData(prev => ({ ...prev, maxRiskPerTrade: e.target.value }))}
@@ -223,7 +229,7 @@ export default function UpdatePulseModal({ isOpen, onClose, onSuccess, pulse }: 
                         min="0"
                         max={MAX_DAILY_DRAWDOWN}
                         step="0.1"
-                        disabled={loading}
+                        disabled={isSubmitting}
                         className="input-dark w-full disabled:opacity-50 disabled:cursor-not-allowed"
                         value={formData.maxDailyDrawdown}
                         onChange={(e) => setFormData(prev => ({ ...prev, maxDailyDrawdown: e.target.value }))}
@@ -238,7 +244,7 @@ export default function UpdatePulseModal({ isOpen, onClose, onSuccess, pulse }: 
                         min="0"
                         max={MAX_TOTAL_DRAWDOWN}
                         step="0.1"
-                        disabled={loading}
+                        disabled={isSubmitting}
                         className="input-dark w-full disabled:opacity-50 disabled:cursor-not-allowed"
                         value={formData.maxTotalDrawdown}
                         onChange={(e) => setFormData(prev => ({ ...prev, maxTotalDrawdown: e.target.value }))}
@@ -275,7 +281,7 @@ export default function UpdatePulseModal({ isOpen, onClose, onSuccess, pulse }: 
                       <div className="flex items-center gap-2 mb-2">
                         <input
                           type="text"
-                          disabled={loading}
+                          disabled={isSubmitting}
                           className="input-dark flex-grow disabled:opacity-50 disabled:cursor-not-allowed"
                           value={ruleInput}
                           onChange={(e) => setRuleInput(e.target.value)}
@@ -312,7 +318,7 @@ export default function UpdatePulseModal({ isOpen, onClose, onSuccess, pulse }: 
                       <label className="block text-sm text-gray-400 mb-2">Reason for Update</label>
                       <textarea
                         required
-                        disabled={loading}
+                        disabled={isSubmitting}
                         className="input-dark w-full h-24 disabled:opacity-50 disabled:cursor-not-allowed"
                         value={formData.updateReason}
                         onChange={(e) => setFormData(prev => ({ ...prev, updateReason: e.target.value }))}
@@ -336,10 +342,10 @@ export default function UpdatePulseModal({ isOpen, onClose, onSuccess, pulse }: 
                       </button>
                       <button
                         type="submit"
-                        disabled={loading}
+                        disabled={isSubmitting}
                         className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        {loading ? (
+                        {isSubmitting ? (
                           <span className="flex items-center justify-center">
                             <LoadingSpinner />
                             Updating...

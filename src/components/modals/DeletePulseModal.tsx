@@ -3,17 +3,18 @@
 import { useState, useEffect } from 'react';
 import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react';
 import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
-import { deletePulse } from '@/services/firestore';
 import { useAuth } from '@/context/AuthContext';
 import { toast } from 'sonner';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import { DeletePulseModalProps } from '@/types/pulse';
-
+import { usePulse } from '@/hooks/usePulse';
 
 export default function DeletePulseModal({ isOpen, onClose, pulse, onSuccess }: DeletePulseModalProps) {
   const [confirmationName, setConfirmationName] = useState('');
   const [loading, setLoading] = useState(false);
   const { user } = useAuth();
+  const { deletePulse, loading: apiLoading } = usePulse();
+  const isSubmitting = loading || apiLoading;
 
   // Reset confirmation name when modal opens/closes
   useEffect(() => {
@@ -27,7 +28,11 @@ export default function DeletePulseModal({ isOpen, onClose, pulse, onSuccess }: 
     
     setLoading(true);
     try {
-      await deletePulse(pulse.id, user.uid, confirmationName);
+      const success = await deletePulse(pulse.id, user.uid, confirmationName);
+      if (!success) {
+        throw new Error('Failed to delete pulse');
+      }
+      
       toast.success('Pulse deleted successfully');
       onSuccess();
       onClose();
@@ -75,22 +80,23 @@ export default function DeletePulseModal({ isOpen, onClose, pulse, onSuccess }: 
               onChange={(e) => setConfirmationName(e.target.value)}
               placeholder="Type pulse name to confirm"
               className="w-full p-3 rounded-lg bg-white/10 border border-white/20 focus:outline-none focus:ring-2 focus:ring-red-500 mb-4"
+              disabled={isSubmitting}
             />
 
             <div className="flex justify-end gap-3">
               <button
                 onClick={onClose}
                 className="px-4 py-2 rounded-lg hover:bg-white/10 text-gray-300"
-                disabled={loading}
+                disabled={isSubmitting}
               >
                 Cancel
               </button>
               <button
                 onClick={handleDelete}
-                disabled={!isConfirmationValid || loading}
+                disabled={!isConfirmationValid || isSubmitting}
                 className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {loading ? 
+                {isSubmitting ? 
                 <span className="flex items-center justify-center">
                 <LoadingSpinner />
                 Deleting...

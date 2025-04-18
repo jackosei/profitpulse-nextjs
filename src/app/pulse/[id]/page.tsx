@@ -3,9 +3,9 @@
 import { useState, useEffect, useCallback } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { useAuth } from "@/context/AuthContext"
-import { getPulseById, getMoreTrades, archivePulse } from "@/services/firestore"
+import { usePulse } from "@/hooks/usePulse"
 import type { Pulse, Trade } from "@/types/pulse"
-import Loader from "@/components/ui/Loader"
+import Loader from "@/components/ui/LoadingSpinner"
 import AddTradeModal from "@/components/modals/AddTradeModal"
 import DeletePulseModal from "@/components/modals/DeletePulseModal"
 import UpdatePulseModal from "@/components/modals/UpdatePulseModal"
@@ -23,6 +23,15 @@ export default function PulseDetailsPage() {
 	const { id } = useParams()
 	const router = useRouter()
 	const { user } = useAuth()
+	const { 
+		getPulseById, 
+		getMoreTrades, 
+		archivePulse, 
+		loading: apiLoading, 
+		error: apiError 
+	} = usePulse({
+		onError: (message) => toast.error(message)
+	})
 	const [pulse, setPulse] = useState<Pulse | null>(null)
 	const [loading, setLoading] = useState(true)
 	const [error, setError] = useState("")
@@ -52,16 +61,20 @@ export default function PulseDetailsPage() {
 	const fetchPulse = useCallback(async () => {
 		if (!user || !id) return
 		try {
+			setLoading(true)
 			const pulseData = await getPulseById(id as string, user.uid)
-			setPulse(pulseData)
-			setHasMore(pulseData.hasMore)
-			setLastVisible(pulseData.lastVisible)
+			if (pulseData) {
+				setPulse(pulseData)
+				setHasMore(pulseData.hasMore)
+				setLastVisible(pulseData.lastVisible)
+			}
 		} catch (error) {
 			console.error("Error fetching pulse:", error)
 			setError("Failed to load pulse details")
 		} finally {
 			setLoading(false)
 		}
+	// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [user, id])
 
 	const loadMoreTrades = useCallback(async () => {
@@ -69,21 +82,26 @@ export default function PulseDetailsPage() {
 
 		setLoadingMore(true)
 		try {
-			const result = await getMoreTrades(pulse.firestoreId || "", lastVisible)
-			setPulse((prev) => {
-				if (!prev) return null
-				return {
-					...prev,
-					trades: [...(prev.trades || []), ...result.trades] as Trade[],
-				}
-			})
-			setHasMore(result.hasMore)
-			setLastVisible(result.lastVisible)
+			const firestoreId = pulse.firestoreId || ""
+			const result = await getMoreTrades(firestoreId, lastVisible)
+			
+			if (result) {
+				setPulse((prev) => {
+					if (!prev) return null
+					return {
+						...prev,
+						trades: [...(prev.trades || []), ...result.trades] as Trade[],
+					}
+				})
+				setHasMore(result.hasMore)
+				setLastVisible(result.lastVisible)
+			}
 		} catch (error) {
 			console.error("Error loading more trades:", error)
 		} finally {
 			setLoadingMore(false)
 		}
+	// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [pulse, lastVisible, loadingMore])
 
 	const handlePulseDeleted = useCallback(() => {
@@ -93,9 +111,11 @@ export default function PulseDetailsPage() {
 	const handleArchive = async () => {
 		if (!user || !pulse) return
 		try {
-			await archivePulse(pulse.id, user.uid)
-			toast.success("Pulse archived successfully")
-			router.push("/dashboard")
+			const success = await archivePulse(pulse.id, user.uid)
+			if (success) {
+				toast.success("Pulse archived successfully")
+				router.push("/dashboard")
+			}
 		} catch {
 			toast.error("Failed to archive pulse")
 		}
@@ -230,8 +250,8 @@ export default function PulseDetailsPage() {
 		fetchPulse()
 	}, [fetchPulse])
 
-	if (loading) return <Loader />
-	if (error) return <div className="p-6 text-red-500">{error}</div>
+	if (loading || apiLoading) return <Loader />
+	if (error || apiError) return <div className="p-6 text-red-500">{error || apiError}</div>
 	if (!pulse) return <div className="p-6">Pulse not found</div>
 
 	return (

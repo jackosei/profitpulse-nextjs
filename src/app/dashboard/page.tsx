@@ -2,12 +2,13 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { useAuth } from "@/context/AuthContext"
-import { getUserPulses } from "@/services/firestore"
+import { usePulse } from "@/hooks/usePulse"
 import type { Pulse } from "@/types/pulse"
 import { PULSE_STATUS } from "@/types/pulse"
 import CreatePulseModal from "@/components/modals/CreatePulseModal"
-import Loader from "@/components/ui/Loader"
+import Loader from "@/components/ui/LoadingSpinner"
 import { formatCurrency, formatRatio } from "@/utils/format"
+import { toast } from "sonner"
 
 // Import our new components
 import TimeRangeSelector, {
@@ -25,6 +26,9 @@ import {
 
 export default function DashboardPage() {
 	const { user } = useAuth()
+	const { getUserPulses, loading: pulseLoading } = usePulse({
+		onError: (message) => toast.error(message)
+	})
 	const [pulses, setPulses] = useState<Pulse[]>([])
 	const [loading, setLoading] = useState(true)
 	const [showCreateModal, setShowCreateModal] = useState(false)
@@ -41,15 +45,19 @@ export default function DashboardPage() {
 	const fetchPulses = useCallback(async () => {
 		if (!user) return
 		try {
+			setLoading(true)
 			const userPulses = await getUserPulses(user.uid, PULSE_STATUS.ACTIVE)
-			setPulses(userPulses)
-			const changes = calculatePeriodChanges(userPulses, selectedTimeRange)
-			setPeriodChange(changes)
+			if (userPulses) {
+				setPulses(userPulses)
+				const changes = calculatePeriodChanges(userPulses, selectedTimeRange)
+				setPeriodChange(changes)
+			}
 		} catch (error) {
 			console.error("Error fetching pulses:", error)
 		} finally {
 			setLoading(false)
 		}
+	// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [user, selectedTimeRange])
 
 	useEffect(() => {
@@ -60,7 +68,7 @@ export default function DashboardPage() {
 		setSelectedTimeRange(range)
 	}
 
-	if (loading) {
+	if (loading || pulseLoading) {
 		return <Loader />
 	}
 

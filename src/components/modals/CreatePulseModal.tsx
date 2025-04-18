@@ -2,12 +2,13 @@
 
 import { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { createPulse } from '@/services/firestore';
 import { toast } from 'sonner';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import { MAX_RISK_PERCENTAGE, MAX_DAILY_DRAWDOWN, MAX_TOTAL_DRAWDOWN } from '@/types/pulse';
 import { PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
 import { v4 as uuidv4 } from 'uuid';
+import { usePulse } from '@/hooks/usePulse';
+import { TradeRule } from '@/types/pulse';
 
 interface CreatePulseModalProps {
   isOpen: boolean;
@@ -17,7 +18,7 @@ interface CreatePulseModalProps {
 
 export default function CreatePulseModal({ isOpen, onClose, onSuccess }: CreatePulseModalProps) {
   const { user } = useAuth();
-  const [loading, setLoading] = useState(false);
+  const { createPulse, loading } = usePulse();
   const [formData, setFormData] = useState({
     name: '',
     instruments: [] as string[],
@@ -27,7 +28,7 @@ export default function CreatePulseModal({ isOpen, onClose, onSuccess }: CreateP
     maxTotalDrawdown: '',
     note: ''
   });
-  const [tradingRules, setTradingRules] = useState<Array<{id: string; description: string; isRequired: boolean}>>([]);
+  const [tradingRules, setTradingRules] = useState<TradeRule[]>([]);
   const [ruleInput, setRuleInput] = useState('');
   const [isRuleRequired, setIsRuleRequired] = useState(false);
   const [instrumentInput, setInstrumentInput] = useState('');
@@ -119,12 +120,10 @@ export default function CreatePulseModal({ isOpen, onClose, onSuccess }: CreateP
     setError('');
     
     if (!validateForm()) return;
-    
-    setLoading(true);
 
     try {
       if (!user) throw new Error('User not authenticated');
-
+      
       const pulseData = {
         name: formData.name,
         instruments: formData.instruments,
@@ -132,13 +131,16 @@ export default function CreatePulseModal({ isOpen, onClose, onSuccess }: CreateP
         maxRiskPerTrade: Number(formData.maxRiskPerTrade),
         maxDailyDrawdown: Number(formData.maxDailyDrawdown),
         maxTotalDrawdown: Number(formData.maxTotalDrawdown),
-        userId: user.uid,
-        status: 'active' as const,
         tradingRules: tradingRules,
-        note: formData.note
+        note: formData.note,
+        userId: user.uid
       };
 
-      await createPulse(pulseData);
+      const response = await createPulse(pulseData);
+      
+      if (!response) {
+        throw new Error('Failed to create pulse');
+      }
       
       toast.success('Pulse created successfully!', {
         description: `${pulseData.name} with ${pulseData.accountSize} account size`,
@@ -158,7 +160,7 @@ export default function CreatePulseModal({ isOpen, onClose, onSuccess }: CreateP
         note: ''
       });
       setTradingRules([]);
-    } catch (error: Error | unknown) {
+    } catch (error: unknown) {
       console.error('Error creating pulse:', error);
       setError(error instanceof Error ? error.message : 'Failed to create pulse. Please try again.');
       
@@ -166,8 +168,6 @@ export default function CreatePulseModal({ isOpen, onClose, onSuccess }: CreateP
         description: error instanceof Error ? error.message : 'Please try again',
         duration: 5000,
       });
-    } finally {
-      setLoading(false);
     }
   };
 

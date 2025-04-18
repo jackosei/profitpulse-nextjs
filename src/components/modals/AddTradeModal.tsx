@@ -1,14 +1,13 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { createTrade, calculatePulseStats, getPulse } from '@/services/firestore';
-import type { Trade, Pulse, AddTradeModalProps } from '@/types/pulse';
+import type { Pulse, AddTradeModalProps } from '@/types/pulse';
 import { toast } from 'sonner';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
-import { CheckIcon, ShieldExclamationIcon } from '@heroicons/react/24/outline';
+import { CheckIcon } from '@heroicons/react/24/outline';
 import { TRADING_INSTRUMENTS } from '@/types/tradingInstruments';
-
-
+import { usePulse } from '@/hooks/usePulse';
+import type { TradeCreateData } from '@/services/api/pulseApi';
 
 export default function AddTradeModal({
   isOpen,
@@ -17,10 +16,13 @@ export default function AddTradeModal({
   pulseId,
   firestoreId,
   userId,
-  maxRiskPercentage,
   accountSize
 }: AddTradeModalProps) {
+  const { getPulseById, createTrade, loading: apiLoading } = usePulse({
+    onError: (message) => toast.error(message)
+  });
   const [loading, setLoading] = useState(false);
+  const isSubmitting = loading || apiLoading;
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0],
     type: 'Buy',
@@ -38,28 +40,20 @@ export default function AddTradeModal({
   const [loadingPulse, setLoadingPulse] = useState(true);
   const [availableInstruments, setAvailableInstruments] = useState<string[]>([]);
 
-  // Fetch pulse data including rules when modal opens
+  // Fetch pulse details when modal is opened
   useEffect(() => {
-    if (isOpen && firestoreId) {
+    if (isOpen && pulseId) {
       const fetchPulse = async () => {
         setLoadingPulse(true);
         try {
-          const pulseData = await getPulse(firestoreId);
-          setPulse(pulseData);
-          // Initialize followed rules to empty
-          setFollowedRules([]);
-          
-          // Set available instruments from pulse configuration
-          if (Array.isArray(pulseData.instruments) && pulseData.instruments.length > 0) {
-            setAvailableInstruments(pulseData.instruments);
-            // Auto-select first instrument if available
-            if (pulseData.instruments.length === 1) {
-              setFormData(prev => ({ ...prev, instrument: pulseData.instruments[0] }));
-            }
+          const pulseData = await getPulseById(pulseId, userId);
+          if (pulseData) {
+            setPulse(pulseData);
+            setAvailableInstruments(pulseData.instruments || []);
           }
-        } catch (error) {
-          console.error('Error fetching pulse:', error);
-          toast.error('Could not load pulse data');
+        } catch (err) {
+          console.error('Error fetching pulse:', err);
+          toast.error('Failed to load pulse details');
         } finally {
           setLoadingPulse(false);
         }
@@ -67,14 +61,15 @@ export default function AddTradeModal({
       
       fetchPulse();
     }
-  }, [isOpen, firestoreId]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, pulseId, userId]);
 
-  const toggleRule = (ruleId: string) => {
-    setFollowedRules(prev => 
-      prev.includes(ruleId) 
-        ? prev.filter(id => id !== ruleId) 
-        : [...prev, ruleId]
-    );
+  const handleRuleToggle = (ruleId: string) => {
+    setFollowedRules(prev => {
+      return prev.includes(ruleId)
+        ? prev.filter(id => id !== ruleId)
+        : [...prev, ruleId];
+    });
   };
 
   const validateForm = () => {
@@ -133,21 +128,9 @@ export default function AddTradeModal({
     // Check if profit/loss sign matches the expected direction
     const isProfitable = profitLoss > 0;
     
-    if (expectedProfitableDirection && !isProfitable) {
-      setError('Profit/loss amount should be positive for this trade (prices indicate a profitable trade)');
-      return false;
-    }
-    
-    if (!expectedProfitableDirection && isProfitable) {
-      setError('Profit/loss amount should be negative for this trade (prices indicate a losing trade)');
-      return false;
-    }
-
-    const maxLossAllowed = (maxRiskPercentage / 100) * accountSize; 
-
-    if (profitLoss < 0 && Math.abs(profitLoss) > maxLossAllowed) {
-      setError(`Loss exceeds maximum allowed (${maxRiskPercentage}%) of account size`);
-      return false;
+    if (isProfitable !== expectedProfitableDirection && profitLoss !== 0) {
+      // Just a warning, not preventing submission
+      toast.warning('The profit/loss amount you entered doesn\'t match the expected result based on entry/exit prices. Please double-check.');
     }
 
     return true;
@@ -157,15 +140,17 @@ export default function AddTradeModal({
     e.preventDefault();
     setError('');
     
-    if (!validateForm()) return;
+    if (!validateForm()) {
+      return;
+    }
     
     setLoading(true);
 
     try {
       const profitLoss = Number(formData.profitLoss);
-      const outcome = profitLoss > 0 ? 'Win' : profitLoss < 0 ? 'Loss' : 'Break-even';
+      const outcome = profitLoss > 0 ? 'Win' as const : profitLoss < 0 ? 'Loss' as const : 'Break-even' as const;
       
-      const tradeData: Omit<Trade, 'id' | 'createdAt'> = {
+      const tradeData: TradeCreateData = {
         date: formData.date,
         type: formData.type as 'Buy' | 'Sell',
         lotSize: Number(formData.lotSize),
@@ -182,8 +167,11 @@ export default function AddTradeModal({
         followedRules
       };
 
-      await createTrade(pulseId, firestoreId, tradeData);
-      await calculatePulseStats(firestoreId);
+      const response = await createTrade(firestoreId, tradeData);
+      
+      if (!response) {
+        throw new Error('Failed to create trade');
+      }
       
       // Show success notification with more details
       toast.success('Trade added successfully!', {
@@ -209,11 +197,11 @@ export default function AddTradeModal({
       setFollowedRules([]);
     } catch (error) {
       console.error('Error adding trade:', error);
-      setError('Failed to add trade. Please try again.');
+      setError(error instanceof Error ? error.message : 'Failed to add trade. Please try again.');
       
       // Enhanced error toast
       toast.error('Failed to add trade', {
-        description: 'Please try again or check your connection',
+        description: error instanceof Error ? error.message : 'Please try again or check your connection',
         duration: 5000,
       });
     } finally {
@@ -231,237 +219,207 @@ export default function AddTradeModal({
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50">
-      <div className="fixed inset-0 overflow-y-auto">
-        <div className="flex min-h-full items-center justify-center p-4">
-          <div className="relative w-full max-w-4xl">
-            <div className="bg-dark p-4 sm:p-6 rounded-lg border border-gray-800 max-h-[90vh] overflow-y-auto">
-              <h2 className="text-xl font-bold text-foreground mb-4">Add Trade</h2>
-              
-              {loadingPulse ? (
-                <div className="flex justify-center p-8">
-                  <LoadingSpinner />
-                </div>
-              ) : (
-                <form onSubmit={handleSubmit} className="overflow-y-auto">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-4">
-                      <div>
-                        <label className="block text-sm text-gray-400 mb-2">Date</label>
-                        <input
-                          type="date"
-                          required
-                          disabled={loading}
-                          className="input-dark w-full disabled:opacity-50 disabled:cursor-not-allowed"
-                          value={formData.date}
-                          onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))}
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-sm text-gray-400 mb-2">Instrument</label>
-                        <select
-                          required
-                          disabled={loading || availableInstruments.length === 0}
-                          className="input-dark w-full disabled:opacity-50 disabled:cursor-not-allowed h-[44.5px]"
-                          value={formData.instrument}
-                          onChange={(e) => setFormData(prev => ({ ...prev, instrument: e.target.value }))}
-                        >
-                          <option value="">Select Instrument</option>
-                          {availableInstruments.map((instrument) => (
-                            <option key={instrument} value={instrument}>
-                              {getInstrumentName(instrument)}
-                            </option>
-                          ))}
-                        </select>
-                        {availableInstruments.length === 0 && (
-                          <p className="text-xs text-red-500 mt-1">
-                            No instruments configured. Please update pulse settings.
-                          </p>
-                        )}
-                      </div>
-
-                      <div>
-                        <label className="block text-sm text-gray-400 mb-2">Entry Price</label>
-                        <input
-                          type="number"
-                          required
-                          step="0.00001"
-                          min="0.00001"
-                          disabled={loading}
-                          className="input-dark w-full disabled:opacity-50 disabled:cursor-not-allowed"
-                          value={formData.entryPrice}
-                          onChange={(e) => setFormData(prev => ({ ...prev, entryPrice: e.target.value }))}
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-sm text-gray-400 mb-2">Exit Price</label>
-                        <input
-                          type="number"
-                          required
-                          step="0.00001"
-                          min="0.00001"
-                          disabled={loading}
-                          className="input-dark w-full disabled:opacity-50 disabled:cursor-not-allowed"
-                          value={formData.exitPrice}
-                          onChange={(e) => setFormData(prev => ({ ...prev, exitPrice: e.target.value }))}
-                        />
-                      </div>
+      <div className="flex min-h-full items-center justify-center p-4">
+        <div className="relative w-full max-w-4xl">
+          <div className="bg-dark p-4 sm:p-6 rounded-lg border border-gray-800 max-h-[90vh] overflow-y-auto">
+            <h2 className="text-xl font-bold text-foreground mb-4">Add Trade</h2>
+            
+            {loadingPulse ? (
+              <div className="flex justify-center p-8">
+                <LoadingSpinner />
+              </div>
+            ) : (
+              <form onSubmit={handleSubmit} className="overflow-y-auto">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm text-gray-400 mb-2">Date</label>
+                      <input
+                        type="date"
+                        required
+                        disabled={isSubmitting}
+                        className="input-dark w-full disabled:opacity-50 disabled:cursor-not-allowed"
+                        value={formData.date}
+                        onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))}
+                      />
                     </div>
 
-                    <div className="space-y-4">
-                      <div>
-                        <label className="block text-sm text-gray-400 mb-2">Type</label>
-                        <select
-                          required
-                          disabled={loading}
-                          className="input-dark w-full disabled:opacity-50 disabled:cursor-not-allowed h-[44.5px]"
-                          value={formData.type}
-                          onChange={(e) => setFormData(prev => ({ ...prev, type: e.target.value }))}
-                        >
-                          <option value="Buy">Buy</option>
-                          <option value="Sell">Sell</option>
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className="block text-sm text-gray-400 mb-2">Lot Size</label>
-                        <input
-                          type="number"
-                          required
-                          step="0.01"
-                          min="0.01"
-                          disabled={loading}
-                          className="input-dark w-full disabled:opacity-50 disabled:cursor-not-allowed"
-                          value={formData.lotSize}
-                          onChange={(e) => setFormData(prev => ({ ...prev, lotSize: e.target.value }))}
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-sm text-gray-400 mb-2">Actual Profit/Loss (USD)</label>
-                        <input
-                          type="number"
-                          required
-                          step="0.01"
-                          disabled={loading}
-                          className="input-dark w-full disabled:opacity-50 disabled:cursor-not-allowed"
-                          value={formData.profitLoss}
-                          onChange={(e) => setFormData(prev => ({ ...prev, profitLoss: e.target.value }))}
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-sm text-gray-400 mb-2">Entry Reason</label>
-                        <textarea
-                          required
-                          disabled={loading}
-                          rows={3}
-                          className="input-dark w-full disabled:opacity-50 disabled:cursor-not-allowed"
-                          value={formData.entryReason}
-                          onChange={(e) => setFormData(prev => ({ ...prev, entryReason: e.target.value }))}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="md:col-span-2">
-                      <div>
-                        <label className="block text-sm text-gray-400 mb-2">Learnings (Optional)</label>
-                        <textarea
-                          disabled={loading}
-                          rows={3}
-                          className="input-dark w-full disabled:opacity-50 disabled:cursor-not-allowed"
-                          value={formData.learnings}
-                          onChange={(e) => setFormData(prev => ({ ...prev, learnings: e.target.value }))}
-                          placeholder="What did you learn from this trade?"
-                        />
-                      </div>
-                    </div>
-
-                    {pulse?.tradingRules && pulse.tradingRules.length > 0 && (
-                      <div className="md:col-span-2 mt-4 space-y-3">
-                        <div className="flex items-center gap-2 mb-1">
-                          <ShieldExclamationIcon className="w-4 h-4 text-accent" />
-                          <h3 className="text-md font-medium text-foreground">Trading Rules Checklist</h3>
-                        </div>
-                        
-                        <div className="space-y-2 max-h-60 overflow-y-auto p-2 bg-dark-lighter rounded-lg">
-                          {pulse.tradingRules.map((rule) => (
-                            <div 
-                              key={rule.id}
-                              className={`p-3 rounded-md border ${
-                                followedRules.includes(rule.id) 
-                                  ? 'bg-accent/5 border-accent/20' 
-                                  : 'bg-dark border-gray-800'
-                              } ${
-                                rule.isRequired ? 'border-l-2 border-l-accent' : ''
-                              }`}
-                            >
-                              <label className="flex items-start gap-3 cursor-pointer">
-                                <div className={`mt-0.5 flex-shrink-0 w-5 h-5 border rounded flex items-center justify-center ${
-                                  followedRules.includes(rule.id) 
-                                    ? 'bg-accent border-accent' 
-                                    : 'border-gray-600'
-                                }`}>
-                                  {followedRules.includes(rule.id) && (
-                                    <CheckIcon className="w-3 h-3 text-white" />
-                                  )}
-                                </div>
-                                <div className="flex-1">
-                                  <span className="text-sm text-gray-200 font-medium">
-                                    {rule.description}
-                                    {rule.isRequired && (
-                                      <span className="ml-2 text-xs font-medium text-accent">REQUIRED</span>
-                                    )}
-                                  </span>
-                                </div>
-                                <input 
-                                  type="checkbox"
-                                  className="sr-only"
-                                  checked={followedRules.includes(rule.id)}
-                                  onChange={() => toggleRule(rule.id)}
-                                  id={`rule-${rule.id}`}
-                                />
-                              </label>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    <div className="md:col-span-2 space-y-4">
-                      {error && (
-                        <div className="p-3 bg-red-900/50 border border-red-800 rounded-lg">
-                          <p className="text-red-500 text-sm">{error}</p>
-                        </div>
+                    <div>
+                      <label className="block text-sm text-gray-400 mb-2">Instrument</label>
+                      <select
+                        required
+                        disabled={isSubmitting || availableInstruments.length === 0}
+                        className="input-dark w-full disabled:opacity-50 disabled:cursor-not-allowed h-[44.5px]"
+                        value={formData.instrument}
+                        onChange={(e) => setFormData(prev => ({ ...prev, instrument: e.target.value }))}
+                      >
+                        <option value="">Select Instrument</option>
+                        {availableInstruments.map((instrument) => (
+                          <option key={instrument} value={instrument}>
+                            {getInstrumentName(instrument)}
+                          </option>
+                        ))}
+                      </select>
+                      {availableInstruments.length === 0 && (
+                        <p className="text-xs text-red-500 mt-1">
+                          No instruments configured. Please update pulse settings.
+                        </p>
                       )}
+                    </div>
 
-                      <div className="flex justify-end space-x-2">
-                        <button
-                          type="button"
-                          onClick={onClose}
-                          className="px-4 py-2 text-gray-400 hover:text-gray-300"
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          type="submit"
-                          disabled={loading}
-                          className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          {loading ? (
-                            <span className="flex items-center justify-center">
-                              <LoadingSpinner />
-                              Adding...
-                            </span>
-                          ) : "Add Trade"}
-                        </button>
-                      </div>
+                    <div>
+                      <label className="block text-sm text-gray-400 mb-2">Entry Price</label>
+                      <input
+                        type="number"
+                        required
+                        step="0.00001"
+                        min="0.00001"
+                        disabled={isSubmitting}
+                        className="input-dark w-full disabled:opacity-50 disabled:cursor-not-allowed"
+                        value={formData.entryPrice}
+                        onChange={(e) => setFormData(prev => ({ ...prev, entryPrice: e.target.value }))}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm text-gray-400 mb-2">Exit Price</label>
+                      <input
+                        type="number"
+                        required
+                        step="0.00001"
+                        min="0.00001"
+                        disabled={isSubmitting}
+                        className="input-dark w-full disabled:opacity-50 disabled:cursor-not-allowed"
+                        value={formData.exitPrice}
+                        onChange={(e) => setFormData(prev => ({ ...prev, exitPrice: e.target.value }))}
+                      />
                     </div>
                   </div>
-                </form>
-              )}
-            </div>
+
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm text-gray-400 mb-2">Type</label>
+                      <select
+                        required
+                        disabled={isSubmitting}
+                        className="input-dark w-full disabled:opacity-50 disabled:cursor-not-allowed h-[44.5px]"
+                        value={formData.type}
+                        onChange={(e) => setFormData(prev => ({ ...prev, type: e.target.value }))}
+                      >
+                        <option value="Buy">Buy</option>
+                        <option value="Sell">Sell</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm text-gray-400 mb-2">Lot Size</label>
+                      <input
+                        type="number"
+                        required
+                        step="0.01"
+                        min="0.01"
+                        disabled={isSubmitting}
+                        className="input-dark w-full disabled:opacity-50 disabled:cursor-not-allowed"
+                        value={formData.lotSize}
+                        onChange={(e) => setFormData(prev => ({ ...prev, lotSize: e.target.value }))}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm text-gray-400 mb-2">Profit/Loss ($)</label>
+                      <input
+                        type="number"
+                        required
+                        step="0.01"
+                        disabled={isSubmitting}
+                        className="input-dark w-full disabled:opacity-50 disabled:cursor-not-allowed"
+                        value={formData.profitLoss}
+                        onChange={(e) => setFormData(prev => ({ ...prev, profitLoss: e.target.value }))}
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        Enter positive value for profit, negative for loss
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm text-gray-400 mb-2">Entry Reason</label>
+                      <textarea
+                        required
+                        disabled={isSubmitting}
+                        className="input-dark w-full h-[44.5px] disabled:opacity-50 disabled:cursor-not-allowed"
+                        value={formData.entryReason}
+                        onChange={(e) => setFormData(prev => ({ ...prev, entryReason: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-4">
+                  <label className="block text-sm text-gray-400 mb-2">Notes & Learnings</label>
+                  <textarea
+                    disabled={isSubmitting}
+                    className="input-dark w-full h-20 disabled:opacity-50 disabled:cursor-not-allowed"
+                    value={formData.learnings}
+                    onChange={(e) => setFormData(prev => ({ ...prev, learnings: e.target.value }))}
+                  />
+                </div>
+
+                {/* Trading Rules Checklist */}
+                {pulse?.tradingRules && pulse.tradingRules.length > 0 && (
+                  <div className="mt-6">
+                    <h3 className="text-md font-medium text-foreground mb-3">Trading Rules Checklist</h3>
+                    <div className="space-y-2 border border-gray-800 rounded-lg p-3">
+                      {pulse.tradingRules.map((rule) => (
+                        <div key={rule.id} className="flex items-start gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleRuleToggle(rule.id)}
+                            disabled={isSubmitting}
+                            className={`flex-shrink-0 h-5 w-5 mt-0.5 rounded border ${
+                              followedRules.includes(rule.id)
+                                ? 'bg-emerald-600 border-emerald-600'
+                                : 'bg-dark border-gray-700'
+                            } flex items-center justify-center`}
+                          >
+                            {followedRules.includes(rule.id) && <CheckIcon className="h-3 w-3 text-white" />}
+                          </button>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <p className="text-sm">
+                                {rule.description}
+                                {rule.isRequired && (
+                                  <span className="ml-1 text-red-500 text-xs">*</span>
+                                )}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {error && <p className="mt-4 text-red-500 text-sm">{error}</p>}
+
+                <div className="mt-6 flex justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    disabled={isSubmitting}
+                    className="btn-secondary disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmitting || availableInstruments.length === 0}
+                    className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center min-w-[100px]"
+                  >
+                    {isSubmitting ? <LoadingSpinner /> : 'Add Trade'}
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       </div>

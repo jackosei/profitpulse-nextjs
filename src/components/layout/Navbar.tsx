@@ -1,7 +1,7 @@
 "use client";
 
 import { useAuth } from "@/context/AuthContext";
-import { auth } from "@/services/firestoreConfig";
+import { auth } from "@/services/firebase/firestoreConfig";
 import Link from "next/link";
 import Image from "next/image";
 import { useState } from "react";
@@ -9,7 +9,7 @@ import { UserCircleIcon, CalculatorIcon } from "@heroicons/react/24/outline";
 import LotSizeCalculatorModal from "@/components/modals/LotSizeCalculatorModal";
 import { useParams } from "next/navigation";
 import { useEffect } from "react";
-import { getPulseById } from "@/services/firestore";
+import { usePulse } from "@/hooks/usePulse";
 import type { Pulse } from "@/types/pulse";
 
 export default function Navbar() {
@@ -18,19 +18,26 @@ export default function Navbar() {
   const [showDropdown, setShowDropdown] = useState(false);
   const [isCalculatorOpen, setIsCalculatorOpen] = useState(false);
   const [currentPulse, setCurrentPulse] = useState<Pulse | null>(null);
+  const { getPulseById } = usePulse();
 
   useEffect(() => {
     const pulseId = params?.id as string;
     if (pulseId && user) {
-      getPulseById(pulseId, user.uid)
-        .then((pulseData) => setCurrentPulse(pulseData))
-        .catch((error) => {
+      const fetchPulse = async () => {
+        try {
+          const pulseData = await getPulseById(pulseId, user.uid);
+          setCurrentPulse(pulseData);
+        } catch (error) {
           console.error("Error fetching pulse:", error);
           setCurrentPulse(null);
-        });
+        }
+      };
+      
+      fetchPulse();
     } else {
       setCurrentPulse(null);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params?.id, user]);
 
   const toggleDropdown = () => {

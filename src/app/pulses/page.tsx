@@ -1,37 +1,51 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { getUserPulses } from "@/services/firestore";
 import type { Pulse } from "@/types/pulse";
 import Loader from "@/components/ui/Loader";
 import PulsesTable from "@/components/dashboard/PulsesTable";
 import CreatePulseModal from "@/components/modals/CreatePulseModal";
+import { usePulse } from "@/hooks/usePulse";
 
 export default function PulsesPage() {
   const { user } = useAuth();
   const [pulses, setPulses] = useState<Pulse[]>([]);
-  const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
-
-  const fetchPulses = useCallback(async () => {
-    if (!user) return;
-    try {
-      const userPulses = await getUserPulses(user.uid);
-      setPulses(userPulses);
-    } catch (error) {
-      console.error("Error fetching pulses:", error);
-    } finally {
-      setLoading(false);
+  
+  const { 
+    getUserPulses, 
+    loading: pulseLoading, 
+    error: pulseError 
+  } = usePulse({
+    onError: (message) => {
+      console.error("Error:", message);
     }
-  }, [user]);
+  });
 
   useEffect(() => {
+    async function fetchPulses() {
+      if (!user) return;
+      
+      const fetchedPulses = await getUserPulses(user.uid);
+      if (fetchedPulses) {
+        setPulses(fetchedPulses);
+      }
+    }
+    
     fetchPulses();
-  }, [fetchPulses]);
+  }, [user, getUserPulses]);
 
-  if (loading) {
+  if (pulseLoading && pulses.length === 0) {
     return <Loader />;
+  }
+
+  if (pulseError) {
+    return (
+      <div className="container mx-auto px-4 py-8 text-center">
+        <p className="text-red-500">Error loading pulses: {pulseError}</p>
+      </div>
+    );
   }
 
   return (
@@ -50,7 +64,12 @@ export default function PulsesPage() {
       <CreatePulseModal
         isOpen={showCreateModal}
         onClose={() => setShowCreateModal(false)}
-        onSuccess={fetchPulses}
+        onSuccess={async () => {
+          const updatedPulses = await getUserPulses(user!.uid);
+          if (updatedPulses) {
+            setPulses(updatedPulses);
+          }
+        }}
       />
     </div>
   );

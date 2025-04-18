@@ -4,7 +4,7 @@ import {
   addDoc,
   serverTimestamp,
 } from "firebase/firestore";
-import { db } from "./firestoreConfig";
+import { db } from "@/services/firebase/firestoreConfig";
 import { tradingQuotes } from "@/data/tradingQuotes";
 
 export interface Quote {

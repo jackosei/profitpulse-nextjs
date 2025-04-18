@@ -94,7 +94,7 @@ export default function AddTradeModal({
         try {
           const pulseData = await getPulseById(pulseId, userId);
           if (pulseData) {
-            setPulse(pulseData);
+          setPulse(pulseData);
             setAvailableInstruments(pulseData.instruments || []);
           }
         } catch (err) {
@@ -113,7 +113,7 @@ export default function AddTradeModal({
   const handleRuleToggle = (ruleId: string) => {
     setFollowedRules(prev => {
       return prev.includes(ruleId)
-        ? prev.filter(id => id !== ruleId)
+        ? prev.filter(id => id !== ruleId) 
         : [...prev, ruleId];
     });
   };
@@ -179,6 +179,17 @@ export default function AddTradeModal({
       return false;
     }
 
+    // Validate that entry time is before exit time if both are provided
+    if (formData.entryTime && formData.exitTime) {
+      const entryTimeValue = formData.entryTime;
+      const exitTimeValue = formData.exitTime;
+      
+      if (entryTimeValue > exitTimeValue) {
+        setError('Entry time must be earlier than exit time');
+        return false;
+      }
+    }
+
     const profitLoss = Number(formData.profitLoss);
     const entryPrice = Number(formData.entryPrice);
     const exitPrice = Number(formData.exitPrice);
@@ -194,8 +205,11 @@ export default function AddTradeModal({
     const isProfitable = profitLoss > 0;
     
     if (isProfitable !== expectedProfitableDirection && profitLoss !== 0) {
-      // Just a warning, not preventing submission
-      toast.warning('The profit/loss amount you entered doesn\'t match the expected result based on entry/exit prices. Please double-check.');
+      // Make this a strict validation error instead of just a warning
+      setError('The profit/loss amount doesn\'t match the expected result based on entry/exit prices. For a ' + 
+        tradeType + ' trade with entry at ' + entryPrice + ' and exit at ' + exitPrice + 
+        ', the P/L should ' + (expectedProfitableDirection ? 'be positive' : 'be negative'));
+      return false;
     }
 
     return true;
@@ -337,8 +351,8 @@ export default function AddTradeModal({
     const isPsychologyComplete = formData.emotionalState || formData.mentalState || formData.planAdherence || formData.impulsiveEntry;
     const isContextComplete = formData.marketCondition || formData.timeOfDay || formData.tradingEnvironment;
     const isReflectionComplete = formData.wouldRepeat || formData.emotionalImpact || formData.mistakesIdentified || formData.improvementIdeas;
-    
-    return (
+
+  return (
       <div className="flex border-b border-gray-800 mb-6 overflow-x-auto">
         <button
           type="button"
@@ -401,47 +415,47 @@ export default function AddTradeModal({
   // Trade Data Tab Content
   const TradeDataTab = () => (
     <div className="space-y-4">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
           <label className="block text-sm text-gray-400 mb-2">Date <span className="text-red-500">*</span></label>
-          <input
-            type="date"
+                        <input
+                          type="date"
             name="date"
-            required
+                          required
             disabled={isSubmitting}
             className="input-dark w-full disabled:opacity-50 disabled:cursor-not-allowed text-white"
-            value={formData.date}
+                          value={formData.date}
             onChange={handleInputChange}
-          />
-        </div>
+                        />
+                      </div>
 
-        <div>
+                      <div>
           <label className="block text-sm text-gray-400 mb-2">Instrument <span className="text-red-500">*</span></label>
-          <select
-            required
+                        <select
+                          required
             name="instrument"
             disabled={isSubmitting || availableInstruments.length === 0}
-            className="input-dark w-full disabled:opacity-50 disabled:cursor-not-allowed h-[44.5px]"
-            value={formData.instrument}
+                          className="input-dark w-full disabled:opacity-50 disabled:cursor-not-allowed h-[44.5px]"
+                          value={formData.instrument}
             onChange={handleInputChange}
-          >
-            <option value="">Select Instrument</option>
-            {availableInstruments.map((instrument) => (
-              <option key={instrument} value={instrument}>
-                {getInstrumentName(instrument)}
-              </option>
-            ))}
-          </select>
-          {availableInstruments.length === 0 && (
-            <p className="text-xs text-red-500 mt-1">
-              No instruments configured. Please update pulse settings.
-            </p>
-          )}
-        </div>
-      </div>
-          
+                        >
+                          <option value="">Select Instrument</option>
+                          {availableInstruments.map((instrument) => (
+                            <option key={instrument} value={instrument}>
+                              {getInstrumentName(instrument)}
+                            </option>
+                          ))}
+                        </select>
+                        {availableInstruments.length === 0 && (
+                          <p className="text-xs text-red-500 mt-1">
+                            No instruments configured. Please update pulse settings.
+                          </p>
+                        )}
+                      </div>
+                      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
+                      <div>
           <label className="block text-sm text-gray-400 mb-2">Entry Time / Exit Time</label>
           <div className="grid grid-cols-2 gap-2">
             <input
@@ -453,7 +467,7 @@ export default function AddTradeModal({
               value={formData.entryTime}
               onChange={handleInputChange}
             />
-            <input
+                        <input
               type="time"
               name="exitTime"
               placeholder="Exit"
@@ -461,34 +475,34 @@ export default function AddTradeModal({
               className="input-dark w-full disabled:opacity-50 disabled:cursor-not-allowed text-white"
               value={formData.exitTime}
               onChange={handleInputChange}
-            />
-          </div>
-        </div>
+                        />
+                      </div>
+                    </div>
 
-        <div>
+                      <div>
           <label className="block text-sm text-gray-400 mb-2">Type / Lot Size <span className="text-red-500">*</span></label>
           <div className="grid grid-cols-2 gap-2">
-            <select
-              required
+                        <select
+                          required
               name="type"
               disabled={isSubmitting}
-              className="input-dark w-full disabled:opacity-50 disabled:cursor-not-allowed h-[44.5px]"
-              value={formData.type}
+                          className="input-dark w-full disabled:opacity-50 disabled:cursor-not-allowed h-[44.5px]"
+                          value={formData.type}
               onChange={handleInputChange}
-            >
-              <option value="Buy">Buy</option>
-              <option value="Sell">Sell</option>
-            </select>
-            <input
-              type="number"
+                        >
+                          <option value="Buy">Buy</option>
+                          <option value="Sell">Sell</option>
+                        </select>
+                        <input
+                          type="number"
               name="lotSize"
-              required
-              step="0.01"
-              min="0.01"
+                          required
+                          step="0.01"
+                          min="0.01"
               placeholder="Lot Size"
               disabled={isSubmitting}
-              className="input-dark w-full disabled:opacity-50 disabled:cursor-not-allowed"
-              value={formData.lotSize}
+                          className="input-dark w-full disabled:opacity-50 disabled:cursor-not-allowed"
+                          value={formData.lotSize}
               onChange={handleInputChange}
             />
           </div>
@@ -524,22 +538,22 @@ export default function AddTradeModal({
               onChange={handleInputChange}
             />
           </div>
-        </div>
+                      </div>
 
-        <div>
+                      <div>
           <label className="block text-sm text-gray-400 mb-2">Profit/Loss ($) <span className="text-red-500">*</span></label>
           <div className="relative">
-            <input
-              type="number"
+                        <input
+                          type="number"
               name="profitLoss"
-              required
-              step="0.01"
+                          required
+                          step="0.01"
               disabled={isSubmitting}
               className={`input-dark w-full disabled:opacity-50 disabled:cursor-not-allowed pl-9 ${
                 parseFloat(formData.profitLoss) > 0 ? 'border-green-500/50 focus:border-green-500' : 
                 parseFloat(formData.profitLoss) < 0 ? 'border-red-500/50 focus:border-red-500' : ''
               }`}
-              value={formData.profitLoss}
+                          value={formData.profitLoss}
               onChange={handleInputChange}
             />
             <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
@@ -555,19 +569,19 @@ export default function AddTradeModal({
             Enter positive value for profit, negative for loss
           </p>
         </div>
-      </div>
-      
-      <div>
+                      </div>
+
+                      <div>
         <label className="block text-sm text-gray-400 mb-2">Entry Reason <span className="text-red-500">*</span></label>
-        <textarea
-          required
+                        <textarea
+                          required
           name="entryReason"
           disabled={isSubmitting}
           className="input-dark w-full h-[60px] disabled:opacity-50 disabled:cursor-not-allowed"
-          value={formData.entryReason}
+                          value={formData.entryReason}
           onChange={handleInputChange}
-        />
-      </div>
+                        />
+                      </div>
 
       <div className="border-t border-gray-800 pt-4 mt-4">
         <h3 className="text-md font-medium text-foreground mb-3 flex items-center gap-2">
@@ -591,25 +605,25 @@ export default function AddTradeModal({
             <p className="text-xs text-gray-500 mt-1">
               Link to your entry position screenshot
             </p>
-          </div>
-          <div>
+                    </div>
+                      <div>
             <label className="block text-sm text-gray-400 mb-2">Exit Screenshot URL</label>
             <input
               type="text"
               name="exitScreenshot"
               placeholder="Paste image URL here"
               disabled={isSubmitting}
-              className="input-dark w-full disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="input-dark w-full disabled:opacity-50 disabled:cursor-not-allowed"
               value={formData.exitScreenshot}
               onChange={handleInputChange}
-            />
+                        />
             <p className="text-xs text-gray-500 mt-1">
               Link to your exit position screenshot
             </p>
           </div>
-        </div>
-      </div>
-      
+                      </div>
+                    </div>
+
       <div>
         <label className="block text-sm text-gray-400 mb-2">Notes & Learnings</label>
         <textarea
@@ -619,8 +633,8 @@ export default function AddTradeModal({
           value={formData.learnings}
           onChange={handleInputChange}
         />
-      </div>
-
+                        </div>
+                        
       {/* Trading Rules Checklist */}
       {pulse?.tradingRules && pulse.tradingRules.length > 0 && (
         <div className="mt-6">
@@ -632,9 +646,9 @@ export default function AddTradeModal({
           </h3>
           <div className="space-y-2 border border-gray-800 rounded-lg p-4 bg-gray-900/40">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {pulse.tradingRules.map((rule) => (
-                <div 
-                  key={rule.id} 
+                          {pulse.tradingRules.map((rule) => (
+                            <div 
+                              key={rule.id}
                   className={`flex items-start gap-2 p-2 rounded-md transition-colors ${
                     followedRules.includes(rule.id) ? 'bg-green-900/20 border border-green-800/40' : 'hover:bg-gray-800/50'
                   }`}
@@ -644,18 +658,18 @@ export default function AddTradeModal({
                     onClick={() => handleRuleToggle(rule.id)}
                     disabled={isSubmitting}
                     className={`flex-shrink-0 h-5 w-5 mt-0.5 rounded border ${
-                      followedRules.includes(rule.id) 
+                                  followedRules.includes(rule.id) 
                         ? 'bg-emerald-600 border-emerald-600'
                         : 'bg-dark border-gray-700'
                     } flex items-center justify-center`}
                   >
                     {followedRules.includes(rule.id) && <CheckIcon className="h-3 w-3 text-white" />}
                   </button>
-                  <div className="flex-1">
+                                <div className="flex-1">
                     <div className="flex items-center gap-2">
                       <p className="text-sm">
-                        {rule.description}
-                        {rule.isRequired && (
+                                    {rule.description}
+                                    {rule.isRequired && (
                           <span className="ml-1 text-red-500 text-xs">*</span>
                         )}
                       </p>
@@ -738,8 +752,8 @@ export default function AddTradeModal({
               Number(formData.emotionalIntensity) <= 7 ? 'bg-yellow-500/20 text-yellow-400' : 
               'bg-red-500/20 text-red-400'}`}>
             {formData.emotionalIntensity}
-          </span>
-        </div>
+                                  </span>
+                                </div>
         <div className="flex justify-between text-xs text-gray-500 mt-1">
           <span>Low Intensity</span>
           <span>High Intensity</span>
@@ -843,8 +857,8 @@ export default function AddTradeModal({
   const ReflectionTab = () => (
     <div className="space-y-4">
       <div className="flex items-center gap-3">
-        <input
-          type="checkbox"
+                                <input 
+                                  type="checkbox"
           name="wouldRepeat"
           id="wouldRepeat"
           disabled={isSubmitting}
@@ -854,8 +868,8 @@ export default function AddTradeModal({
         />
         <label htmlFor="wouldRepeat" className="text-sm text-gray-300">
           I would make this same trade again
-        </label>
-      </div>
+                              </label>
+                            </div>
 
       <div>
         <label className="block text-sm text-gray-400 mb-2">Emotional Impact</label>
@@ -894,7 +908,7 @@ export default function AddTradeModal({
           value={formData.improvementIdeas}
           onChange={handleInputChange}
         />
-      </div>
+                        </div>
     </div>
   );
 
@@ -941,8 +955,8 @@ export default function AddTradeModal({
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                     </svg>
                   </button>
-                </div>
-              )}
+                      </div>
+                    )}
             </div>
             
             {loadingPulse ? (
@@ -954,7 +968,7 @@ export default function AddTradeModal({
                 <TabSelector />
                 {renderTabContent()}
 
-                {error && (
+                      {error && (
                   <div className="mt-4 p-3 bg-red-900/30 border border-red-800 rounded-md">
                     <p className="text-red-400 text-sm flex items-start gap-2">
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
@@ -962,8 +976,8 @@ export default function AddTradeModal({
                       </svg>
                       {error}
                     </p>
-                  </div>
-                )}
+                        </div>
+                      )}
 
                 <div className="mt-6 border-t border-gray-800 pt-4">
                   {/* Progress bar */}
@@ -1016,26 +1030,26 @@ export default function AddTradeModal({
                       </div>
                     </div>
                     <div className="flex gap-3">
-                      <button
-                        type="button"
-                        onClick={onClose}
+                        <button
+                          type="button"
+                          onClick={onClose}
                         disabled={isSubmitting}
                         className="btn-secondary disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        type="submit"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="submit"
                         disabled={isSubmitting || availableInstruments.length === 0}
                         className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center min-w-[100px]"
                       >
                         {isSubmitting ? <LoadingSpinner /> : 'Add Trade'}
-                      </button>
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </form>
-            )}
+                </form>
+              )}
           </div>
         </div>
       </div>

@@ -204,7 +204,7 @@ export default function PulseHeader({
       )}
 
       {/* Time Controls Section */}
-      <div className="px-4 py-2 flex items-center gap-2 border-t border-gray-800/50">
+      <div className="px-4 py-2 flex flex-wrap items-center gap-2 border-t border-gray-800/50">
         <div className="flex items-center gap-2">
           <Menu as="div" className="relative">
             <MenuButton className="flex items-center gap-2 px-0 py-1.5 text-sm text-gray-300 hover:text-white rounded transition-colors">

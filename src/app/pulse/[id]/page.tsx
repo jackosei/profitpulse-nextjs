@@ -13,11 +13,13 @@ import PulseHeader from "@/components/pulse/PulseHeader"
 import PulseStats from "@/components/pulse/PulseStats"
 import PulseChart from "@/components/pulse/PulseChart"
 import TradeHistory from "@/components/pulse/TradeHistory"
+import TradeCalendar from "@/components/pulse/TradeCalendar"
 import { toast } from "sonner"
 import ArchivePulseModal from "@/components/modals/ArchivePulseModal"
 
 type TimeRange = "7D" | "30D" | "90D" | "1Y" | "ALL"
 type ComparisonType = "PERIOD" | "START"
+type ViewType = "table" | "calendar"
 
 export default function PulseDetailsPage() {
 	const { id } = useParams()
@@ -42,6 +44,7 @@ export default function PulseDetailsPage() {
 	const [lastVisible, setLastVisible] = useState<string | null>(null)
 	const [selectedTimeRange, setSelectedTimeRange] = useState<TimeRange>("30D")
 	const [comparisonType, setComparisonType] = useState<ComparisonType>("PERIOD")
+	const [viewType, setViewType] = useState<ViewType>("table")
 	const [periodStats, setPeriodStats] = useState<{
 		winRate: { current: number; previous: number; initial: number }
 		totalPL: { current: number; previous: number; initial: number }
@@ -290,14 +293,26 @@ export default function PulseDetailsPage() {
 				)}
 			</div>
 
-			<TradeHistory
-				trades={pulse.trades || []}
-				hasMore={hasMore}
-				loadingMore={loadingMore}
-				onLoadMore={loadMoreTrades}
-				onAddTrade={() => setShowAddTradeModal(true)}
-				pulse={pulse}
-			/>
+			{viewType === "table" ? (
+				<TradeHistory
+					trades={pulse.trades || []}
+					hasMore={hasMore}
+					loadingMore={loadingMore}
+					onLoadMore={loadMoreTrades}
+					onAddTrade={() => setShowAddTradeModal(true)}
+					pulse={pulse}
+					viewType={viewType}
+					onViewTypeChange={setViewType}
+				/>
+			) : (
+				<TradeCalendar
+					trades={pulse.trades || []}
+					pulse={pulse}
+					onAddTrade={() => setShowAddTradeModal(true)}
+					viewType={viewType}
+					onViewTypeChange={setViewType}
+				/>
+			)}
 
 			<AddTradeModal
 				isOpen={showAddTradeModal}

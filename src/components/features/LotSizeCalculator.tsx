@@ -197,7 +197,7 @@ export default function LotSizeCalculator({ pulse }: LotSizeCalculatorProps) {
               type="number"
               min="0"
               step="0.01"
-              className="input-dark w-full"
+              className="input-dark w-full placeholder:text-sm"
               value={formData.accountSize}
               onChange={(e) =>
                 setFormData((prev) => ({
@@ -205,7 +205,7 @@ export default function LotSizeCalculator({ pulse }: LotSizeCalculatorProps) {
                   accountSize: e.target.value,
                 }))
               }
-              placeholder="Enter account size"
+              placeholder="Enter amount"
             />
           </div>
 
@@ -218,7 +218,7 @@ export default function LotSizeCalculator({ pulse }: LotSizeCalculatorProps) {
               min="0.10"
               max={pulse?.maxRiskPerTrade}
               step="0.10"
-              className="input-dark w-full"
+              className="input-dark w-full placeholder:text-sm"
               value={formData.riskPercentage}
               onChange={(e) =>
                 setFormData((prev) => ({
@@ -226,6 +226,7 @@ export default function LotSizeCalculator({ pulse }: LotSizeCalculatorProps) {
                   riskPercentage: e.target.value,
                 }))
               }
+              placeholder="Enter %"
             />
             {pulse && (
               <p className="text-xs text-gray-500 mt-1">
@@ -243,7 +244,7 @@ export default function LotSizeCalculator({ pulse }: LotSizeCalculatorProps) {
               type="number"
               min="0.1"
               step="0.1"
-              className="input-dark w-full"
+              className="input-dark w-full placeholder:text-sm"
               value={formData.stopLossPips}
               onChange={(e) =>
                 setFormData((prev) => ({
@@ -251,9 +252,7 @@ export default function LotSizeCalculator({ pulse }: LotSizeCalculatorProps) {
                   stopLossPips: e.target.value,
                 }))
               }
-              placeholder={`Enter ${
-                selectedInstrument?.pipCalculation === "standard" ? "pips" : "points"
-              }`}
+              placeholder={`Enter ${selectedInstrument?.pipCalculation === "standard" ? "pips" : "points"}`}
             />
           </div>
 

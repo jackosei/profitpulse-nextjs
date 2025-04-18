@@ -41,10 +41,10 @@ export default function LotSizeCalculatorModal({
                 )}
               </div>
               
-              <div className="flex justify-end mt-4">
+              <div className="flex justify-center mt-4">
                 <button
                   onClick={onClose}
-                  className="px-4 py-2 text-gray-400 hover:text-gray-300"
+                  className="px-4 py-2 text-error hover:text-error/80"
                 >
                   Close
                 </button>

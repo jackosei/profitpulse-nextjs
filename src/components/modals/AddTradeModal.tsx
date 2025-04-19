@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import type { Pulse, AddTradeModalProps } from '@/types/pulse';
 import { toast } from 'sonner';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
@@ -86,6 +86,45 @@ export default function AddTradeModal({
   const [loadingPulse, setLoadingPulse] = useState(true);
   const [availableInstruments, setAvailableInstruments] = useState<string[]>([]);
 
+  // Create refs for input fields that are losing focus
+  const entryTimeRef = useRef<HTMLInputElement>(null);
+  const exitTimeRef = useRef<HTMLInputElement>(null);
+  const entryPriceRef = useRef<HTMLInputElement>(null);
+  const exitPriceRef = useRef<HTMLInputElement>(null);
+  const profitLossRef = useRef<HTMLInputElement>(null);
+  
+  // Replace the handleInputChange function completely
+  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value, type } = e.target;
+    
+    // For checkbox type inputs
+    if (type === 'checkbox') {
+      const checked = (e.target as HTMLInputElement).checked;
+      setFormData(prevData => ({
+        ...prevData,
+        [name]: checked,
+      }));
+      return;
+    }
+    
+    // For all other input types
+    setFormData(prevData => ({
+      ...prevData,
+      [name]: value,
+    }));
+  }, []);
+  
+  // Special handlers for problematic time inputs that use refs
+  const handleTimeChange = useCallback((name: string) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { value } = e.target;
+    
+    // Update the state without causing a re-render of the entire form
+    setFormData(prevData => ({
+      ...prevData,
+      [name]: value,
+    }));
+  }, []);
+
   // Fetch pulse details when modal is opened
   useEffect(() => {
     if (isOpen && pulseId) {
@@ -116,25 +155,6 @@ export default function AddTradeModal({
         ? prev.filter(id => id !== ruleId) 
         : [...prev, ruleId];
     });
-  };
-
-  // Handle form field changes
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value, type } = e.target;
-    
-    // Handle checkbox inputs
-    if (type === 'checkbox') {
-      const checked = (e.target as HTMLInputElement).checked;
-      setFormData(prev => ({ ...prev, [name]: checked }));
-    } 
-    // Handle number inputs
-    else if (type === 'number') {
-      setFormData(prev => ({ ...prev, [name]: value }));
-    } 
-    // Handle all other inputs
-    else {
-      setFormData(prev => ({ ...prev, [name]: value }));
-    }
   };
 
   const validateForm = () => {
@@ -420,12 +440,13 @@ export default function AddTradeModal({
           <label className="block text-sm text-gray-400 mb-2">Date <span className="text-red-500">*</span></label>
                         <input
                           type="date"
-            name="date"
+                          name="date"
+                          id="trade-date"
                           required
-            disabled={isSubmitting}
-            className="input-dark w-full disabled:opacity-50 disabled:cursor-not-allowed text-white"
+                          disabled={isSubmitting}
+                          className="input-dark w-full disabled:opacity-50 disabled:cursor-not-allowed text-white"
                           value={formData.date}
-            onChange={handleInputChange}
+                          onChange={handleInputChange}
                         />
                       </div>
 
@@ -461,20 +482,22 @@ export default function AddTradeModal({
             <input
               type="time"
               name="entryTime"
-              placeholder="Entry"
+              id="entry-time"
+              ref={entryTimeRef}
               disabled={isSubmitting}
               className="input-dark w-full disabled:opacity-50 disabled:cursor-not-allowed text-white"
               value={formData.entryTime}
-              onChange={handleInputChange}
+              onChange={handleTimeChange('entryTime')}
             />
                         <input
               type="time"
               name="exitTime"
-              placeholder="Exit"
+              id="exit-time"
+              ref={exitTimeRef}
               disabled={isSubmitting}
               className="input-dark w-full disabled:opacity-50 disabled:cursor-not-allowed text-white"
               value={formData.exitTime}
-              onChange={handleInputChange}
+              onChange={handleTimeChange('exitTime')}
                         />
                       </div>
                     </div>
@@ -516,6 +539,8 @@ export default function AddTradeModal({
             <input
               type="number"
               name="entryPrice"
+              id="entry-price"
+              ref={entryPriceRef}
               required
               step="0.00001"
               min="0.00001"
@@ -528,6 +553,8 @@ export default function AddTradeModal({
             <input
               type="number"
               name="exitPrice"
+              id="exit-price"
+              ref={exitPriceRef}
               required
               step="0.00001"
               min="0.00001"
@@ -545,17 +572,19 @@ export default function AddTradeModal({
           <div className="relative">
                         <input
                           type="number"
-              name="profitLoss"
+                          name="profitLoss"
+                          id="profit-loss"
+                          ref={profitLossRef}
                           required
                           step="0.01"
-              disabled={isSubmitting}
-              className={`input-dark w-full disabled:opacity-50 disabled:cursor-not-allowed pl-9 ${
-                parseFloat(formData.profitLoss) > 0 ? 'border-green-500/50 focus:border-green-500' : 
-                parseFloat(formData.profitLoss) < 0 ? 'border-red-500/50 focus:border-red-500' : ''
-              }`}
+                          disabled={isSubmitting}
+                          className={`input-dark w-full disabled:opacity-50 disabled:cursor-not-allowed pl-9 ${
+                            parseFloat(formData.profitLoss) > 0 ? 'border-green-500/50 focus:border-green-500' : 
+                            parseFloat(formData.profitLoss) < 0 ? 'border-red-500/50 focus:border-red-500' : ''
+                          }`}
                           value={formData.profitLoss}
-              onChange={handleInputChange}
-            />
+                          onChange={handleInputChange}
+                        />
             <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
               <span className={`text-lg ${
                 parseFloat(formData.profitLoss) > 0 ? 'text-green-500' : 

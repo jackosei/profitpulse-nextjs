@@ -1,5 +1,10 @@
 import { Pulse, Trade, PulseStatus, TradeRule } from "@/types/pulse";
-import { ApiResponse, createErrorResponse, ErrorCode, PaginatedResponse } from "../types/apiResponses";
+import {
+  ApiResponse,
+  createErrorResponse,
+  ErrorCode,
+  PaginatedResponse,
+} from "../types/apiResponses";
 import * as pulseService from "../firebase/pulseService";
 
 // Types for createPulse
@@ -30,8 +35,8 @@ export interface TradeCreateData {
   pulseId: string;
   userId: string;
   date: string;
-  entryTime?: string;  
-  exitTime?: string;   
+  entryTime?: string;
+  exitTime?: string;
   type: "Buy" | "Sell";
   lotSize: number;
   entryPrice: number;
@@ -43,25 +48,43 @@ export interface TradeCreateData {
   instrument: string;
   learnings?: string;
   followedRules?: string[];
-  
+
   // Screenshots
   entryScreenshot?: string;
   exitScreenshot?: string;
-  
+
   // Psychological factors
-  emotionalState?: "Calm" | "Excited" | "Fearful" | "Greedy" | "Anxious" | "Confident" | "Other";
+  emotionalState?:
+    | "Calm"
+    | "Excited"
+    | "Fearful"
+    | "Greedy"
+    | "Anxious"
+    | "Confident"
+    | "Other";
   emotionalIntensity?: number;
-  mentalState?: "Clear" | "Distracted" | "Tired" | "Focused" | "Rushed" | "Other";
-  
+  mentalState?:
+    | "Clear"
+    | "Distracted"
+    | "Tired"
+    | "Focused"
+    | "Rushed"
+    | "Other";
+
   // Decision quality
   planAdherence?: "Fully" | "Partially" | "Deviated";
   impulsiveEntry?: boolean;
-  
+
   // Context factors
-  marketCondition?: "Trending" | "Ranging" | "Volatile" | "Calm" | "News-driven";
+  marketCondition?:
+    | "Trending"
+    | "Ranging"
+    | "Volatile"
+    | "Calm"
+    | "News-driven";
   timeOfDay?: string;
   tradingEnvironment?: "Home" | "Office" | "Mobile" | "Other";
-  
+
   // Post-trade reflection
   wouldRepeat?: boolean;
   emotionalImpact?: "Positive" | "Negative" | "Neutral";
@@ -74,7 +97,7 @@ export interface TradeCreateData {
  */
 export async function getUserPulses(
   userId: string,
-  status?: PulseStatus
+  status?: PulseStatus,
 ): Promise<ApiResponse<Pulse[]>> {
   try {
     return await pulseService.getUserPulses(userId, status);
@@ -82,7 +105,7 @@ export async function getUserPulses(
     return createErrorResponse(
       ErrorCode.SERVER_ERROR,
       "Failed to fetch pulses",
-      { originalError: error instanceof Error ? error.message : String(error) }
+      { originalError: error instanceof Error ? error.message : String(error) },
     );
   }
 }
@@ -93,20 +116,24 @@ export async function getUserPulses(
 export async function getPulseById(
   pulseId: string,
   userId: string,
-  limit = 20
-): Promise<ApiResponse<Pulse & { 
-  firestoreId: string;
-  hasMore: boolean;
-  lastVisible: string | null;
-  trades: Trade[] 
-}>> {
+  limit = 20,
+): Promise<
+  ApiResponse<
+    Pulse & {
+      firestoreId: string;
+      hasMore: boolean;
+      lastVisible: string | null;
+      trades: Trade[];
+    }
+  >
+> {
   try {
     return await pulseService.getPulseById(pulseId, userId, limit);
   } catch (error) {
     return createErrorResponse(
       ErrorCode.SERVER_ERROR,
       "Failed to fetch pulse",
-      { originalError: error instanceof Error ? error.message : String(error) }
+      { originalError: error instanceof Error ? error.message : String(error) },
     );
   }
 }
@@ -117,7 +144,7 @@ export async function getPulseById(
 export async function getMoreTrades(
   firestoreId: string,
   lastDate: string,
-  limit = 20
+  limit = 20,
 ): Promise<PaginatedResponse<Trade>> {
   try {
     return await pulseService.getMoreTrades(firestoreId, lastDate, limit);
@@ -125,7 +152,7 @@ export async function getMoreTrades(
     return createErrorResponse(
       ErrorCode.SERVER_ERROR,
       "Failed to load more trades",
-      { originalError: error instanceof Error ? error.message : String(error) }
+      { originalError: error instanceof Error ? error.message : String(error) },
     );
   }
 }
@@ -134,7 +161,7 @@ export async function getMoreTrades(
  * Create a new pulse
  */
 export async function createPulse(
-  pulseData: PulseCreateData
+  pulseData: PulseCreateData,
 ): Promise<ApiResponse<Pulse>> {
   try {
     return await pulseService.createPulse(pulseData);
@@ -142,7 +169,7 @@ export async function createPulse(
     return createErrorResponse(
       ErrorCode.SERVER_ERROR,
       "Failed to create pulse",
-      { originalError: error instanceof Error ? error.message : String(error) }
+      { originalError: error instanceof Error ? error.message : String(error) },
     );
   }
 }
@@ -152,7 +179,7 @@ export async function createPulse(
  */
 export async function createTrade(
   firestoreId: string,
-  tradeData: TradeCreateData
+  tradeData: TradeCreateData,
 ): Promise<ApiResponse<Trade>> {
   try {
     return await pulseService.createTrade(firestoreId, tradeData);
@@ -160,7 +187,26 @@ export async function createTrade(
     return createErrorResponse(
       ErrorCode.SERVER_ERROR,
       "Failed to create trade",
-      { originalError: error instanceof Error ? error.message : String(error) }
+      { originalError: error instanceof Error ? error.message : String(error) },
+    );
+  }
+}
+
+/**
+ * Update an existing trade
+ */
+export async function updateTrade(
+  firestoreId: string,
+  tradeId: string,
+  tradeData: TradeCreateData,
+): Promise<ApiResponse<void>> {
+  try {
+    return await pulseService.updateTrade(firestoreId, tradeId, tradeData);
+  } catch (error) {
+    return createErrorResponse(
+      ErrorCode.SERVER_ERROR,
+      "Failed to update trade",
+      { originalError: error instanceof Error ? error.message : String(error) },
     );
   }
 }
@@ -171,7 +217,7 @@ export async function createTrade(
 export async function updatePulse(
   pulseId: string,
   userId: string,
-  updateData: PulseUpdateData
+  updateData: PulseUpdateData,
 ): Promise<ApiResponse<void>> {
   try {
     return await pulseService.updatePulse(pulseId, userId, updateData);
@@ -179,7 +225,7 @@ export async function updatePulse(
     return createErrorResponse(
       ErrorCode.SERVER_ERROR,
       "Failed to update pulse",
-      { originalError: error instanceof Error ? error.message : String(error) }
+      { originalError: error instanceof Error ? error.message : String(error) },
     );
   }
 }
@@ -189,7 +235,7 @@ export async function updatePulse(
  */
 export async function archivePulse(
   pulseId: string,
-  userId: string
+  userId: string,
 ): Promise<ApiResponse<void>> {
   try {
     return await pulseService.archivePulse(pulseId, userId);
@@ -197,7 +243,7 @@ export async function archivePulse(
     return createErrorResponse(
       ErrorCode.SERVER_ERROR,
       "Failed to archive pulse",
-      { originalError: error instanceof Error ? error.message : String(error) }
+      { originalError: error instanceof Error ? error.message : String(error) },
     );
   }
 }
@@ -207,7 +253,7 @@ export async function archivePulse(
  */
 export async function unarchivePulse(
   pulseId: string,
-  userId: string
+  userId: string,
 ): Promise<ApiResponse<void>> {
   try {
     return await pulseService.unarchivePulse(pulseId, userId);
@@ -215,7 +261,7 @@ export async function unarchivePulse(
     return createErrorResponse(
       ErrorCode.SERVER_ERROR,
       "Failed to unarchive pulse",
-      { originalError: error instanceof Error ? error.message : String(error) }
+      { originalError: error instanceof Error ? error.message : String(error) },
     );
   }
 }
@@ -226,7 +272,7 @@ export async function unarchivePulse(
 export async function deletePulse(
   pulseId: string,
   userId: string,
-  confirmationName: string
+  confirmationName: string,
 ): Promise<ApiResponse<void>> {
   try {
     return await pulseService.deletePulse(pulseId, userId, confirmationName);
@@ -234,7 +280,7 @@ export async function deletePulse(
     return createErrorResponse(
       ErrorCode.SERVER_ERROR,
       "Failed to delete pulse",
-      { originalError: error instanceof Error ? error.message : String(error) }
+      { originalError: error instanceof Error ? error.message : String(error) },
     );
   }
-} 
+}

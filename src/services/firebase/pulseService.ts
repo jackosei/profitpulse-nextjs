@@ -21,21 +21,35 @@ import {
   type Pulse,
   type Trade,
   PULSE_STATUS,
-  type PulseStatus
+  type PulseStatus,
 } from "@/types/pulse";
-import { ApiResponse, createSuccessResponse, createErrorResponse, ErrorCode, createPaginatedResponse, PaginatedResponse } from "../types/apiResponses";
-import { PulseCreateData, PulseUpdateData, TradeCreateData } from "../api/pulseApi";
+import {
+  ApiResponse,
+  createSuccessResponse,
+  createErrorResponse,
+  ErrorCode,
+  createPaginatedResponse,
+  PaginatedResponse,
+} from "../types/apiResponses";
+import {
+  PulseCreateData,
+  PulseUpdateData,
+  TradeCreateData,
+} from "../api/pulseApi";
 
 /**
  * Check if a pulse name already exists for the user
  */
-async function checkDuplicatePulseName(name: string, userId: string): Promise<boolean> {
+async function checkDuplicatePulseName(
+  name: string,
+  userId: string,
+): Promise<boolean> {
   try {
     const pulsesRef = collection(db, "pulses");
     const q = query(
       pulsesRef,
       where("name", "==", name),
-      where("userId", "==", userId)
+      where("userId", "==", userId),
     );
     const querySnapshot = await getDocs(q);
     return !querySnapshot.empty;
@@ -49,27 +63,27 @@ async function checkDuplicatePulseName(name: string, userId: string): Promise<bo
  * Create a new pulse
  */
 export async function createPulse(
-  pulseData: PulseCreateData
+  pulseData: PulseCreateData,
 ): Promise<ApiResponse<Pulse>> {
   try {
     // Validate inputs
     if (pulseData.maxRiskPerTrade > MAX_RISK_PERCENTAGE) {
       return createErrorResponse(
         ErrorCode.VALIDATION_ERROR,
-        `Maximum risk cannot exceed ${MAX_RISK_PERCENTAGE}%`
+        `Maximum risk cannot exceed ${MAX_RISK_PERCENTAGE}%`,
       );
     }
 
     // Check for duplicate name
     const existingPulse = await checkDuplicatePulseName(
       pulseData.name,
-      pulseData.userId
+      pulseData.userId,
     );
-    
+
     if (existingPulse) {
       return createErrorResponse(
         ErrorCode.DUPLICATE_ERROR,
-        "A pulse with this name already exists"
+        "A pulse with this name already exists",
       );
     }
 
@@ -82,7 +96,7 @@ export async function createPulse(
         year: "2-digit",
       })
       .replace(/\//g, "");
-    
+
     const pulseId = `${pulseData.name
       .slice(0, 4)
       .toUpperCase()
@@ -109,7 +123,7 @@ export async function createPulse(
     // Add document to Firestore
     const pulsesRef = collection(db, "pulses");
     const docRef = await addDoc(pulsesRef, pulseWithId);
-    
+
     return createSuccessResponse({
       ...pulseWithId,
       firestoreId: docRef.id,
@@ -117,9 +131,9 @@ export async function createPulse(
   } catch (error) {
     console.error("Error creating pulse:", error);
     return createErrorResponse(
-      ErrorCode.SERVER_ERROR, 
+      ErrorCode.SERVER_ERROR,
       "Failed to create pulse",
-      { originalError: error instanceof Error ? error.message : String(error) }
+      { originalError: error instanceof Error ? error.message : String(error) },
     );
   }
 }
@@ -129,7 +143,7 @@ export async function createPulse(
  */
 export async function getUserPulses(
   userId: string,
-  status?: PulseStatus
+  status?: PulseStatus,
 ): Promise<ApiResponse<Pulse[]>> {
   try {
     const pulsesRef = collection(db, "pulses");
@@ -149,9 +163,9 @@ export async function getUserPulses(
   } catch (error) {
     console.error("Error fetching pulses:", error);
     return createErrorResponse(
-      ErrorCode.SERVER_ERROR, 
+      ErrorCode.SERVER_ERROR,
       "Failed to fetch pulses",
-      { originalError: error instanceof Error ? error.message : String(error) }
+      { originalError: error instanceof Error ? error.message : String(error) },
     );
   }
 }
@@ -162,20 +176,24 @@ export async function getUserPulses(
 export async function getPulseById(
   pulseId: string,
   userId: string,
-  limit = 20
-): Promise<ApiResponse<Pulse & { 
-  firestoreId: string;
-  hasMore: boolean;
-  lastVisible: string | null;
-  trades: Trade[] 
-}>> {
+  limit = 20,
+): Promise<
+  ApiResponse<
+    Pulse & {
+      firestoreId: string;
+      hasMore: boolean;
+      lastVisible: string | null;
+      trades: Trade[];
+    }
+  >
+> {
   try {
     // Get pulse data
     const pulsesRef = collection(db, "pulses");
     const q = query(
       pulsesRef,
       where("id", "==", pulseId),
-      where("userId", "==", userId)
+      where("userId", "==", userId),
     );
     const querySnapshot = await getDocs(q);
 
@@ -188,7 +206,11 @@ export async function getPulseById(
 
     // Fetch limited trades with ordering
     const tradesRef = collection(db, "pulses", pulseDoc.id, "trades");
-    const tradesQuery = query(tradesRef, orderBy("date", "desc"), firestoreLimit(limit));
+    const tradesQuery = query(
+      tradesRef,
+      orderBy("date", "desc"),
+      firestoreLimit(limit),
+    );
     const tradesSnapshot = await getDocs(tradesQuery);
 
     const trades = tradesSnapshot.docs.map((doc) => ({
@@ -199,7 +221,9 @@ export async function getPulseById(
     // Get last document for pagination
     const lastVisible = tradesSnapshot.docs[tradesSnapshot.docs.length - 1];
     const hasMore = tradesSnapshot.docs.length === limit;
-    const lastVisibleDate = lastVisible ? (lastVisible.data() as Trade).date : null;
+    const lastVisibleDate = lastVisible
+      ? (lastVisible.data() as Trade).date
+      : null;
 
     // Calculate stats
     const stats = await calculatePulseStats(pulseDoc.id);
@@ -215,9 +239,9 @@ export async function getPulseById(
   } catch (error) {
     console.error("Error fetching pulse:", error);
     return createErrorResponse(
-      ErrorCode.SERVER_ERROR, 
+      ErrorCode.SERVER_ERROR,
       "Failed to fetch pulse",
-      { originalError: error instanceof Error ? error.message : String(error) }
+      { originalError: error instanceof Error ? error.message : String(error) },
     );
   }
 }
@@ -228,7 +252,7 @@ export async function getPulseById(
 export async function getMoreTrades(
   firestoreId: string,
   lastDate: string,
-  limit = 20
+  limit = 20,
 ): Promise<PaginatedResponse<Trade>> {
   try {
     const tradesRef = collection(db, "pulses", firestoreId, "trades");
@@ -236,9 +260,9 @@ export async function getMoreTrades(
       tradesRef,
       orderBy("date", "desc"),
       startAfter(lastDate),
-      firestoreLimit(limit)
+      firestoreLimit(limit),
     );
-    
+
     const tradesSnapshot = await getDocs(tradesQuery);
     const trades = tradesSnapshot.docs.map((doc) => ({
       id: doc.id,
@@ -248,19 +272,17 @@ export async function getMoreTrades(
     // Get last document for pagination
     const lastVisible = tradesSnapshot.docs[tradesSnapshot.docs.length - 1];
     const hasMore = tradesSnapshot.docs.length === limit;
-    const lastVisibleDate = lastVisible ? (lastVisible.data() as Trade).date : undefined;
+    const lastVisibleDate = lastVisible
+      ? (lastVisible.data() as Trade).date
+      : undefined;
 
-    return createPaginatedResponse(
-      trades,
-      hasMore,
-      lastVisibleDate
-    );
+    return createPaginatedResponse(trades, hasMore, lastVisibleDate);
   } catch (error) {
     console.error("Error fetching more trades:", error);
     return createErrorResponse(
-      ErrorCode.SERVER_ERROR, 
+      ErrorCode.SERVER_ERROR,
       "Failed to fetch more trades",
-      { originalError: error instanceof Error ? error.message : String(error) }
+      { originalError: error instanceof Error ? error.message : String(error) },
     );
   }
 }
@@ -270,7 +292,7 @@ export async function getMoreTrades(
  */
 export async function createTrade(
   firestoreId: string,
-  tradeData: TradeCreateData
+  tradeData: TradeCreateData,
 ): Promise<ApiResponse<Trade>> {
   try {
     // Get pulse data to validate against risk parameters
@@ -278,64 +300,80 @@ export async function createTrade(
     if (!pulseDoc.exists()) {
       return createErrorResponse(ErrorCode.NOT_FOUND, "Pulse not found");
     }
-    
+
     const pulseData = pulseDoc.data() as Pulse;
-    
+
     // Validate required fields
-    if (!tradeData.instrument || !tradeData.lotSize || !tradeData.entryPrice || !tradeData.exitPrice) {
-      return createErrorResponse(ErrorCode.VALIDATION_ERROR, "Missing required trade fields");
-    }
-    
-    // Validate entry time vs exit time
-    if (tradeData.entryTime && tradeData.exitTime && tradeData.entryTime > tradeData.exitTime) {
+    if (
+      !tradeData.instrument ||
+      !tradeData.lotSize ||
+      !tradeData.entryPrice ||
+      !tradeData.exitPrice
+    ) {
       return createErrorResponse(
         ErrorCode.VALIDATION_ERROR,
-        "Entry time must be earlier than exit time"
+        "Missing required trade fields",
       );
     }
-    
+
+    // Validate entry time vs exit time
+    if (
+      tradeData.entryTime &&
+      tradeData.exitTime &&
+      tradeData.entryTime > tradeData.exitTime
+    ) {
+      return createErrorResponse(
+        ErrorCode.VALIDATION_ERROR,
+        "Entry time must be earlier than exit time",
+      );
+    }
+
     // Validate price vs profit/loss consistency
     const priceDifference = tradeData.exitPrice - tradeData.entryPrice;
-    const expectedProfitableDirection = 
-      (tradeData.type === 'Buy' && priceDifference > 0) || 
-      (tradeData.type === 'Sell' && priceDifference < 0);
-    
+    const expectedProfitableDirection =
+      (tradeData.type === "Buy" && priceDifference > 0) ||
+      (tradeData.type === "Sell" && priceDifference < 0);
+
     const isProfitable = tradeData.profitLoss > 0;
-    
-    if (isProfitable !== expectedProfitableDirection && tradeData.profitLoss !== 0) {
+
+    if (
+      isProfitable !== expectedProfitableDirection &&
+      tradeData.profitLoss !== 0
+    ) {
       return createErrorResponse(
         ErrorCode.VALIDATION_ERROR,
-        `The profit/loss amount doesn't match the expected result based on entry/exit prices. For a ${tradeData.type} trade with entry at ${tradeData.entryPrice} and exit at ${tradeData.exitPrice}, the P/L should ${expectedProfitableDirection ? 'be positive' : 'be negative'}`
+        `The profit/loss amount doesn't match the expected result based on entry/exit prices. For a ${tradeData.type} trade with entry at ${tradeData.entryPrice} and exit at ${tradeData.exitPrice}, the P/L should ${expectedProfitableDirection ? "be positive" : "be negative"}`,
       );
     }
-    
+
     // Validate risk per trade
     const riskAmount = Math.abs(tradeData.profitLoss);
     const riskPercentage = (riskAmount / pulseData.accountSize) * 100;
-    
+
     if (riskPercentage > pulseData.maxRiskPerTrade) {
       return createErrorResponse(
         ErrorCode.VALIDATION_ERROR,
-        `Trade risk (${riskPercentage.toFixed(2)}%) exceeds maximum allowed risk (${pulseData.maxRiskPerTrade}%)`
+        `Trade risk (${riskPercentage.toFixed(2)}%) exceeds maximum allowed risk (${pulseData.maxRiskPerTrade}%)`,
       );
     }
-    
+
     // Check daily drawdown limit
-    const today = new Date(tradeData.date).toISOString().split('T')[0];
+    const today = new Date(tradeData.date).toISOString().split("T")[0];
     const dailyLosses = pulseData.dailyLoss?.[today] || 0;
-    
+
     if (tradeData.profitLoss < 0) {
       const newDailyLoss = dailyLosses + Math.abs(tradeData.profitLoss);
-      const dailyDrawdownPercentage = (newDailyLoss / pulseData.accountSize) * 100;
-      
+      const dailyDrawdownPercentage =
+        (newDailyLoss / pulseData.accountSize) * 100;
+
       if (dailyDrawdownPercentage > pulseData.maxDailyDrawdown) {
         return createErrorResponse(
           ErrorCode.VALIDATION_ERROR,
-          `This trade would exceed your maximum daily drawdown limit of ${pulseData.maxDailyDrawdown}%`
+          `This trade would exceed your maximum daily drawdown limit of ${pulseData.maxDailyDrawdown}%`,
         );
       }
     }
-    
+
     // Add trade to subcollection
     const tradeWithTimestamp = {
       ...tradeData,
@@ -349,7 +387,8 @@ export async function createTrade(
     // Update daily loss tracking if it's a losing trade
     if (tradeData.profitLoss < 0) {
       const dailyLossUpdate = {
-        [`dailyLoss.${today}`]: (dailyLosses || 0) + Math.abs(tradeData.profitLoss)
+        [`dailyLoss.${today}`]:
+          (dailyLosses || 0) + Math.abs(tradeData.profitLoss),
       };
       await updateDoc(doc(db, "pulses", firestoreId), dailyLossUpdate);
     }
@@ -358,15 +397,18 @@ export async function createTrade(
     const totalDrawdown = pulseData.totalDrawdown || 0;
     if (tradeData.profitLoss < 0) {
       const newTotalDrawdown = totalDrawdown + Math.abs(tradeData.profitLoss);
-      const totalDrawdownPercentage = (newTotalDrawdown / pulseData.accountSize) * 100;
-      
+      const totalDrawdownPercentage =
+        (newTotalDrawdown / pulseData.accountSize) * 100;
+
       if (totalDrawdownPercentage > pulseData.maxTotalDrawdown) {
         // Just warn, don't block the trade
-        console.warn(`Trade exceeds maximum total drawdown of ${pulseData.maxTotalDrawdown}%`);
+        console.warn(
+          `Trade exceeds maximum total drawdown of ${pulseData.maxTotalDrawdown}%`,
+        );
       }
-      
+
       await updateDoc(doc(db, "pulses", firestoreId), {
-        totalDrawdown: newTotalDrawdown
+        totalDrawdown: newTotalDrawdown,
       });
     }
 
@@ -380,9 +422,120 @@ export async function createTrade(
   } catch (error) {
     console.error("Error creating trade:", error);
     return createErrorResponse(
-      ErrorCode.SERVER_ERROR, 
+      ErrorCode.SERVER_ERROR,
       "Failed to create trade",
-      { originalError: error instanceof Error ? error.message : String(error) }
+      { originalError: error instanceof Error ? error.message : String(error) },
+    );
+  }
+}
+
+/**
+ * Update an existing trade
+ */
+export async function updateTrade(
+  firestoreId: string,
+  tradeId: string,
+  tradeData: TradeCreateData,
+): Promise<ApiResponse<void>> {
+  try {
+    // Get pulse data for validation
+    const pulseDoc = await getDoc(doc(db, "pulses", firestoreId));
+    if (!pulseDoc.exists()) {
+      return createErrorResponse(ErrorCode.NOT_FOUND, "Pulse not found");
+    }
+
+    const pulseData = pulseDoc.data() as Pulse;
+
+    // Get the existing trade
+    const tradeDocRef = doc(db, "pulses", firestoreId, "trades", tradeId);
+    const existingTradeDoc = await getDoc(tradeDocRef);
+
+    if (!existingTradeDoc.exists()) {
+      return createErrorResponse(ErrorCode.NOT_FOUND, "Trade not found");
+    }
+
+    const existingTradeData = existingTradeDoc.data() as Trade;
+
+    // Validate required fields
+    if (
+      !tradeData.instrument ||
+      !tradeData.lotSize ||
+      !tradeData.entryPrice ||
+      !tradeData.exitPrice
+    ) {
+      return createErrorResponse(
+        ErrorCode.VALIDATION_ERROR,
+        "Missing required trade fields",
+      );
+    }
+
+    // Validate entry time vs exit time
+    if (
+      tradeData.entryTime &&
+      tradeData.exitTime &&
+      tradeData.entryTime > tradeData.exitTime
+    ) {
+      return createErrorResponse(
+        ErrorCode.VALIDATION_ERROR,
+        "Entry time must be earlier than exit time",
+      );
+    }
+
+    // Update the trade document
+    await updateDoc(tradeDocRef, {
+      ...tradeData,
+      updatedAt: Timestamp.now(),
+    });
+
+    // Recalculate daily loss tracking if P/L changed
+    const oldDate = new Date(existingTradeData.date)
+      .toISOString()
+      .split("T")[0];
+    const newDate = new Date(tradeData.date).toISOString().split("T")[0];
+    const oldPL = existingTradeData.profitLoss;
+    const newPL = tradeData.profitLoss;
+
+    if (oldDate === newDate && oldPL !== newPL) {
+      // Same day, different P/L - adjust daily loss
+      const dailyLosses = pulseData.dailyLoss?.[newDate] || 0;
+      const oldLossContribution = oldPL < 0 ? Math.abs(oldPL) : 0;
+      const newLossContribution = newPL < 0 ? Math.abs(newPL) : 0;
+      const adjustedDailyLoss =
+        dailyLosses - oldLossContribution + newLossContribution;
+
+      await updateDoc(doc(db, "pulses", firestoreId), {
+        [`dailyLoss.${newDate}`]: Math.max(0, adjustedDailyLoss),
+      });
+    } else if (oldDate !== newDate) {
+      // Different day - remove from old, add to new
+      if (oldPL < 0) {
+        const oldDailyLosses = pulseData.dailyLoss?.[oldDate] || 0;
+        await updateDoc(doc(db, "pulses", firestoreId), {
+          [`dailyLoss.${oldDate}`]: Math.max(
+            0,
+            oldDailyLosses - Math.abs(oldPL),
+          ),
+        });
+      }
+
+      if (newPL < 0) {
+        const newDailyLosses = pulseData.dailyLoss?.[newDate] || 0;
+        await updateDoc(doc(db, "pulses", firestoreId), {
+          [`dailyLoss.${newDate}`]: newDailyLosses + Math.abs(newPL),
+        });
+      }
+    }
+
+    // Recalculate stats for the pulse
+    await calculatePulseStats(firestoreId);
+
+    return createSuccessResponse(undefined);
+  } catch (error) {
+    console.error("Error updating trade:", error);
+    return createErrorResponse(
+      ErrorCode.SERVER_ERROR,
+      "Failed to update trade",
+      { originalError: error instanceof Error ? error.message : String(error) },
     );
   }
 }
@@ -391,12 +544,12 @@ export async function createTrade(
  * Calculate stats for a pulse
  */
 export async function calculatePulseStats(
-  firestoreId: string
+  firestoreId: string,
 ): Promise<ApiResponse<Pulse["stats"]>> {
   try {
     const tradesRef = collection(db, "pulses", firestoreId, "trades");
     const querySnapshot = await getDocs(tradesRef);
-    
+
     if (querySnapshot.empty) {
       const emptyStats = {
         totalTrades: 0,
@@ -408,16 +561,16 @@ export async function calculatePulseStats(
         averageLoss: 0,
         profitFactor: 0,
       };
-      
+
       // Update pulse document with empty stats
       const pulseDocRef = doc(db, "pulses", firestoreId);
       await updateDoc(pulseDocRef, { stats: emptyStats });
-      
+
       return createSuccessResponse(emptyStats);
     }
 
     const trades = querySnapshot.docs.map((doc) => doc.data()) as Trade[];
-    
+
     // Calculate stats
     let wins = 0;
     let losses = 0;
@@ -433,7 +586,7 @@ export async function calculatePulseStats(
         losses++;
         totalLossAmount += Math.abs(trade.profitLoss);
       }
-      
+
       totalProfitLoss += trade.profitLoss;
     });
 
@@ -441,7 +594,8 @@ export async function calculatePulseStats(
     const strikeRate = totalTrades > 0 ? (wins / totalTrades) * 100 : 0;
     const averageWin = wins > 0 ? totalWinAmount / wins : 0;
     const averageLoss = losses > 0 ? totalLossAmount / losses : 0;
-    const profitFactor = totalLossAmount > 0 ? totalWinAmount / totalLossAmount : 0;
+    const profitFactor =
+      totalLossAmount > 0 ? totalWinAmount / totalLossAmount : 0;
 
     const stats = {
       totalTrades,
@@ -462,9 +616,9 @@ export async function calculatePulseStats(
   } catch (error) {
     console.error("Error calculating stats:", error);
     return createErrorResponse(
-      ErrorCode.SERVER_ERROR, 
+      ErrorCode.SERVER_ERROR,
       "Failed to calculate stats",
-      { originalError: error instanceof Error ? error.message : String(error) }
+      { originalError: error instanceof Error ? error.message : String(error) },
     );
   }
 }
@@ -475,28 +629,28 @@ export async function calculatePulseStats(
 export async function updatePulse(
   pulseId: string,
   userId: string,
-  updateData: PulseUpdateData
+  updateData: PulseUpdateData,
 ): Promise<ApiResponse<void>> {
   try {
     // Validate inputs
     if (updateData.maxRiskPerTrade > MAX_RISK_PERCENTAGE) {
       return createErrorResponse(
         ErrorCode.VALIDATION_ERROR,
-        `Maximum risk cannot exceed ${MAX_RISK_PERCENTAGE}%`
+        `Maximum risk cannot exceed ${MAX_RISK_PERCENTAGE}%`,
       );
     }
 
     if (updateData.maxDailyDrawdown > MAX_DAILY_DRAWDOWN) {
       return createErrorResponse(
         ErrorCode.VALIDATION_ERROR,
-        `Maximum daily drawdown cannot exceed ${MAX_DAILY_DRAWDOWN}%`
+        `Maximum daily drawdown cannot exceed ${MAX_DAILY_DRAWDOWN}%`,
       );
     }
 
     if (updateData.maxTotalDrawdown > MAX_TOTAL_DRAWDOWN) {
       return createErrorResponse(
         ErrorCode.VALIDATION_ERROR,
-        `Maximum total drawdown cannot exceed ${MAX_TOTAL_DRAWDOWN}%`
+        `Maximum total drawdown cannot exceed ${MAX_TOTAL_DRAWDOWN}%`,
       );
     }
 
@@ -505,7 +659,7 @@ export async function updatePulse(
     const q = query(
       pulsesRef,
       where("id", "==", pulseId),
-      where("userId", "==", userId)
+      where("userId", "==", userId),
     );
     const querySnapshot = await getDocs(q);
 
@@ -544,9 +698,9 @@ export async function updatePulse(
   } catch (error) {
     console.error("Error updating pulse:", error);
     return createErrorResponse(
-      ErrorCode.SERVER_ERROR, 
+      ErrorCode.SERVER_ERROR,
       "Failed to update pulse",
-      { originalError: error instanceof Error ? error.message : String(error) }
+      { originalError: error instanceof Error ? error.message : String(error) },
     );
   }
 }
@@ -556,7 +710,7 @@ export async function updatePulse(
  */
 export async function archivePulse(
   pulseId: string,
-  userId: string
+  userId: string,
 ): Promise<ApiResponse<void>> {
   try {
     // Find the pulse
@@ -564,7 +718,7 @@ export async function archivePulse(
     const q = query(
       pulsesRef,
       where("id", "==", pulseId),
-      where("userId", "==", userId)
+      where("userId", "==", userId),
     );
     const querySnapshot = await getDocs(q);
 
@@ -583,9 +737,9 @@ export async function archivePulse(
   } catch (error) {
     console.error("Error archiving pulse:", error);
     return createErrorResponse(
-      ErrorCode.SERVER_ERROR, 
+      ErrorCode.SERVER_ERROR,
       "Failed to archive pulse",
-      { originalError: error instanceof Error ? error.message : String(error) }
+      { originalError: error instanceof Error ? error.message : String(error) },
     );
   }
 }
@@ -595,7 +749,7 @@ export async function archivePulse(
  */
 export async function unarchivePulse(
   pulseId: string,
-  userId: string
+  userId: string,
 ): Promise<ApiResponse<void>> {
   try {
     // Find the pulse
@@ -603,7 +757,7 @@ export async function unarchivePulse(
     const q = query(
       pulsesRef,
       where("id", "==", pulseId),
-      where("userId", "==", userId)
+      where("userId", "==", userId),
     );
     const querySnapshot = await getDocs(q);
 
@@ -622,9 +776,9 @@ export async function unarchivePulse(
   } catch (error) {
     console.error("Error unarchiving pulse:", error);
     return createErrorResponse(
-      ErrorCode.SERVER_ERROR, 
+      ErrorCode.SERVER_ERROR,
       "Failed to unarchive pulse",
-      { originalError: error instanceof Error ? error.message : String(error) }
+      { originalError: error instanceof Error ? error.message : String(error) },
     );
   }
 }
@@ -635,7 +789,7 @@ export async function unarchivePulse(
 export async function deletePulse(
   pulseId: string,
   userId: string,
-  confirmationName: string
+  confirmationName: string,
 ): Promise<ApiResponse<void>> {
   try {
     // Find the pulse
@@ -643,7 +797,7 @@ export async function deletePulse(
     const q = query(
       pulsesRef,
       where("id", "==", pulseId),
-      where("userId", "==", userId)
+      where("userId", "==", userId),
     );
     const querySnapshot = await getDocs(q);
 
@@ -657,32 +811,32 @@ export async function deletePulse(
     // Verify confirmation
     if (confirmationName !== pulseData.name) {
       return createErrorResponse(
-        ErrorCode.VALIDATION_ERROR, 
-        "Confirmation name does not match"
+        ErrorCode.VALIDATION_ERROR,
+        "Confirmation name does not match",
       );
     }
 
     // Delete all trades from the subcollection
     const tradesRef = collection(db, "pulses", pulseDoc.id, "trades");
     const tradesSnapshot = await getDocs(tradesRef);
-    
+
     const batch = writeBatch(db);
     tradesSnapshot.docs.forEach((tradeDoc) => {
       batch.delete(doc(db, "pulses", pulseDoc.id, "trades", tradeDoc.id));
     });
-    
+
     // Delete the pulse document
     batch.delete(doc(db, "pulses", pulseDoc.id));
-    
+
     await batch.commit();
 
     return createSuccessResponse(undefined);
   } catch (error) {
     console.error("Error deleting pulse:", error);
     return createErrorResponse(
-      ErrorCode.SERVER_ERROR, 
+      ErrorCode.SERVER_ERROR,
       "Failed to delete pulse",
-      { originalError: error instanceof Error ? error.message : String(error) }
+      { originalError: error instanceof Error ? error.message : String(error) },
     );
   }
-} 
+}

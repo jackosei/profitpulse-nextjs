@@ -306,9 +306,10 @@ export async function createTrade(
     // Validate required fields
     if (
       !tradeData.instrument ||
-      !tradeData.lotSize ||
-      !tradeData.entryPrice ||
-      !tradeData.exitPrice
+      !tradeData.execution.lotSize ||
+      !tradeData.execution.entryPrice ||
+      !tradeData.execution.exitPrice ||
+      !tradeData.execution.entryReason
     ) {
       return createErrorResponse(
         ErrorCode.VALIDATION_ERROR,
@@ -318,9 +319,9 @@ export async function createTrade(
 
     // Validate entry time vs exit time
     if (
-      tradeData.entryTime &&
-      tradeData.exitTime &&
-      tradeData.entryTime > tradeData.exitTime
+      tradeData.execution.entryTime &&
+      tradeData.execution.exitTime &&
+      tradeData.execution.entryTime > tradeData.execution.exitTime
     ) {
       return createErrorResponse(
         ErrorCode.VALIDATION_ERROR,
@@ -329,25 +330,26 @@ export async function createTrade(
     }
 
     // Validate price vs profit/loss consistency
-    const priceDifference = tradeData.exitPrice - tradeData.entryPrice;
+    const priceDifference =
+      tradeData.execution.exitPrice - tradeData.execution.entryPrice;
     const expectedProfitableDirection =
       (tradeData.type === "Buy" && priceDifference > 0) ||
       (tradeData.type === "Sell" && priceDifference < 0);
 
-    const isProfitable = tradeData.profitLoss > 0;
+    const isProfitable = tradeData.performance.profitLoss > 0;
 
     if (
       isProfitable !== expectedProfitableDirection &&
-      tradeData.profitLoss !== 0
+      tradeData.performance.profitLoss !== 0
     ) {
       return createErrorResponse(
         ErrorCode.VALIDATION_ERROR,
-        `The profit/loss amount doesn't match the expected result based on entry/exit prices. For a ${tradeData.type} trade with entry at ${tradeData.entryPrice} and exit at ${tradeData.exitPrice}, the P/L should ${expectedProfitableDirection ? "be positive" : "be negative"}`,
+        `The profit/loss amount doesn't match the expected result based on entry/exit prices. For a ${tradeData.type} trade with entry at ${tradeData.execution.entryPrice} and exit at ${tradeData.execution.exitPrice}, the P/L should ${expectedProfitableDirection ? "be positive" : "be negative"}`,
       );
     }
 
     // Validate risk per trade
-    const riskAmount = Math.abs(tradeData.profitLoss);
+    const riskAmount = Math.abs(tradeData.performance.profitLoss);
     const riskPercentage = (riskAmount / pulseData.accountSize) * 100;
 
     if (riskPercentage > pulseData.maxRiskPerTrade) {
@@ -361,8 +363,9 @@ export async function createTrade(
     const today = new Date(tradeData.date).toISOString().split("T")[0];
     const dailyLosses = pulseData.dailyLoss?.[today] || 0;
 
-    if (tradeData.profitLoss < 0) {
-      const newDailyLoss = dailyLosses + Math.abs(tradeData.profitLoss);
+    if (tradeData.performance.profitLoss < 0) {
+      const newDailyLoss =
+        dailyLosses + Math.abs(tradeData.performance.profitLoss);
       const dailyDrawdownPercentage =
         (newDailyLoss / pulseData.accountSize) * 100;
 
@@ -385,18 +388,19 @@ export async function createTrade(
     const tradeDoc = await addDoc(tradesRef, tradeWithTimestamp);
 
     // Update daily loss tracking if it's a losing trade
-    if (tradeData.profitLoss < 0) {
+    if (tradeData.performance.profitLoss < 0) {
       const dailyLossUpdate = {
         [`dailyLoss.${today}`]:
-          (dailyLosses || 0) + Math.abs(tradeData.profitLoss),
+          (dailyLosses || 0) + Math.abs(tradeData.performance.profitLoss),
       };
       await updateDoc(doc(db, "pulses", firestoreId), dailyLossUpdate);
     }
 
     // Update total drawdown if applicable
     const totalDrawdown = pulseData.totalDrawdown || 0;
-    if (tradeData.profitLoss < 0) {
-      const newTotalDrawdown = totalDrawdown + Math.abs(tradeData.profitLoss);
+    if (tradeData.performance.profitLoss < 0) {
+      const newTotalDrawdown =
+        totalDrawdown + Math.abs(tradeData.performance.profitLoss);
       const totalDrawdownPercentage =
         (newTotalDrawdown / pulseData.accountSize) * 100;
 
@@ -459,9 +463,9 @@ export async function updateTrade(
     // Validate required fields
     if (
       !tradeData.instrument ||
-      !tradeData.lotSize ||
-      !tradeData.entryPrice ||
-      !tradeData.exitPrice
+      !tradeData.execution.lotSize ||
+      !tradeData.execution.entryPrice ||
+      !tradeData.execution.exitPrice
     ) {
       return createErrorResponse(
         ErrorCode.VALIDATION_ERROR,
@@ -471,9 +475,9 @@ export async function updateTrade(
 
     // Validate entry time vs exit time
     if (
-      tradeData.entryTime &&
-      tradeData.exitTime &&
-      tradeData.entryTime > tradeData.exitTime
+      tradeData.execution.entryTime &&
+      tradeData.execution.exitTime &&
+      tradeData.execution.entryTime > tradeData.execution.exitTime
     ) {
       return createErrorResponse(
         ErrorCode.VALIDATION_ERROR,
@@ -492,8 +496,8 @@ export async function updateTrade(
       .toISOString()
       .split("T")[0];
     const newDate = new Date(tradeData.date).toISOString().split("T")[0];
-    const oldPL = existingTradeData.profitLoss;
-    const newPL = tradeData.profitLoss;
+    const oldPL = existingTradeData.performance.profitLoss;
+    const newPL = tradeData.performance.profitLoss;
 
     if (oldDate === newDate && oldPL !== newPL) {
       // Same day, different P/L - adjust daily loss
@@ -581,13 +585,13 @@ export async function calculatePulseStats(
     trades.forEach((trade) => {
       if (trade.outcome === "Win") {
         wins++;
-        totalWinAmount += trade.profitLoss;
+        totalWinAmount += trade.performance.profitLoss;
       } else if (trade.outcome === "Loss") {
         losses++;
-        totalLossAmount += Math.abs(trade.profitLoss);
+        totalLossAmount += Math.abs(trade.performance.profitLoss);
       }
 
-      totalProfitLoss += trade.profitLoss;
+      totalProfitLoss += trade.performance.profitLoss;
     });
 
     const totalTrades = trades.length;

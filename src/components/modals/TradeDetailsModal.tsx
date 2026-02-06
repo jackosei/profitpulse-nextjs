@@ -78,7 +78,9 @@ export default function TradeDetailsModal({
                 </div>
                 <div>
                   <p className="text-sm text-gray-400">Lot Size</p>
-                  <p className="text-base text-foreground">{trade.lotSize}</p>
+                  <p className="text-base text-foreground">
+                    {trade.execution.lotSize}
+                  </p>
                 </div>
               </div>
             </div>
@@ -92,17 +94,31 @@ export default function TradeDetailsModal({
                 <div>
                   <p className="text-sm text-gray-400">Entry Price</p>
                   <p className="text-base text-foreground">
-                    {trade.entryPrice}
+                    {trade.execution.entryPrice}
                   </p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-400">Exit Price</p>
-                  <p className="text-base text-foreground">{trade.exitPrice}</p>
+                  <p className="text-base text-foreground">
+                    {trade.execution.exitPrice}
+                  </p>
                 </div>
                 <div>
+                  <p className="text-sm text-gray-400">Entry Time</p>
+                  <p className="text-base text-foreground">
+                    {trade.execution.entryTime || "N/A"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-400">Exit Time</p>
+                  <p className="text-base text-foreground">
+                    {trade.execution.exitTime || "N/A"}
+                  </p>
+                </div>
+                <div className="md:col-span-2">
                   <p className="text-sm text-gray-400">Entry Reason</p>
                   <p className="text-base text-foreground">
-                    {trade.entryReason || "Not specified"}
+                    {trade.execution.entryReason}
                   </p>
                 </div>
                 <div>
@@ -131,17 +147,17 @@ export default function TradeDetailsModal({
                 <div>
                   <p className="text-sm text-gray-400">Profit/Loss</p>
                   <p
-                    className={`text-base ${trade.profitLoss >= 0 ? "text-success" : "text-error"}`}
+                    className={`text-base ${trade.performance.profitLoss >= 0 ? "text-success" : "text-error"}`}
                   >
-                    {formatCurrency(trade.profitLoss)}
+                    {formatCurrency(trade.performance.profitLoss)}
                   </p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-400">Profit/Loss %</p>
+                  <p className="text-sm text-gray-400">P/L Percentage</p>
                   <p
-                    className={`text-base ${trade.profitLossPercentage >= 0 ? "text-success" : "text-error"}`}
+                    className={`text-base ${trade.performance.profitLossPercentage >= 0 ? "text-success" : "text-error"}`}
                   >
-                    {trade.profitLossPercentage.toFixed(2)}%
+                    {trade.performance.profitLossPercentage.toFixed(2)}%
                   </p>
                 </div>
               </div>

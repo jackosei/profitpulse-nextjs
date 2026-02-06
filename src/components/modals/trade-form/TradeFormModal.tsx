@@ -72,38 +72,39 @@ export default function TradeFormModal({
   const getInitialFormData = (): TradeFormData => {
     if (mode === "update" && trade) {
       return {
-        // Trade tab
+        // Trade tab - read from nested execution and performance
         date: trade.date || new Date().toISOString().split("T")[0],
-        entryTime: trade.entryTime || "",
-        exitTime: trade.exitTime || "",
+        entryTime: trade.execution?.entryTime || "",
+        exitTime: trade.execution?.exitTime || "",
         type: trade.type || "Buy",
-        lotSize: String(trade.lotSize || ""),
-        entryPrice: String(trade.entryPrice || ""),
-        exitPrice: String(trade.exitPrice || ""),
-        entryReason: trade.entryReason || "",
-        profitLoss: String(trade.profitLoss || ""),
+        lotSize: String(trade.execution?.lotSize || ""),
+        entryPrice: String(trade.execution?.entryPrice || ""),
+        exitPrice: String(trade.execution?.exitPrice || ""),
+        entryReason: trade.execution?.entryReason || "",
+        profitLoss: String(trade.performance?.profitLoss || ""),
         learnings: trade.learnings || "",
         instrument: trade.instrument || "",
-        entryScreenshot: trade.entryScreenshot || "",
-        exitScreenshot: trade.exitScreenshot || "",
+        entryScreenshot: trade.execution?.entryScreenshot || "",
+        exitScreenshot: trade.execution?.exitScreenshot || "",
 
-        // Psychology tab
-        emotionalState: trade.emotionalState || "",
-        emotionalIntensity: trade.emotionalIntensity ?? 5,
-        mentalState: trade.mentalState || "",
-        planAdherence: trade.planAdherence || "",
-        impulsiveEntry: trade.impulsiveEntry ?? false,
+        // Psychology tab - read from nested psychology
+        emotionalState: trade.psychology?.emotionalState || "",
+        emotionalIntensity: trade.psychology?.emotionalIntensity ?? 5,
+        mentalState: trade.psychology?.mentalState || "",
+        planAdherence: trade.psychology?.planAdherence || "",
+        impulsiveEntry: trade.psychology?.impulsiveEntry ?? false,
 
-        // Context tab
-        marketCondition: trade.marketCondition || "",
-        timeOfDay: trade.timeOfDay || "",
-        tradingEnvironment: trade.tradingEnvironment || "",
+        // Context tab - read from nested context
+        marketCondition: trade.context?.marketCondition || "",
+        timeOfDay: trade.context?.timeOfDay || "",
+        tradingEnvironment: trade.context?.tradingEnvironment || "",
 
-        // Reflection tab
-        wouldRepeat: trade.wouldRepeat ?? false,
-        emotionalImpact: trade.emotionalImpact || "",
-        mistakesIdentified: trade.mistakesIdentified?.join(", ") || "",
-        improvementIdeas: trade.improvementIdeas || "",
+        // Reflection tab - read from nested reflection
+        wouldRepeat: trade.reflection?.wouldRepeat ?? false,
+        emotionalImpact: trade.reflection?.emotionalImpact || "",
+        mistakesIdentified:
+          trade.reflection?.mistakesIdentified?.join(", ") || "",
+        improvementIdeas: trade.reflection?.improvementIdeas || "",
       };
     }
 
@@ -331,78 +332,105 @@ export default function TradeFormModal({
         ? formData.mistakesIdentified.split(",").map((m) => m.trim())
         : undefined;
 
+      // Build nested trade data structure
       const tradeData: TradeCreateData = {
         date: formData.date,
-        entryTime: formData.entryTime || undefined,
-        exitTime: formData.exitTime || undefined,
         type: formData.type as "Buy" | "Sell",
-        lotSize: Number(formData.lotSize),
-        entryPrice: Number(formData.entryPrice),
-        exitPrice: Number(formData.exitPrice),
-        entryReason: formData.entryReason,
-        learnings: formData.learnings || "",
-        profitLoss,
-        profitLossPercentage: (profitLoss / accountSize) * 100,
         outcome,
         pulseId,
         userId,
         instrument: formData.instrument,
-        followedRules,
 
-        // Screenshots
-        entryScreenshot: formData.entryScreenshot || undefined,
-        exitScreenshot: formData.exitScreenshot || undefined,
+        // Execution data (required)
+        execution: {
+          lotSize: Number(formData.lotSize),
+          entryPrice: Number(formData.entryPrice),
+          exitPrice: Number(formData.exitPrice),
+          entryReason: formData.entryReason,
+          ...(formData.entryTime && { entryTime: formData.entryTime }),
+          ...(formData.exitTime && { exitTime: formData.exitTime }),
+          ...(formData.entryScreenshot && {
+            entryScreenshot: formData.entryScreenshot,
+          }),
+          ...(formData.exitScreenshot && {
+            exitScreenshot: formData.exitScreenshot,
+          }),
+        },
 
-        // Psychological factors
-        emotionalState: formData.emotionalState
-          ? (formData.emotionalState as EmotionalState)
-          : undefined,
-        emotionalIntensity:
-          formData.emotionalIntensity !== undefined
-            ? Number(formData.emotionalIntensity)
-            : undefined,
-        mentalState: formData.mentalState
-          ? (formData.mentalState as MentalState)
-          : undefined,
+        // Performance data (required)
+        performance: {
+          profitLoss,
+          profitLossPercentage: (profitLoss / accountSize) * 100,
+        },
 
-        // Decision quality
-        planAdherence: formData.planAdherence
-          ? (formData.planAdherence as PlanAdherence)
-          : undefined,
-        impulsiveEntry:
-          formData.impulsiveEntry !== undefined
-            ? formData.impulsiveEntry
-            : undefined,
-
-        // Context factors
-        marketCondition: formData.marketCondition
-          ? (formData.marketCondition as MarketCondition)
-          : undefined,
-        timeOfDay: formData.timeOfDay || undefined,
-        tradingEnvironment: formData.tradingEnvironment
-          ? (formData.tradingEnvironment as TradingEnvironment)
-          : undefined,
-
-        // Reflection
-        wouldRepeat:
-          formData.wouldRepeat !== undefined ? formData.wouldRepeat : undefined,
-        emotionalImpact: formData.emotionalImpact
-          ? (formData.emotionalImpact as EmotionalImpact)
-          : undefined,
-        mistakesIdentified,
-        improvementIdeas: formData.improvementIdeas || undefined,
+        // Other top-level fields
+        ...(formData.learnings && { learnings: formData.learnings }),
+        ...(followedRules.length > 0 && { followedRules }),
       };
 
-      // Filter out undefined values (Firebase doesn't allow undefined)
-      const cleanedTradeData = Object.fromEntries(
-        Object.entries(tradeData).filter(([, value]) => value !== undefined),
-      ) as TradeCreateData;
+      // Psychology data (optional)
+      const psychologyData: Record<string, string | number | boolean> = {};
+      if (formData.emotionalState) {
+        psychologyData.emotionalState =
+          formData.emotionalState as EmotionalState;
+      }
+      if (formData.emotionalIntensity !== undefined) {
+        psychologyData.emotionalIntensity = Number(formData.emotionalIntensity);
+      }
+      if (formData.mentalState) {
+        psychologyData.mentalState = formData.mentalState as MentalState;
+      }
+      if (formData.planAdherence) {
+        psychologyData.planAdherence = formData.planAdherence as PlanAdherence;
+      }
+      if (formData.impulsiveEntry !== undefined) {
+        psychologyData.impulsiveEntry = formData.impulsiveEntry;
+      }
+      if (Object.keys(psychologyData).length > 0) {
+        tradeData.psychology = psychologyData;
+      }
+
+      // Context data (optional)
+      const contextData: Record<string, string> = {};
+      if (formData.marketCondition) {
+        contextData.marketCondition =
+          formData.marketCondition as MarketCondition;
+      }
+      if (formData.timeOfDay) {
+        contextData.timeOfDay = formData.timeOfDay;
+      }
+      if (formData.tradingEnvironment) {
+        contextData.tradingEnvironment =
+          formData.tradingEnvironment as TradingEnvironment;
+      }
+      if (Object.keys(contextData).length > 0) {
+        tradeData.context = contextData;
+      }
+
+      // Reflection data (optional)
+      const reflectionData: Record<string, boolean | string | string[]> = {};
+      if (formData.wouldRepeat !== undefined) {
+        reflectionData.wouldRepeat = formData.wouldRepeat;
+      }
+      if (formData.emotionalImpact) {
+        reflectionData.emotionalImpact =
+          formData.emotionalImpact as EmotionalImpact;
+      }
+      if (mistakesIdentified) {
+        reflectionData.mistakesIdentified = mistakesIdentified;
+      }
+      if (formData.improvementIdeas) {
+        reflectionData.improvementIdeas = formData.improvementIdeas;
+      }
+      if (Object.keys(reflectionData).length > 0) {
+        tradeData.reflection = reflectionData;
+      }
 
       let response;
       if (mode === "create") {
-        response = await createTrade(firestoreId, cleanedTradeData);
+        response = await createTrade(firestoreId, tradeData);
       } else {
-        response = await updateTrade(firestoreId, trade!.id!, cleanedTradeData);
+        response = await updateTrade(firestoreId, trade!.id!, tradeData);
       }
 
       if (!response) {
@@ -412,7 +440,7 @@ export default function TradeFormModal({
       toast.success(
         `Trade ${mode === "create" ? "added" : "updated"} successfully!`,
         {
-          description: `${cleanedTradeData.type} trade on ${cleanedTradeData.instrument} with P/L of $${cleanedTradeData.profitLoss.toFixed(2)}`,
+          description: `${tradeData.type} trade on ${tradeData.instrument} with P/L of $${tradeData.performance.profitLoss.toFixed(2)}`,
           duration: 4000,
         },
       );

@@ -183,17 +183,20 @@ export default function PulseDetailsPage() {
       const calculateStats = (periodTrades: Trade[]) => {
         const wins = periodTrades.filter((t) => t.outcome === "Win").length;
         const total = periodTrades.length;
-        const pl = periodTrades.reduce((sum, t) => sum + t.profitLoss, 0);
+        const pl = periodTrades.reduce(
+          (sum, t) => sum + t.performance.profitLoss,
+          0,
+        );
 
         // Calculate profit factor
         const winningTrades = periodTrades.filter((t) => t.outcome === "Win");
         const losingTrades = periodTrades.filter((t) => t.outcome === "Loss");
         const totalGrossProfit = winningTrades.reduce(
-          (sum, t) => sum + t.profitLoss,
+          (sum, t) => sum + t.performance.profitLoss,
           0,
         );
         const totalGrossLoss = losingTrades.reduce(
-          (sum, t) => sum + Math.abs(t.profitLoss),
+          (sum, t) => sum + Math.abs(t.performance.profitLoss),
           0,
         );
         const profitFactor =

@@ -1,8 +1,24 @@
 # Changelog
 
+## [2.0.0] - 2026-02-06
+
+### Major Breaking Changes
+
+#### Trade Data Structure Overhaul
+
+- **Nested Data Model**: Migrated trade data from flat structure to nested objects:
+  - `execution`: Entry/exit details, prices, lot size
+  - `performance`: Profit/loss metrics
+  - `psychology`: Emotional state, discipline tracking
+  - `context`: Market conditions, environment
+  - `reflection`: Post-trade analysis
+- **BREAKING CHANGE**: Existing trade data is not compatible with this version. Users must delete existing trades.
+- **Full Stack Update**: Updated all layers (Types, API, Forms, UI, Services) to support the new structure.
+- **Enhanced Validation**: Improved server-side validation for nested data structures.
+
 ## [1.3.0] - 2026-02-06
 
-### 🚀 Major Refactoring
+### Major Refactoring
 
 #### Trade Modal Architecture Overhaul
 
@@ -18,7 +34,7 @@
   - Added tab-based interface with completion indicators
   - Improved maintainability with shared TypeScript types
 
-### 🐛 Critical Bug Fixes
+### Critical Bug Fixes
 
 #### Firebase Data Persistence
 
@@ -34,7 +50,7 @@
 - Connected refresh callbacks to `fetchPulse()` in pulse page for real-time UI updates
 - Ensured automatic UI refresh after trade creation/update without page reload
 
-### ✨ Features
+### Features
 
 #### Enhanced Trade Editing
 
@@ -52,7 +68,7 @@
 - Proper type casting for numeric values
 - Enhanced error messages for validation failures
 
-### 🔨 Refactoring
+### Refactoring
 
 #### Component Structure
 
@@ -68,7 +84,7 @@
 - Consistent prop interfaces for form sections
 - Better separation of concerns
 
-### 📝 Documentation
+### Documentation
 
 - Created comprehensive refactoring walkthrough
 - Documented all bug fixes with root cause analysis
@@ -77,13 +93,13 @@
 
 ## [1.2.0] - 2025-03-12
 
-### 🚀 Features
+### Features
 
 #### One-Time Pulse Update Functionality
 
-- Added update tracking (`hasBeenUpdated`, `lastUpdate`) to the Pulse interface.
-- Implemented `UpdatePulseModal` with form validation and error handling.
-- Enhanced `PulseHeader` with risk rules display and status indicators.
+- Added update tracking (hasBeenUpdated, lastUpdate) to the Pulse interface.
+- Implemented UpdatePulseModal with form validation and error handling.
+- Enhanced PulseHeader with risk rules display and status indicators.
 - Added rule violations display for locked pulses.
 - Improved mobile responsiveness for risk rules display.
 
@@ -106,7 +122,7 @@
 - Added a gratitude journal component with local storage support.
 - Improved overall page styling and responsiveness.
 
-### 🛠️ Enhancements
+### Enhancements
 
 #### Enhanced Modals for Mobile Responsiveness & Scrollability
 
@@ -116,19 +132,19 @@
 - Ensured modals are centered using flexbox, with consistent padding and width constraints.
 - Improved `z-index` handling (`z-50`) to ensure modals appear above other content.
 
-### 🔧 Fixes
+### Fixes
 
 #### Removed Unused Variable
 
 - Eliminated `lossPercentage` variable from the `createTrade` function to improve code cleanliness.
 
-### 🔨 Refactor
+### Refactor
 
 #### Reorganized Project Directory Structure
 
 - Refactored the project structure for better maintainability and scalability.
 
-### 🔑 Security & Admin Updates
+### Security & Admin Updates
 
 #### Implemented Firebase Admin SDK for Admin User Setup
 

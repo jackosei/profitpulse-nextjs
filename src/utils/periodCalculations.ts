@@ -103,26 +103,30 @@ export function calculatePeriodChanges(
 
       // Current period stats
       if (tradeDate >= periodStart) {
-        currentStats.totalProfitLoss += trade.profitLoss;
-        if (trade.profitLoss > 0) {
+        currentStats.totalProfitLoss += trade.performance.profitLoss;
+        if (trade.performance.profitLoss > 0) {
           currentStats.totalWins++;
-          currentStats.totalWinAmount += trade.profitLoss;
-        } else if (trade.profitLoss < 0) {
+          currentStats.totalWinAmount += trade.performance.profitLoss;
+        } else if (trade.performance.profitLoss < 0) {
           currentStats.totalLosses++;
-          currentStats.totalLossAmount += Math.abs(trade.profitLoss);
+          currentStats.totalLossAmount += Math.abs(
+            trade.performance.profitLoss,
+          );
         }
         // Break-even trades (profitLoss === 0) are not counted as wins or losses
       }
 
       // Previous period stats
       if (tradeDate >= previousPeriodStart && tradeDate < periodStart) {
-        previousStats.totalProfitLoss += trade.profitLoss;
-        if (trade.profitLoss > 0) {
+        previousStats.totalProfitLoss += trade.performance.profitLoss;
+        if (trade.performance.profitLoss > 0) {
           previousStats.totalWins++;
-          previousStats.totalWinAmount += trade.profitLoss;
-        } else if (trade.profitLoss < 0) {
+          previousStats.totalWinAmount += trade.performance.profitLoss;
+        } else if (trade.performance.profitLoss < 0) {
           previousStats.totalLosses++;
-          previousStats.totalLossAmount += Math.abs(trade.profitLoss);
+          previousStats.totalLossAmount += Math.abs(
+            trade.performance.profitLoss,
+          );
         }
         // Break-even trades (profitLoss === 0) are not counted as wins or losses
       }

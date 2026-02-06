@@ -30,66 +30,72 @@ export interface PulseUpdateData {
   updateReason: string;
 }
 
-// Types for createTrade
+// Types for createTrade - matches nested Trade structure
 export interface TradeCreateData {
   pulseId: string;
   userId: string;
   date: string;
-  entryTime?: string;
-  exitTime?: string;
   type: "Buy" | "Sell";
-  lotSize: number;
-  entryPrice: number;
-  exitPrice: number;
-  profitLoss: number;
-  profitLossPercentage: number;
-  entryReason: string;
-  outcome: "Win" | "Loss" | "Break-even";
   instrument: string;
+  outcome: "Win" | "Loss" | "Break-even";
+
+  execution: {
+    entryTime?: string;
+    exitTime?: string;
+    lotSize: number;
+    entryPrice: number;
+    exitPrice: number;
+    entryReason: string;
+    entryScreenshot?: string;
+    exitScreenshot?: string;
+  };
+
+  performance: {
+    profitLoss: number;
+    profitLossPercentage: number;
+  };
+
+  psychology?: {
+    emotionalState?:
+      | "Calm"
+      | "Excited"
+      | "Fearful"
+      | "Greedy"
+      | "Anxious"
+      | "Confident"
+      | "Other";
+    emotionalIntensity?: number;
+    mentalState?:
+      | "Clear"
+      | "Distracted"
+      | "Tired"
+      | "Focused"
+      | "Rushed"
+      | "Other";
+    planAdherence?: "Fully" | "Partially" | "Deviated";
+    impulsiveEntry?: boolean;
+  };
+
+  context?: {
+    marketCondition?:
+      | "Trending"
+      | "Ranging"
+      | "Volatile"
+      | "Calm"
+      | "News-driven";
+    timeOfDay?: string;
+    tradingEnvironment?: "Home" | "Office" | "Mobile" | "Other";
+  };
+
+  reflection?: {
+    wouldRepeat?: boolean;
+    emotionalImpact?: "Positive" | "Negative" | "Neutral";
+    mistakesIdentified?: string[];
+    improvementIdeas?: string;
+  };
+
   learnings?: string;
   followedRules?: string[];
-
-  // Screenshots
-  entryScreenshot?: string;
-  exitScreenshot?: string;
-
-  // Psychological factors
-  emotionalState?:
-    | "Calm"
-    | "Excited"
-    | "Fearful"
-    | "Greedy"
-    | "Anxious"
-    | "Confident"
-    | "Other";
-  emotionalIntensity?: number;
-  mentalState?:
-    | "Clear"
-    | "Distracted"
-    | "Tired"
-    | "Focused"
-    | "Rushed"
-    | "Other";
-
-  // Decision quality
-  planAdherence?: "Fully" | "Partially" | "Deviated";
-  impulsiveEntry?: boolean;
-
-  // Context factors
-  marketCondition?:
-    | "Trending"
-    | "Ranging"
-    | "Volatile"
-    | "Calm"
-    | "News-driven";
-  timeOfDay?: string;
-  tradingEnvironment?: "Home" | "Office" | "Mobile" | "Other";
-
-  // Post-trade reflection
-  wouldRepeat?: boolean;
-  emotionalImpact?: "Positive" | "Negative" | "Neutral";
-  mistakesIdentified?: string[];
-  improvementIdeas?: string;
 }
 
 /**

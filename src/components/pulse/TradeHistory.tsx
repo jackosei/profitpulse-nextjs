@@ -144,18 +144,18 @@ export default function TradeHistory({
                   {trade.instrument || "N/A"}
                 </td>
                 <td className="p-3 md:p-4 text-sm md:text-base text-foreground hidden md:table-cell">
-                  {trade.lotSize}
+                  {trade.execution.lotSize}
                 </td>
                 <td className="p-3 md:p-4 text-sm md:text-base text-foreground hidden lg:table-cell">
-                  {trade.entryReason.length > 30
-                    ? `${trade.entryReason.substring(0, 30)}...`
-                    : trade.entryReason}
+                  {trade.execution.entryReason.length > 30
+                    ? `${trade.execution.entryReason.substring(0, 30)}...`
+                    : trade.execution.entryReason}
                 </td>
                 <td className="p-3 md:p-4 text-sm md:text-base text-foreground">
                   {trade.outcome}
                 </td>
                 <td className="p-3 md:p-4 text-sm md:text-base text-right text-foreground">
-                  ${trade.profitLoss.toFixed(2)}
+                  ${trade.performance.profitLoss.toFixed(2)}
                 </td>
                 <td className="p-3 md:p-4 text-center">
                   <button

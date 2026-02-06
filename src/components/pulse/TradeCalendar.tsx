@@ -82,7 +82,7 @@ export default function TradeCalendar({
   const getTotalPL = (dateKey: string): number => {
     if (!tradesByDate[dateKey]) return 0;
     return tradesByDate[dateKey].reduce(
-      (total, trade) => total + trade.profitLoss,
+      (total, trade) => total + trade.performance.profitLoss,
       0,
     );
   };

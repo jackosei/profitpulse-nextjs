@@ -50,29 +50,24 @@ export interface Pulse {
   };
 }
 
-export interface Trade {
-  id: string;
-  pulseId: string;
-  userId: string;
-  date: string;
-  entryTime?: string; // New field for trade entry time
-  exitTime?: string; // New field for trade exit time
-  type: "Buy" | "Sell";
+// Nested data structures for better organization
+export interface TradeExecution {
+  entryTime?: string;
+  exitTime?: string;
   lotSize: number;
   entryPrice: number;
   exitPrice: number;
-  profitLoss: number;
-  profitLossPercentage: number;
   entryReason: string;
-  outcome: "Win" | "Loss" | "Break-even";
-  createdAt: Timestamp;
-  instrument: string;
-  learnings?: string;
-  followedRules?: string[]; // IDs of rules that were followed
   entryScreenshot?: string;
   exitScreenshot?: string;
+}
 
-  // Psychological factors
+export interface TradePerformance {
+  profitLoss: number;
+  profitLossPercentage: number;
+}
+
+export interface TradePsychology {
   emotionalState?:
     | "Calm"
     | "Excited"
@@ -89,26 +84,53 @@ export interface Trade {
     | "Focused"
     | "Rushed"
     | "Other";
+  planAdherence?: "Fully" | "Partially" | "Deviated";
+  impulsiveEntry?: boolean;
+}
 
-  // Decision quality
-  planAdherence?: "Fully" | "Partially" | "Deviated"; // Did they follow their plan?
-  impulsiveEntry?: boolean; // Was this an impulse trade?
-
-  // Context factors
+export interface TradeContext {
   marketCondition?:
     | "Trending"
     | "Ranging"
     | "Volatile"
     | "Calm"
     | "News-driven";
-  timeOfDay?: string; // To identify time-based patterns
+  timeOfDay?: string;
   tradingEnvironment?: "Home" | "Office" | "Mobile" | "Other";
+}
 
-  // Post-trade reflection
-  wouldRepeat?: boolean; // Would make the same trade again?
-  emotionalImpact?: "Positive" | "Negative" | "Neutral"; // How the trade affected mood/confidence
+export interface TradeReflection {
+  wouldRepeat?: boolean;
+  emotionalImpact?: "Positive" | "Negative" | "Neutral";
   mistakesIdentified?: string[];
   improvementIdeas?: string;
+}
+
+// Clean nested Trade interface (no backward compatibility)
+export interface Trade {
+  // Meta
+  id: string;
+  pulseId: string;
+  userId: string;
+  createdAt: Timestamp;
+  updatedAt?: Timestamp;
+
+  // Core trade info
+  date: string;
+  type: "Buy" | "Sell";
+  instrument: string;
+  outcome: "Win" | "Loss" | "Break-even";
+
+  // Nested data
+  execution: TradeExecution;
+  performance: TradePerformance;
+  psychology?: TradePsychology;
+  context?: TradeContext;
+  reflection?: TradeReflection;
+
+  // Other
+  learnings?: string;
+  followedRules?: string[];
 }
 
 export interface PulseStats {

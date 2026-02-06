@@ -376,11 +376,16 @@ export default function TradeFormModal({
         improvementIdeas: formData.improvementIdeas || undefined,
       };
 
+      // Filter out undefined values (Firebase doesn't allow undefined)
+      const cleanedTradeData = Object.fromEntries(
+        Object.entries(tradeData).filter(([_, value]) => value !== undefined),
+      ) as TradeCreateData;
+
       let response;
       if (mode === "create") {
-        response = await createTrade(firestoreId, tradeData);
+        response = await createTrade(firestoreId, cleanedTradeData);
       } else {
-        response = await updateTrade(firestoreId, trade!.id!, tradeData);
+        response = await updateTrade(firestoreId, trade!.id!, cleanedTradeData);
       }
 
       if (!response) {
@@ -390,7 +395,7 @@ export default function TradeFormModal({
       toast.success(
         `Trade ${mode === "create" ? "added" : "updated"} successfully!`,
         {
-          description: `${tradeData.type} trade on ${tradeData.instrument} with P/L of $${tradeData.profitLoss.toFixed(2)}`,
+          description: `${cleanedTradeData.type} trade on ${cleanedTradeData.instrument} with P/L of $${cleanedTradeData.profitLoss.toFixed(2)}`,
           duration: 4000,
         },
       );

@@ -11,7 +11,8 @@ export default function TradeDetailsModal({
   onClose,
   trade,
   pulse,
-}: TradeDetailsModalProps) {
+  onRefresh,
+}: TradeDetailsModalProps & { onRefresh?: () => void }) {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   if (!isOpen) return null;
@@ -19,6 +20,10 @@ export default function TradeDetailsModal({
   const handleEditSuccess = () => {
     setIsEditModalOpen(false);
     onClose(); // Close the details modal as well since data has changed
+    // Trigger refresh to update the UI with latest data
+    if (onRefresh) {
+      onRefresh();
+    }
   };
 
   return (

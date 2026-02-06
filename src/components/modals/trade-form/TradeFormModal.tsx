@@ -89,10 +89,10 @@ export default function TradeFormModal({
 
         // Psychology tab
         emotionalState: trade.emotionalState || "",
-        emotionalIntensity: trade.emotionalIntensity || 5,
+        emotionalIntensity: trade.emotionalIntensity ?? 5,
         mentalState: trade.mentalState || "",
         planAdherence: trade.planAdherence || "",
-        impulsiveEntry: trade.impulsiveEntry || false,
+        impulsiveEntry: trade.impulsiveEntry ?? false,
 
         // Context tab
         marketCondition: trade.marketCondition || "",
@@ -100,7 +100,7 @@ export default function TradeFormModal({
         tradingEnvironment: trade.tradingEnvironment || "",
 
         // Reflection tab
-        wouldRepeat: trade.wouldRepeat || false,
+        wouldRepeat: trade.wouldRepeat ?? false,
         emotionalImpact: trade.emotionalImpact || "",
         mistakesIdentified: trade.mistakesIdentified?.join(", ") || "",
         improvementIdeas: trade.improvementIdeas || "",
@@ -183,6 +183,19 @@ export default function TradeFormModal({
     },
     [],
   );
+
+  // Reinitialize form data when trade or mode changes
+  useEffect(() => {
+    if (isOpen) {
+      const initialData = getInitialFormData();
+      console.log("🔄 Reinitializing form with data:", initialData);
+      setFormData(initialData);
+      setFollowedRules(
+        mode === "update" && trade?.followedRules ? trade.followedRules : [],
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, trade, mode]);
 
   // Fetch pulse details when modal is opened
   useEffect(() => {
@@ -345,9 +358,10 @@ export default function TradeFormModal({
         emotionalState: formData.emotionalState
           ? (formData.emotionalState as EmotionalState)
           : undefined,
-        emotionalIntensity: formData.emotionalIntensity
-          ? Number(formData.emotionalIntensity)
-          : undefined,
+        emotionalIntensity:
+          formData.emotionalIntensity !== undefined
+            ? Number(formData.emotionalIntensity)
+            : undefined,
         mentalState: formData.mentalState
           ? (formData.mentalState as MentalState)
           : undefined,
@@ -356,7 +370,10 @@ export default function TradeFormModal({
         planAdherence: formData.planAdherence
           ? (formData.planAdherence as PlanAdherence)
           : undefined,
-        impulsiveEntry: formData.impulsiveEntry || undefined,
+        impulsiveEntry:
+          formData.impulsiveEntry !== undefined
+            ? formData.impulsiveEntry
+            : undefined,
 
         // Context factors
         marketCondition: formData.marketCondition
@@ -368,7 +385,8 @@ export default function TradeFormModal({
           : undefined,
 
         // Reflection
-        wouldRepeat: formData.wouldRepeat || undefined,
+        wouldRepeat:
+          formData.wouldRepeat !== undefined ? formData.wouldRepeat : undefined,
         emotionalImpact: formData.emotionalImpact
           ? (formData.emotionalImpact as EmotionalImpact)
           : undefined,

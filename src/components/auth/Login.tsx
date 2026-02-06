@@ -6,7 +6,7 @@ import {
 	signInWithEmail,
 	handleRedirectResult,
 } from "@/services/auth"
-import { auth } from "@/services/firestoreConfig"
+import { auth } from "@/services/firebase/firestoreConfig"
 import Image from "next/image"
 import Link from "next/link"
 import { useRouter } from "next/navigation"

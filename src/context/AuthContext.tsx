@@ -8,8 +8,8 @@ import {
   ReactNode,
 } from "react";
 import { User } from "firebase/auth";
-import { auth } from "@/services/firestoreConfig";
-import { getUserProfile, createUserProfile } from "@/services/users";
+import { auth } from "@/services/firebase/firestoreConfig";
+import { getUserProfile, createUserProfile } from "@/services/api/userApi";
 import type { UserProfile } from "@/types/user";
 
 interface AuthContextType {
@@ -35,18 +35,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       if (user) {
         // Get or create user profile
-        let profile = await getUserProfile(user.uid);
+        const profileResponse = await getUserProfile(user.uid);
         
-        if (!profile) {
+        if (profileResponse.success && profileResponse.data) {
+          setUserProfile(profileResponse.data);
+        } else {
           // Create new profile if it doesn't exist
-          profile = await createUserProfile(
+          const createResponse = await createUserProfile(
             user.uid,
             user.email || '',
             user.displayName
           );
+          
+          if (createResponse.success && createResponse.data) {
+            setUserProfile(createResponse.data);
+          }
         }
-        
-        setUserProfile(profile);
       } else {
         setUserProfile(null);
       }

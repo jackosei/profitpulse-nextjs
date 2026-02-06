@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState } from "react";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -9,12 +9,12 @@ import {
   Tooltip,
   Legend,
   ChartOptions,
-} from 'chart.js';
-import { Line } from 'react-chartjs-2';
-import type { Trade } from '@/types/pulse';
-import { Menu } from '@headlessui/react';
-import { ChevronDownIcon } from '@heroicons/react/24/outline';
-import { formatCurrency } from "@/utils/format"
+} from "chart.js";
+import { Line } from "react-chartjs-2";
+import type { Trade } from "@/types/pulse";
+import { Menu } from "@headlessui/react";
+import { ChevronDownIcon } from "@heroicons/react/24/outline";
+import { formatCurrency } from "@/utils/format";
 
 // Register Chart.js components
 ChartJS.register(
@@ -24,30 +24,30 @@ ChartJS.register(
   LineElement,
   Title,
   Tooltip,
-  Legend
+  Legend,
 );
 
-type TimeFrame = 'day' | 'week' | 'month' | 'year';
+type TimeFrame = "day" | "week" | "month" | "year";
 
 const TIME_FRAMES = [
-  { label: 'Daily', value: 'day' },
-  { label: 'Weekly', value: 'week' },
-  { label: 'Monthly', value: 'month' },
-  { label: 'Yearly', value: 'year' },
+  { label: "Daily", value: "day" },
+  { label: "Weekly", value: "week" },
+  { label: "Monthly", value: "month" },
+  { label: "Yearly", value: "year" },
 ] as const;
 
 interface PulseChartProps {
   trades: Trade[];
-  timeRange: '7D' | '30D' | '90D' | '1Y' | 'ALL';
+  timeRange: "7D" | "30D" | "90D" | "1Y" | "ALL";
 }
 
 export default function PulseChart({ trades, timeRange }: PulseChartProps) {
-  const [selectedTimeFrame, setSelectedTimeFrame] = useState<TimeFrame>('day');
+  const [selectedTimeFrame, setSelectedTimeFrame] = useState<TimeFrame>("day");
 
   const chartData = useMemo(() => {
     // Sort trades by date
-    const sortedTrades = [...trades].sort((a, b) => 
-      new Date(a.date).getTime() - new Date(b.date).getTime()
+    const sortedTrades = [...trades].sort(
+      (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
     );
 
     // Get date range based on selected time range
@@ -55,47 +55,59 @@ export default function PulseChart({ trades, timeRange }: PulseChartProps) {
     let daysToSubtract = 30; // default to 30 days
 
     switch (timeRange) {
-      case '7D': daysToSubtract = 7; break;
-      case '30D': daysToSubtract = 30; break;
-      case '90D': daysToSubtract = 90; break;
-      case '1Y': daysToSubtract = 365; break;
-      case 'ALL': daysToSubtract = 36500; break;
+      case "7D":
+        daysToSubtract = 7;
+        break;
+      case "30D":
+        daysToSubtract = 30;
+        break;
+      case "90D":
+        daysToSubtract = 90;
+        break;
+      case "1Y":
+        daysToSubtract = 365;
+        break;
+      case "ALL":
+        daysToSubtract = 36500;
+        break;
     }
 
-    const startDate = new Date(now.getTime() - (daysToSubtract * 24 * 60 * 60 * 1000));
+    const startDate = new Date(
+      now.getTime() - daysToSubtract * 24 * 60 * 60 * 1000,
+    );
 
     // Filter trades within the selected time range
-    const filteredTrades = sortedTrades.filter(trade => 
-      new Date(trade.date) >= startDate
+    const filteredTrades = sortedTrades.filter(
+      (trade) => new Date(trade.date) >= startDate,
     );
 
     // Group trades by the selected time frame
     const groupedPL: { [key: string]: number } = {};
-    
-    filteredTrades.forEach(trade => {
+
+    filteredTrades.forEach((trade) => {
       const date = new Date(trade.date);
       let key: string;
 
       switch (selectedTimeFrame) {
-        case 'day':
+        case "day":
           key = date.toLocaleDateString();
           break;
-        case 'week':
+        case "week":
           // Get the Monday of the week
           const day = date.getDay();
           const diff = date.getDate() - day + (day === 0 ? -6 : 1);
           const monday = new Date(date.setDate(diff));
           key = monday.toLocaleDateString();
           break;
-        case 'month':
+        case "month":
           key = `${date.getFullYear()}-${date.getMonth() + 1}`;
           break;
-        case 'year':
+        case "year":
           key = date.getFullYear().toString();
           break;
       }
 
-      groupedPL[key] = (groupedPL[key] || 0) + trade.profitLoss;
+      groupedPL[key] = (groupedPL[key] || 0) + trade.performance.profitLoss;
     });
 
     // Calculate cumulative P/L
@@ -105,16 +117,19 @@ export default function PulseChart({ trades, timeRange }: PulseChartProps) {
 
     Object.entries(groupedPL).forEach(([date, pl]) => {
       cumulativePL += pl;
-      
+
       // Format the label based on time frame
       let label = date;
-      if (selectedTimeFrame === 'month') {
-        const [year, month] = date.split('-');
-        label = new Date(parseInt(year), parseInt(month) - 1).toLocaleDateString(undefined, { 
-          year: 'numeric', 
-          month: 'short' 
+      if (selectedTimeFrame === "month") {
+        const [year, month] = date.split("-");
+        label = new Date(
+          parseInt(year),
+          parseInt(month) - 1,
+        ).toLocaleDateString(undefined, {
+          year: "numeric",
+          month: "short",
         });
-      } else if (selectedTimeFrame === 'week') {
+      } else if (selectedTimeFrame === "week") {
         label = `Week of ${date}`;
       }
 
@@ -126,10 +141,10 @@ export default function PulseChart({ trades, timeRange }: PulseChartProps) {
       labels,
       datasets: [
         {
-          label: 'Cumulative P/L',
+          label: "Cumulative P/L",
           data,
-          borderColor: '#00b07c',
-          backgroundColor: 'rgba(0, 176, 124, 0.1)',
+          borderColor: "#00b07c",
+          backgroundColor: "rgba(0, 176, 124, 0.1)",
           fill: true,
           tension: 0.4,
           pointRadius: 4,
@@ -139,7 +154,7 @@ export default function PulseChart({ trades, timeRange }: PulseChartProps) {
     };
   }, [trades, timeRange, selectedTimeFrame]);
 
-  const options: ChartOptions<'line'> = {
+  const options: ChartOptions<"line"> = {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
@@ -147,29 +162,29 @@ export default function PulseChart({ trades, timeRange }: PulseChartProps) {
         display: false,
       },
       tooltip: {
-        mode: 'nearest',
+        mode: "nearest",
         intersect: false,
         callbacks: {
           label: (context) => formatCurrency(context.parsed.y),
         },
-        backgroundColor: '#1a2536',
-        titleColor: '#9ca3af',
-        bodyColor: '#ffffff',
-        borderColor: '#374151',
+        backgroundColor: "#1a2536",
+        titleColor: "#9ca3af",
+        bodyColor: "#ffffff",
+        borderColor: "#374151",
         borderWidth: 1,
         padding: {
           top: 8,
           right: 12,
           bottom: 8,
-          left: 12
+          left: 12,
         },
         bodyFont: {
           size: 13,
-          family: 'system-ui'
+          family: "system-ui",
         },
         titleFont: {
           size: 11,
-          family: 'system-ui'
+          family: "system-ui",
         },
         displayColors: false,
       },
@@ -177,14 +192,14 @@ export default function PulseChart({ trades, timeRange }: PulseChartProps) {
     scales: {
       x: {
         grid: {
-          color: 'rgba(75, 85, 99, 0.1)',
+          color: "rgba(75, 85, 99, 0.1)",
           tickLength: 8,
         },
         ticks: {
-          color: '#9ca3af',
+          color: "#9ca3af",
           font: {
             size: 10,
-            family: 'system-ui'
+            family: "system-ui",
           },
           maxRotation: 50,
           minRotation: 50,
@@ -193,38 +208,38 @@ export default function PulseChart({ trades, timeRange }: PulseChartProps) {
           callback: (value, index) => {
             const label = chartData.labels[index];
             // For weekly view, show only the date
-            if (selectedTimeFrame === 'week' && label?.startsWith('Week of ')) {
-              return label.replace('Week of ', '');
+            if (selectedTimeFrame === "week" && label?.startsWith("Week of ")) {
+              return label.replace("Week of ", "");
             }
             return label;
-          }
+          },
         },
         border: {
-          display: false
-        }
+          display: false,
+        },
       },
       y: {
         grid: {
-          color: 'rgba(75, 85, 99, 0.1)',
+          color: "rgba(75, 85, 99, 0.1)",
           tickLength: 8,
         },
         ticks: {
-          color: '#9ca3af',
+          color: "#9ca3af",
           font: {
             size: 10,
-            family: 'system-ui'
+            family: "system-ui",
           },
           callback: (value) => formatCurrency(value),
           maxTicksLimit: 6,
         },
         border: {
-          display: false
-        }
+          display: false,
+        },
       },
     },
     interaction: {
-      mode: 'nearest',
-      axis: 'x',
+      mode: "nearest",
+      axis: "x",
       intersect: false,
     },
     elements: {
@@ -244,23 +259,27 @@ export default function PulseChart({ trades, timeRange }: PulseChartProps) {
           // Thinner line on mobile
           return window.innerWidth < 768 ? 1.5 : 2;
         },
-      }
+      },
     },
     animation: {
-      duration: 300
-    }
+      duration: 300,
+    },
   };
 
   return (
     <div className="w-full h-full flex flex-col">
       <div className="flex items-center justify-between mb-2 md:mb-4 px-1">
         <h2 className="text-sm md:text-base lg:text-lg font-semibold text-foreground">
-          P/L by {selectedTimeFrame.charAt(0).toUpperCase() + selectedTimeFrame.slice(1)}
+          P/L by{" "}
+          {selectedTimeFrame.charAt(0).toUpperCase() +
+            selectedTimeFrame.slice(1)}
         </h2>
-        
+
         <Menu as="div" className="relative">
           <Menu.Button className="flex items-center gap-1.5 px-2 py-1 text-xs md:text-sm text-gray-300 hover:text-white rounded transition-colors">
-            <span>{TIME_FRAMES.find(t => t.value === selectedTimeFrame)?.label}</span>
+            <span>
+              {TIME_FRAMES.find((t) => t.value === selectedTimeFrame)?.label}
+            </span>
             <ChevronDownIcon className="w-3.5 h-3.5 md:w-4 md:h-4 opacity-50" />
           </Menu.Button>
           <Menu.Items className="absolute right-0 mt-1 w-32 md:w-36 bg-dark border border-gray-800 rounded-lg shadow-lg overflow-hidden z-50">
@@ -269,10 +288,10 @@ export default function PulseChart({ trades, timeRange }: PulseChartProps) {
                 {({ active }) => (
                   <button
                     onClick={() => setSelectedTimeFrame(timeFrame.value)}
-                    className={`${
-                      active ? 'bg-white/5' : ''
-                    } ${
-                      selectedTimeFrame === timeFrame.value ? 'text-blue-500' : 'text-gray-300'
+                    className={`${active ? "bg-white/5" : ""} ${
+                      selectedTimeFrame === timeFrame.value
+                        ? "text-blue-500"
+                        : "text-gray-300"
                     } flex items-center w-full px-3 py-1.5 md:px-4 md:py-2 text-xs md:text-sm`}
                   >
                     {timeFrame.label}
@@ -289,4 +308,4 @@ export default function PulseChart({ trades, timeRange }: PulseChartProps) {
       </div>
     </div>
   );
-} 
+}

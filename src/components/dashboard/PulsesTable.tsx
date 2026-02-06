@@ -1,7 +1,8 @@
-import { memo, useCallback } from "react"
+import { memo, useCallback, useState } from "react"
 import { useRouter } from "next/navigation"
 import type { Pulse } from "@/types/pulse"
 import { formatCurrency, formatRatio } from "@/utils/format"
+import PulseDetailsModal from "@/components/modals/PulseDetailsModal"
 
 interface PulsesTableProps {
 	pulses: Pulse[]
@@ -10,6 +11,7 @@ interface PulsesTableProps {
 
 function PulseTableRow({ pulse }: { pulse: Pulse }) {
 	const router = useRouter()
+	const [showDetailsModal, setShowDetailsModal] = useState(false)
 
 	const handleRowClick = useCallback(() => {
 		router.push(`/pulse/${pulse.id}`)
@@ -23,45 +25,114 @@ function PulseTableRow({ pulse }: { pulse: Pulse }) {
 		[router, pulse.id]
 	)
 
+	const handleInfoClick = useCallback((e: React.MouseEvent) => {
+		e.stopPropagation()
+		setShowDetailsModal(true)
+	}, [])
+
+	// Calculate risk indicators
+	const dailyLoss = pulse.dailyLoss || {}
+	const todayKey = new Date().toISOString().split('T')[0]
+	const todayLoss = dailyLoss[todayKey] || 0
+	const todayLossPercentage = (todayLoss / pulse.accountSize) * 100
+	const totalDrawdownPercentage = ((pulse.totalDrawdown || 0) / pulse.accountSize) * 100
+
+	const getRiskIndicator = () => {
+		if (pulse.status === 'locked') {
+			return {
+				color: 'text-red-500',
+				icon: '🔒',
+				text: 'Locked - Risk Limits Exceeded'
+			}
+		}
+		if (todayLossPercentage > pulse.maxDailyDrawdown * 0.8) {
+			return {
+				color: 'text-yellow-500',
+				icon: '⚠️',
+				text: 'Near Daily Drawdown Limit'
+			}
+		}
+		if (totalDrawdownPercentage > pulse.maxTotalDrawdown * 0.8) {
+			return {
+				color: 'text-yellow-500',
+				icon: '⚠️',
+				text: 'Near Total Drawdown Limit'
+			}
+		}
+		return null
+	}
+
+	const riskIndicator = getRiskIndicator()
+
 	return (
-		<tr
-			key={pulse.id}
-			className="group hover:bg-gray-800/50 cursor-pointer"
-			onClick={handleRowClick}
-		>
-			<td className="p-4 font-medium text-sm">{pulse.name}</td>
-			<td className="p-4 text-gray-400 text-sm">{pulse.instrument}</td>
-			<td className="p-4 text-gray-400 text-sm whitespace-nowrap">
-				{formatCurrency(pulse.accountSize)}
-			</td>
-			<td className="p-4 text-sm">{pulse.stats?.totalTrades || 0}</td>
-			<td className="p-4 text-sm whitespace-nowrap">
-				{pulse.stats && pulse.stats.totalTrades > 0
-					? formatRatio((pulse.stats.wins / pulse.stats.totalTrades) * 100, { suffix: "%", decimals: 0 })
-					: "0%"}
-			</td>
-			<td className="p-4 text-sm whitespace-nowrap">
-				<span
-					className={
-						pulse.stats?.totalProfitLoss
-							? pulse.stats.totalProfitLoss >= 0
-								? "text-success"
-								: "text-error"
-							: "text-gray-400"
-					}
-				>
-					{formatCurrency(pulse.stats?.totalProfitLoss || 0)}
-				</span>
-			</td>
-			<td className="p-4">
-				<button
-					className="text-sm text-gray-400 group-hover:text-white border border-gray-800 group-hover:border-gray-600 bg-transparent rounded-md px-3 py-1 transition-all duration-200 transform group-hover:translate-x-1"
-					onClick={handleButtonClick}
-				>
-					→
-				</button>
-			</td>
-		</tr>
+		<>
+			<tr
+				key={pulse.id}
+				className={`group hover:bg-gray-800/50 cursor-pointer ${pulse.status === 'locked' ? 'bg-red-900/10' : ''}`}
+				onClick={handleRowClick}
+			>
+				<td className="p-4 font-medium text-sm">
+					<div className="flex items-center gap-2">
+						{pulse.name}
+						{riskIndicator && (
+							<span
+								className={`${riskIndicator.color} text-xs`}
+								title={riskIndicator.text}
+							>
+								{riskIndicator.icon}
+							</span>
+						)}
+					</div>
+				</td>
+				<td className="p-4 text-gray-400 text-sm">
+					{Array.isArray(pulse.instruments) ? pulse.instruments.join(', ') : 'No instruments'}
+				</td>
+				<td className="p-4 text-gray-400 text-sm whitespace-nowrap">
+					{formatCurrency(pulse.accountSize)}
+				</td>
+				<td className="p-4 text-sm">{pulse.stats?.totalTrades || 0}</td>
+				<td className="p-4 text-sm whitespace-nowrap">
+					{pulse.stats && pulse.stats.totalTrades > 0
+						? formatRatio((pulse.stats.wins / pulse.stats.totalTrades) * 100, { suffix: "%", decimals: 0 })
+						: "0%"}
+				</td>
+				<td className="p-4 text-sm whitespace-nowrap">
+					<span
+						className={
+							pulse.stats?.totalProfitLoss
+								? pulse.stats.totalProfitLoss >= 0
+									? "text-success"
+									: "text-error"
+								: "text-gray-400"
+						}
+					>
+						{formatCurrency(pulse.stats?.totalProfitLoss || 0)}
+					</span>
+				</td>
+				<td className="p-4 flex gap-2">
+					<button
+						className="text-sm text-gray-400 hover:text-gray-200"
+						onClick={handleInfoClick}
+						title="View Details"
+					>
+						<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+							<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+						</svg>
+					</button>
+					<button
+						className="text-sm text-gray-400 group-hover:text-white border border-gray-800 group-hover:border-gray-600 bg-transparent rounded-md px-3 py-1 transition-all duration-200 transform group-hover:translate-x-1"
+						onClick={handleButtonClick}
+					>
+						→
+					</button>
+				</td>
+			</tr>
+			<PulseDetailsModal 
+				isOpen={showDetailsModal} 
+				onClose={() => setShowDetailsModal(false)} 
+				pulse={pulse} 
+			/>
+		</>
 	)
 }
 

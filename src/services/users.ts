@@ -1,5 +1,5 @@
 import { doc, getDoc, setDoc, updateDoc, serverTimestamp, collection, query, where, getDocs } from 'firebase/firestore';
-import { db } from './firestoreConfig';
+import { db } from '@/services/firebase/firestoreConfig';
 import type { UserProfile, UserRole } from '@/types/user';
 import { DEFAULT_USER_ROLE } from '@/types/user';
 
@@ -18,12 +18,12 @@ export async function createUserProfile(
     const now = new Date();
 
     const userData: UserProfile = {
-      uid,
+      id: uid,
       email,
       displayName,
       role,
-      createdAt: now,
-      updatedAt: now,
+      createdAt: now.toISOString(),
+      updatedAt: now.toISOString(),
     };
 
     await setDoc(userRef, userData);

@@ -3,10 +3,10 @@
 import { useState, useEffect, useCallback } from "react";
 import { updateProfile, updateEmail, updatePassword } from "firebase/auth";
 import useProtectedRoute from "@/hooks/useProtectedRoute";
-import { getUserPulses, unarchivePulse } from '@/services/firestore';
+import { usePulse } from "@/hooks/usePulse";
 import { PULSE_STATUS } from '@/types/pulse';
 import type { Pulse } from '@/types/pulse';
-import Loader from "@/components/ui/Loader";
+import Loader from "@/components/ui/LoadingSpinner";
 import { toast } from 'sonner';
 import { ChevronDownIcon } from '@heroicons/react/24/outline';
 import DeleteAccountModal from '@/components/modals/DeleteAccountModal';
@@ -14,6 +14,9 @@ import ArchivePulseModal from '@/components/modals/ArchivePulseModal';
 
 export default function ProfilePage() {
   const { user, loading: authLoading } = useProtectedRoute();
+  const { getUserPulses, unarchivePulse, loading: pulseLoading } = usePulse({
+    onError: (message) => toast.error(message)
+  });
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -21,7 +24,7 @@ export default function ProfilePage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
-  const [archivedPulses, setArchivedPulses] = useState<(Pulse & { firestoreId: string })[]>([]);
+  const [archivedPulses, setArchivedPulses] = useState<Pulse[]>([]);
   const [loadingPulses, setLoadingPulses] = useState(true);
   const [openSection, setOpenSection] = useState<'profile' | 'archived' | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -37,13 +40,17 @@ export default function ProfilePage() {
   const fetchArchivedPulses = useCallback(async () => {
     if (!user) return;
     try {
+      setLoadingPulses(true);
       const pulses = await getUserPulses(user.uid, PULSE_STATUS.ARCHIVED);
-      setArchivedPulses(pulses);
+      if (pulses) {
+        setArchivedPulses(pulses);
+      }
     } catch {
       console.error('Error fetching archived pulses');
     } finally {
       setLoadingPulses(false);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   useEffect(() => {
@@ -53,9 +60,11 @@ export default function ProfilePage() {
   const handleUnarchive = async (pulse: Pulse) => {
     if (!user) return;
     try {
-      await unarchivePulse(pulse.id, user.uid);
-      toast.success('Pulse unarchived successfully');
-      fetchArchivedPulses();
+      const success = await unarchivePulse(pulse.id, user.uid);
+      if (success) {
+        toast.success('Pulse unarchived successfully');
+        fetchArchivedPulses();
+      }
     } catch {
       toast.error('Failed to unarchive pulse');
     }
@@ -233,7 +242,7 @@ export default function ProfilePage() {
                   <div className="flex justify-between items-center">
                     <div>
                       <h3 className="font-medium text-foreground">{pulse.name}</h3>
-                      <p className="text-sm text-gray-400">{pulse.instrument}</p>
+                      <p className="text-sm text-gray-400">{pulse.instruments.join(', ')}</p>
                     </div>
                     <div className="flex items-center gap-4">
                       <div className="text-right">
@@ -243,6 +252,7 @@ export default function ProfilePage() {
                       <button
                         onClick={() => setPulseToUnarchive(pulse)}
                         className="px-3 py-1.5 text-sm text-blue-500 hover:text-blue-400 transition-colors"
+                        disabled={pulseLoading}
                       >
                         Unarchive
                       </button>

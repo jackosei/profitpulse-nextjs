@@ -73,7 +73,7 @@ export default function Home() {
               {/* Closing quote */}
               <div className="absolute -bottom-16 md:-bottom-32 -right-2 md:-right-3 text-[6rem] md:text-[12rem] font-serif italic text-accent/5 select-none rotate-180 ">&rdquo;</div>
               
-              <div className="relative z-10 max-w-2xl mx-auto">
+              <div className="relative z-1 max-w-2xl mx-auto">
                 <p className="text-xl md:text-2xl font-light tracking-wide font-mono text-gray-100 leading-relaxed">
                   {quote.text}
                 </p>

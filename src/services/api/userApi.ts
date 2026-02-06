@@ -1,5 +1,9 @@
 import { UserProfile } from "@/types/user";
-import { ApiResponse, createSuccessResponse, createErrorResponse, ErrorCode } from "../types/apiResponses";
+import {
+  ApiResponse,
+  createErrorResponse,
+  ErrorCode,
+} from "../types/apiResponses";
 import * as userService from "../firebase/userService";
 
 /**
@@ -7,14 +11,16 @@ import * as userService from "../firebase/userService";
  * @param userId The user ID
  * @returns API response with user profile data
  */
-export async function getUserProfile(userId: string): Promise<ApiResponse<UserProfile>> {
+export async function getUserProfile(
+  userId: string,
+): Promise<ApiResponse<UserProfile>> {
   try {
     return await userService.getUserProfile(userId);
   } catch (error) {
     return createErrorResponse(
       ErrorCode.SERVER_ERROR,
       "Failed to get user profile",
-      { originalError: error instanceof Error ? error.message : String(error) }
+      { originalError: error instanceof Error ? error.message : String(error) },
     );
   }
 }
@@ -29,7 +35,7 @@ export async function getUserProfile(userId: string): Promise<ApiResponse<UserPr
 export async function createUserProfile(
   userId: string,
   email: string,
-  displayName: string | null
+  displayName: string | null,
 ): Promise<ApiResponse<UserProfile>> {
   try {
     return await userService.createUserProfile(userId, email, displayName);
@@ -37,7 +43,7 @@ export async function createUserProfile(
     return createErrorResponse(
       ErrorCode.SERVER_ERROR,
       "Failed to create user profile",
-      { originalError: error instanceof Error ? error.message : String(error) }
+      { originalError: error instanceof Error ? error.message : String(error) },
     );
   }
 }
@@ -50,7 +56,7 @@ export async function createUserProfile(
  */
 export async function updateUserProfile(
   userId: string,
-  data: Partial<UserProfile>
+  data: Partial<UserProfile>,
 ): Promise<ApiResponse<void>> {
   try {
     return await userService.updateUserProfile(userId, data);
@@ -58,7 +64,7 @@ export async function updateUserProfile(
     return createErrorResponse(
       ErrorCode.SERVER_ERROR,
       "Failed to update user profile",
-      { originalError: error instanceof Error ? error.message : String(error) }
+      { originalError: error instanceof Error ? error.message : String(error) },
     );
   }
 }
@@ -68,14 +74,16 @@ export async function updateUserProfile(
  * @param userId The user ID
  * @returns API response with admin status
  */
-export async function isUserAdmin(userId: string): Promise<ApiResponse<boolean>> {
+export async function isUserAdmin(
+  userId: string,
+): Promise<ApiResponse<boolean>> {
   try {
     return await userService.isUserAdmin(userId);
   } catch (error) {
     return createErrorResponse(
       ErrorCode.SERVER_ERROR,
       "Failed to check admin status",
-      { originalError: error instanceof Error ? error.message : String(error) }
+      { originalError: error instanceof Error ? error.message : String(error) },
     );
   }
-} 
+}

@@ -395,7 +395,7 @@ export default function TradeFormModal({
 
       // Filter out undefined values (Firebase doesn't allow undefined)
       const cleanedTradeData = Object.fromEntries(
-        Object.entries(tradeData).filter(([_, value]) => value !== undefined),
+        Object.entries(tradeData).filter(([, value]) => value !== undefined),
       ) as TradeCreateData;
 
       let response;

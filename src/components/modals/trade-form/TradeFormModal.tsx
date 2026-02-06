@@ -188,7 +188,6 @@ export default function TradeFormModal({
   useEffect(() => {
     if (isOpen) {
       const initialData = getInitialFormData();
-      console.log("🔄 Reinitializing form with data:", initialData);
       setFormData(initialData);
       setFollowedRules(
         mode === "update" && trade?.followedRules ? trade.followedRules : [],

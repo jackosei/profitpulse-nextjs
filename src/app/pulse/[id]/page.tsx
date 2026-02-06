@@ -312,6 +312,7 @@ export default function PulseDetailsPage() {
           trades={pulse.trades || []}
           pulse={pulse}
           onAddTrade={() => setShowAddTradeModal(true)}
+          onRefresh={fetchPulse}
           viewType={viewType}
           onViewTypeChange={setViewType}
         />

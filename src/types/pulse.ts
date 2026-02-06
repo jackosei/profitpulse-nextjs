@@ -1,138 +1,157 @@
-import { Timestamp } from "firebase/firestore"
+import { Timestamp } from "firebase/firestore";
 
-export const MAX_RISK_PERCENTAGE = 3
-export const MAX_DAILY_DRAWDOWN = 5 // Default maximum daily loss as percentage of account
-export const MAX_TOTAL_DRAWDOWN = 10 // Default maximum total loss as percentage of account
+export const MAX_RISK_PERCENTAGE = 3;
+export const MAX_DAILY_DRAWDOWN = 5; // Default maximum daily loss as percentage of account
+export const MAX_TOTAL_DRAWDOWN = 10; // Default maximum total loss as percentage of account
 
 export const PULSE_STATUS = {
-	ACTIVE: "active",
-	ARCHIVED: "archived",
-	LOCKED: "locked",
-} as const
+  ACTIVE: "active",
+  ARCHIVED: "archived",
+  LOCKED: "locked",
+} as const;
 
-export type PulseStatus = (typeof PULSE_STATUS)[keyof typeof PULSE_STATUS]
+export type PulseStatus = (typeof PULSE_STATUS)[keyof typeof PULSE_STATUS];
 
 export interface TradeRule {
-	id: string
-	description: string
-	isRequired: boolean
+  id: string;
+  description: string;
+  isRequired: boolean;
 }
 
 export interface Pulse {
-	id: string
-	firestoreId?: string
-	name: string
-	instruments: string[]
-	accountSize: number
-	maxRiskPerTrade: number
-	maxDailyDrawdown: number // User-defined max daily loss percentage
-	maxTotalDrawdown: number // User-defined max total drawdown percentage
-	userId: string
-	createdAt: Timestamp
-	status: PulseStatus
-	trades?: Trade[]
-	stats?: PulseStats
-	ruleViolations?: string[]
-	tradingRules?: TradeRule[] // Trading rules checklist
-	note?: string
-	dailyLoss?: { [date: string]: number } // Track daily losses
-	totalDrawdown?: number // Track current total drawdown
-	hasBeenUpdated?: boolean
-	lastUpdate?: {
-		date: Timestamp
-		reason: string
-		previousValues: {
-			accountSize: number
-			maxRiskPerTrade: number
-			maxDailyDrawdown: number
-			maxTotalDrawdown: number
-		}
-	}
+  id: string;
+  firestoreId?: string;
+  name: string;
+  instruments: string[];
+  accountSize: number;
+  maxRiskPerTrade: number;
+  maxDailyDrawdown: number; // User-defined max daily loss percentage
+  maxTotalDrawdown: number; // User-defined max total drawdown percentage
+  userId: string;
+  createdAt: Timestamp;
+  status: PulseStatus;
+  trades?: Trade[];
+  stats?: PulseStats;
+  ruleViolations?: string[];
+  tradingRules?: TradeRule[]; // Trading rules checklist
+  note?: string;
+  dailyLoss?: { [date: string]: number }; // Track daily losses
+  totalDrawdown?: number; // Track current total drawdown
+  hasBeenUpdated?: boolean;
+  lastUpdate?: {
+    date: Timestamp;
+    reason: string;
+    previousValues: {
+      accountSize: number;
+      maxRiskPerTrade: number;
+      maxDailyDrawdown: number;
+      maxTotalDrawdown: number;
+    };
+  };
 }
 
 export interface Trade {
-	id: string
-	pulseId: string
-	userId: string
-	date: string
-	entryTime?: string  // New field for trade entry time
-	exitTime?: string   // New field for trade exit time
-	type: "Buy" | "Sell"
-	lotSize: number
-	entryPrice: number
-	exitPrice: number
-	profitLoss: number
-	profitLossPercentage: number
-	entryReason: string
-	outcome: "Win" | "Loss" | "Break-even"
-	createdAt: Timestamp
-	instrument: string
-	learnings?: string
-	followedRules?: string[] // IDs of rules that were followed
-	
-	// Psychological factors
-	emotionalState?: "Calm" | "Excited" | "Fearful" | "Greedy" | "Anxious" | "Confident" | "Other"
-	emotionalIntensity?: number // 1-10 scale
-	mentalState?: "Clear" | "Distracted" | "Tired" | "Focused" | "Rushed" | "Other"
-	
-	// Decision quality
-	planAdherence?: "Fully" | "Partially" | "Deviated" // Did they follow their plan?
-	impulsiveEntry?: boolean // Was this an impulse trade?
-	
-	// Context factors
-	marketCondition?: "Trending" | "Ranging" | "Volatile" | "Calm" | "News-driven"
-	timeOfDay?: string // To identify time-based patterns
-	tradingEnvironment?: "Home" | "Office" | "Mobile" | "Other"
-	
-	// Post-trade reflection
-	wouldRepeat?: boolean // Would make the same trade again?
-	emotionalImpact?: "Positive" | "Negative" | "Neutral" // How the trade affected mood/confidence
-	mistakesIdentified?: string[]
-	improvementIdeas?: string
+  id: string;
+  pulseId: string;
+  userId: string;
+  date: string;
+  entryTime?: string; // New field for trade entry time
+  exitTime?: string; // New field for trade exit time
+  type: "Buy" | "Sell";
+  lotSize: number;
+  entryPrice: number;
+  exitPrice: number;
+  profitLoss: number;
+  profitLossPercentage: number;
+  entryReason: string;
+  outcome: "Win" | "Loss" | "Break-even";
+  createdAt: Timestamp;
+  instrument: string;
+  learnings?: string;
+  followedRules?: string[]; // IDs of rules that were followed
+  entryScreenshot?: string;
+  exitScreenshot?: string;
+
+  // Psychological factors
+  emotionalState?:
+    | "Calm"
+    | "Excited"
+    | "Fearful"
+    | "Greedy"
+    | "Anxious"
+    | "Confident"
+    | "Other";
+  emotionalIntensity?: number; // 1-10 scale
+  mentalState?:
+    | "Clear"
+    | "Distracted"
+    | "Tired"
+    | "Focused"
+    | "Rushed"
+    | "Other";
+
+  // Decision quality
+  planAdherence?: "Fully" | "Partially" | "Deviated"; // Did they follow their plan?
+  impulsiveEntry?: boolean; // Was this an impulse trade?
+
+  // Context factors
+  marketCondition?:
+    | "Trending"
+    | "Ranging"
+    | "Volatile"
+    | "Calm"
+    | "News-driven";
+  timeOfDay?: string; // To identify time-based patterns
+  tradingEnvironment?: "Home" | "Office" | "Mobile" | "Other";
+
+  // Post-trade reflection
+  wouldRepeat?: boolean; // Would make the same trade again?
+  emotionalImpact?: "Positive" | "Negative" | "Neutral"; // How the trade affected mood/confidence
+  mistakesIdentified?: string[];
+  improvementIdeas?: string;
 }
 
 export interface PulseStats {
-	totalTrades: number
-	wins: number
-	losses: number
-	strikeRate: number
-	totalProfitLoss: number
-	averageWin: number
-	averageLoss: number
-	profitFactor?: number
+  totalTrades: number;
+  wins: number;
+  losses: number;
+  strikeRate: number;
+  totalProfitLoss: number;
+  averageWin: number;
+  averageLoss: number;
+  profitFactor?: number;
 }
 
 export interface TradeDetailsModalProps {
-	isOpen: boolean;
-	onClose: () => void;
-	trade: Trade;
-	pulse?: Pulse; // Add this to access pulse data for rule lookup
-  }
-  
+  isOpen: boolean;
+  onClose: () => void;
+  trade: Trade;
+  pulse?: Pulse; // Add this to access pulse data for rule lookup
+}
 
-  export interface PulseDetailsModalProps {
-	isOpen: boolean;
-	onClose: () => void;
-	pulse: Pulse;
-  }
+export interface PulseDetailsModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  pulse: Pulse;
+}
 
-  export interface AddTradeModalProps {
-	isOpen: boolean;
-	onClose: () => void;
-	onSuccess?: () => void;
-	pulseId: string;
-	firestoreId: string;
-	userId: string;
-	maxRiskPercentage: number;
-	accountSize: number;
-  }
+export interface AddTradeModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSuccess?: () => void;
+  pulseId: string;
+  firestoreId: string;
+  userId: string;
+  maxRiskPercentage: number;
+  accountSize: number;
+}
 
-  export interface DeletePulseModalProps {
-	isOpen: boolean;
-	onClose: () => void;
-	pulse: {
-	  id: string;
-	  name: string;
-	};
-	onSuccess: () => void;
-  }
+export interface DeletePulseModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  pulse: {
+    id: string;
+    name: string;
+  };
+  onSuccess: () => void;
+}

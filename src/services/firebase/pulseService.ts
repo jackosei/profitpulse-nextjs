@@ -36,6 +36,18 @@ import {
   PulseUpdateData,
   TradeCreateData,
 } from "../api/pulseApi";
+import { createDefaultDisciplineFields } from "@/lib/disciplineTypes";
+import {
+  evaluateViolations,
+  applyScorePenalties,
+  getZone,
+} from "@/lib/disciplineEngine";
+import type {
+  EvaluationContext,
+  TradeForEvaluation,
+  TradeEngineMetrics,
+  ViolationLogEntry,
+} from "@/lib/disciplineTypes";
 
 /**
  * Check if a pulse name already exists for the user
@@ -118,6 +130,10 @@ export async function createPulse(
         averageLoss: 0,
         profitFactor: 0,
       },
+      discipline: createDefaultDisciplineFields(
+        pulseData.whyStatement || "",
+        pulseData.whyDiscipline || "",
+      ),
     };
 
     // Add document to Firestore
@@ -377,15 +393,129 @@ export async function createTrade(
       }
     }
 
+    // ------------------------------------------------------------------
+    // Phase 1: Engine metrics computation (observational — no enforcement)
+    // ------------------------------------------------------------------
+
+    // Count today's trades for session context
+    const todayTradesSnap = await getDocs(
+      query(
+        collection(db, "pulses", firestoreId, "trades"),
+        where("date", "==", today),
+      ),
+    );
+    const dailyTradeCount = todayTradesSnap.size;
+
+    // Count risk violations today from existing trades
+    const riskBreachesToday = todayTradesSnap.docs.reduce((count, d) => {
+      const t = d.data();
+      return count + (
+        (t.engineMetrics?.violations ?? []).filter(
+          (v: { type: string }) => v.type === "RISK_PER_TRADE",
+        ).length
+      );
+    }, 0);
+
+    // Build evaluation context from pulse state
+    const discipline = pulseData.discipline;
+    const ctx: EvaluationContext = {
+      accountSize: pulseData.accountSize,
+      maxRiskPerTrade: pulseData.maxRiskPerTrade,
+      maxDailyDrawdown: pulseData.maxDailyDrawdown,
+      maxTotalDrawdown: pulseData.maxTotalDrawdown,
+      maxTradesPerDay: discipline?.maxTradesPerDay ?? null,
+      tradingRules: pulseData.tradingRules ?? [],
+      dailyTradeCount,
+      dailyLossSoFar: Math.abs(dailyLosses),
+      totalDrawdown: pulseData.totalDrawdown ?? 0,
+      riskBreachesToday,
+    };
+
+    // Build minimal trade for evaluation
+    const tradeForEval: TradeForEvaluation = {
+      riskPct: (Math.abs(tradeData.performance.profitLoss) / pulseData.accountSize) * 100,
+      profitLoss: tradeData.performance.profitLoss,
+      followedRules: tradeData.followedRules ?? [],
+    };
+
+    const violations = evaluateViolations(tradeForEval, ctx);
+
+    // Compute derived metrics when plannedSL is available
+    let engineMetrics: TradeEngineMetrics | undefined;
+    const { plannedSL, plannedTP, entryPrice, lotSize } = tradeData.execution;
+
+    if (plannedSL && entryPrice && lotSize) {
+      const slDistance = Math.abs(entryPrice - plannedSL);
+      const riskAmountFromSL = slDistance * lotSize;
+      const intendedRiskPct = (riskAmountFromSL / pulseData.accountSize) * 100;
+
+      const intendedRR =
+        plannedTP && slDistance > 0
+          ? Math.abs(plannedTP - entryPrice) / slDistance
+          : null;
+
+      const actualR =
+        riskAmountFromSL > 0
+          ? tradeData.performance.profitLoss / riskAmountFromSL
+          : 0;
+
+      const exitQuality =
+        plannedTP && slDistance > 0
+          ? (tradeData.performance.profitLoss / riskAmountFromSL) /
+            (Math.abs(plannedTP - entryPrice) / slDistance)
+          : null;
+
+      engineMetrics = { intendedRiskPct, intendedRR, actualR, exitQuality, violations };
+    } else {
+      // No SL provided — still store violations, set metrics to null
+      engineMetrics = {
+        intendedRiskPct: (Math.abs(tradeData.performance.profitLoss) / pulseData.accountSize) * 100,
+        intendedRR: null,
+        actualR: 0,
+        exitQuality: null,
+        violations,
+      };
+    }
+
+    // ------------------------------------------------------------------
     // Add trade to subcollection
+    // ------------------------------------------------------------------
     const tradeWithTimestamp = {
       ...tradeData,
+      engineMetrics,
       createdAt: Timestamp.now(),
     };
 
     // Add document to Firestore
     const tradesRef = collection(db, "pulses", firestoreId, "trades");
     const tradeDoc = await addDoc(tradesRef, tradeWithTimestamp);
+
+    // Write violation log entries (one per violation)
+    if (violations.length > 0) {
+      const violationLogRef = collection(
+        db,
+        "pulses",
+        firestoreId,
+        "violationLog",
+      );
+      const scoreBefore = discipline?.disciplineScore ?? 100;
+      let runningScore = scoreBefore;
+      const writePromises = violations.map((violation) => {
+        const scoreAfter = Math.max(0, runningScore - violation.severity);
+        const entry: ViolationLogEntry = {
+          timestamp: Timestamp.now(),
+          sessionDate: today,
+          tradeId: tradeDoc.id,
+          violation,
+          scoreBefore: runningScore,
+          scoreAfter,
+          zone: getZone(runningScore),
+        };
+        runningScore = scoreAfter;
+        return addDoc(violationLogRef, entry);
+      });
+      await Promise.all(writePromises);
+    }
 
     // Update daily loss tracking if it's a losing trade
     if (tradeData.performance.profitLoss < 0) {
@@ -413,6 +543,24 @@ export async function createTrade(
 
       await updateDoc(doc(db, "pulses", firestoreId), {
         totalDrawdown: newTotalDrawdown,
+      });
+    }
+
+    // Update discipline score on the pulse (Phase 1: observational)
+    if (discipline && violations.length > 0) {
+      const currentScore = discipline.disciplineScore ?? 100;
+      const newScore = applyScorePenalties(currentScore, violations);
+      const newZone = getZone(newScore);
+      await updateDoc(doc(db, "pulses", firestoreId), {
+        "discipline.disciplineScore": newScore,
+        "discipline.disciplineState":
+          newZone === "RED" ? "RESTRICTED" : newZone === "YELLOW" ? "LIMITED" : "NORMAL",
+        "discipline.lastSessionDate": today,
+      });
+    } else if (discipline) {
+      // Clean trade — just update last session date
+      await updateDoc(doc(db, "pulses", firestoreId), {
+        "discipline.lastSessionDate": today,
       });
     }
 

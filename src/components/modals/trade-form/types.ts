@@ -34,6 +34,8 @@ export interface TradeFormData {
   lotSize: string;
   entryPrice: string;
   exitPrice: string;
+  plannedSL: string;
+  plannedTP: string;
   entryReason: string;
   profitLoss: string;
   learnings: string;

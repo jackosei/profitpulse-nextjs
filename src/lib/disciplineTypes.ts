@@ -13,7 +13,7 @@
 export enum ViolationCategory {
   /** Auto-detected: risk %, drawdown %, trade count */
   QUANTITATIVE = "QUANTITATIVE",
-  /** Rule checklist: required rule not followed at submission */
+  /** Rule checklist: required or optional rule not followed at submission */
   QUALITATIVE = "QUALITATIVE",
 }
 
@@ -23,7 +23,12 @@ export enum ViolationType {
   DAILY_DRAWDOWN = "DAILY_DRAWDOWN",
   TOTAL_DRAWDOWN = "TOTAL_DRAWDOWN",
   MAX_TRADES_PER_DAY = "MAX_TRADES_PER_DAY",
+  /** Required rule missed: −4 pts each */
   REQUIRED_RULE_MISSED = "REQUIRED_RULE_MISSED",
+  /** Optional rule missed: −1 pt each */
+  OPTIONAL_RULE_MISSED = "OPTIONAL_RULE_MISSED",
+  /** Additional −5 when 2+ required rules missed in a single session */
+  MULTI_REQUIRED_RULE_MISS = "MULTI_REQUIRED_RULE_MISS",
 }
 
 // ---------------------------------------------------------------------------
@@ -47,7 +52,7 @@ export interface TradeViolation {
   threshold: number;
   /** The actual value that triggered the breach (e.g. 2.3 for 2.3% risk) */
   actual: number;
-  /** For REQUIRED_RULE_MISSED — the specific rule ID that was missed */
+  /** For REQUIRED_RULE_MISSED / OPTIONAL_RULE_MISSED — the specific rule ID that was missed */
   ruleId?: string;
 }
 
@@ -92,10 +97,84 @@ export interface TradeEngineMetrics {
 }
 
 // ---------------------------------------------------------------------------
-// Discipline zones
+// Discipline zones & state
 // ---------------------------------------------------------------------------
 
 export type DisciplineZone = "GREEN" | "YELLOW" | "RED";
+
+/** Phase 2 state machine — Phase 1 always uses NORMAL */
+export type DisciplineState = "NORMAL" | "LIMITED" | "RESTRICTED" | "RECOVERY";
+
+// ---------------------------------------------------------------------------
+// Pulse-level discipline fields (stored on Pulse document)
+// ---------------------------------------------------------------------------
+
+/** Phase 2 enforcement constraints — Phase 1 stores defaults (all null/0) */
+export interface ActiveConstraints {
+  /** Risk cap as fraction of configured limit, e.g. 0.5 = 50%. null = no cap */
+  riskCapPct: number | null;
+  /** Max trades allowed. null = no cap */
+  tradeCapCount: number | null;
+  /** Lockout until this timestamp. null = no lockout */
+  lockoutUntil: unknown | null; // Firestore Timestamp at runtime
+  /** Remaining no-trade days */
+  noTradeDays: number;
+}
+
+/** Breach counts for penalty escalation */
+export interface WeeklyBreachCounts {
+  riskPerTrade: number;
+  drawdownDaily: number;
+  /** Lifetime counter — never resets on weekly boundary */
+  drawdownTotal: number;
+  overtrading: number;
+}
+
+/**
+ * All discipline-related fields stored on the Pulse document.
+ * Separated as its own interface so it can be spread into Pulse.
+ */
+export interface PulseDisciplineFields {
+  disciplineScore: number; // 0–100, starts at 100
+  disciplineState: DisciplineState; // Phase 1: always 'NORMAL'
+  activeConstraints: ActiveConstraints;
+  lastSessionDate: string | null; // YYYY-MM-DD, null until first trade
+  reflectionGatePending: boolean;
+  weeklyBreachCounts: WeeklyBreachCounts;
+  whyStatement: string; // from onboarding
+  whyDiscipline: string; // from onboarding
+  accountabilityPartnerEmail: string | null;
+  maxTradesPerDay: number | null; // null = no limit
+}
+
+/** Default discipline fields for new Pulse creation */
+export function createDefaultDisciplineFields(
+  whyStatement: string,
+  whyDiscipline: string,
+): PulseDisciplineFields {
+  return {
+    disciplineScore: 100,
+    disciplineState: "NORMAL",
+    activeConstraints: {
+      riskCapPct: null,
+      tradeCapCount: null,
+      lockoutUntil: null,
+      noTradeDays: 0,
+    },
+    lastSessionDate: null,
+    reflectionGatePending: false,
+    weeklyBreachCounts: {
+      riskPerTrade: 0,
+      drawdownDaily: 0,
+      drawdownTotal: 0,
+      overtrading: 0,
+    },
+    whyStatement,
+    whyDiscipline,
+    accountabilityPartnerEmail: null,
+    maxTradesPerDay: null,
+  };
+}
 
 // ---------------------------------------------------------------------------
 // Engine function input types
@@ -135,7 +214,7 @@ export interface TradeForEvaluation {
 }
 
 /**
- * End-of-session summary used by computeRecovery.
+ * End-of-session summary used by computeRecovery and Session Rule Score display.
  * Built by the caller after all trades for the day are finalized.
  */
 export interface SessionSummary {
@@ -151,4 +230,73 @@ export interface SessionSummary {
   reflectionGateCompleted: boolean;
   /** Consecutive clean days ending with this session (0 if this day has violations) */
   consecutiveCleanDays: number;
+  /**
+   * Number of distinct required rules missed at least once in this session.
+   * Used to trigger the additional −5 penalty when ≥2 required rules missed.
+   */
+  requiredRulesMissedCount: number;
+  /**
+   * Session Rule Score = (required rules followed ÷ total required rules) × 100.
+   * 100 when no required rules are configured.
+   * Computed at session-end; passed to DisciplineMeter as `sessionRuleScore`.
+   */
+  sessionRuleScore: number;
+}
+
+// ---------------------------------------------------------------------------
+// Session Rule Score (display + computation)
+// ---------------------------------------------------------------------------
+
+/**
+ * The daily execution grade, computed once per session at calendar-day boundary.
+ * Displayed separately from the cumulative discipline score in DisciplineMeter.
+ */
+export interface SessionRuleScore {
+  /** YYYY-MM-DD of the session */
+  date: string;
+  /** Required rules followed (numerator) */
+  requiredFollowed: number;
+  /** Total required rules configured on the Pulse */
+  requiredTotal: number;
+  /** Optional rules followed */
+  optionalFollowed: number;
+  /** Total optional rules configured */
+  optionalTotal: number;
+  /**
+   * Composite score 0–100.
+   * = (requiredFollowed / requiredTotal) × 100 when requiredTotal > 0,
+   *   else (optionalFollowed / optionalTotal) × 100,
+   *   else 100 (no rules configured).
+   */
+  score: number;
+  /** Number of distinct required rules missed at least once this session */
+  requiredMissedCount: number;
+  /** Whether the additional −5 multi-miss penalty was triggered (≥2 required missed) */
+  multiMissPenaltyApplied: boolean;
+}
+
+// ---------------------------------------------------------------------------
+// Violation log subcollection schema
+// ---------------------------------------------------------------------------
+
+/**
+ * A single document in the `pulses/{pulseId}/violationLog` subcollection.
+ * Written at trade submission time for each detected violation.
+ * Composite index on [pulseId, timestamp] for Phase 2 enforcement queries.
+ */
+export interface ViolationLogEntry {
+  /** Firestore Timestamp — set by the service layer */
+  timestamp: unknown;
+  /** YYYY-MM-DD of the session this violation belongs to */
+  sessionDate: string;
+  /** Firestore document ID of the trade that triggered this violation */
+  tradeId: string;
+  /** The violation that was detected */
+  violation: TradeViolation;
+  /** Discipline score before this penalty was applied */
+  scoreBefore: number;
+  /** Discipline score after this penalty was applied */
+  scoreAfter: number;
+  /** Zone at the time of the violation */
+  zone: DisciplineZone;
 }

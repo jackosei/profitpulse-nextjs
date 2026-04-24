@@ -1,5 +1,5 @@
 import { Timestamp } from "firebase/firestore";
-import type { TradeEngineMetrics } from "@/lib/disciplineTypes";
+import type { TradeEngineMetrics, PulseDisciplineFields } from "@/lib/disciplineTypes";
 
 export const MAX_RISK_PERCENTAGE = 3;
 export const MAX_DAILY_DRAWDOWN = 5; // Default maximum daily loss as percentage of account
@@ -49,6 +49,8 @@ export interface Pulse {
       maxTotalDrawdown: number;
     };
   };
+  // Discipline engine fields — optional for backward compat with pre-engine pulses
+  discipline?: PulseDisciplineFields;
 }
 
 // Nested data structures for better organization

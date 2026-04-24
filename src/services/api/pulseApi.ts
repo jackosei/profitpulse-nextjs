@@ -17,6 +17,10 @@ export interface PulseCreateData {
   maxTotalDrawdown: number;
   userId: string;
   tradingRules?: TradeRule[];
+  // Discipline engine — optional until WHY step is added to UI
+  whyStatement?: string;
+  whyDiscipline?: string;
+  maxTradesPerDay?: number | null;
 }
 
 // Types for updatePulse
@@ -45,6 +49,8 @@ export interface TradeCreateData {
     lotSize: number;
     entryPrice: number;
     exitPrice: number;
+    plannedSL?: number;
+    plannedTP?: number;
     entryReason: string;
     entryScreenshot?: string;
     exitScreenshot?: string;
@@ -96,6 +102,7 @@ export interface TradeCreateData {
 
   learnings?: string;
   followedRules?: string[];
+  engineMetrics?: import("@/lib/disciplineTypes").TradeEngineMetrics;
 }
 
 /**

@@ -18,6 +18,7 @@ import {
   type EvaluationContext,
   type TradeForEvaluation,
   type SessionSummary,
+  type SessionRuleScore,
 } from "./disciplineTypes";
 
 // ---------------------------------------------------------------------------
@@ -35,6 +36,8 @@ const DAILY_DRAWDOWN_PENALTY = 15;
 const TOTAL_DRAWDOWN_PENALTY = 25;
 const MAX_TRADES_PENALTY = 8;
 const REQUIRED_RULE_PENALTY = 4; // per rule
+const OPTIONAL_RULE_PENALTY = 1; // per rule
+const MULTI_REQUIRED_MISS_PENALTY = 5; // additional when ≥2 required rules missed in one session
 
 /** Zone boundaries (inclusive) */
 const ZONE_THRESHOLDS = {
@@ -73,7 +76,12 @@ const SCORE_MAX = 100;
  *   - trade count vs maxTradesPerDay — fires when count exceeds limit
  *
  * Qualitative:
- *   - required rules not checked off at submission
+ *   - Required rules not checked off: −4 each (REQUIRED_RULE_MISSED)
+ *   - Optional rules not checked off: −1 each (OPTIONAL_RULE_MISSED)
+ *
+ * Note: MULTI_REQUIRED_RULE_MISS (−5 when ≥2 required rules missed in a session)
+ * is a session-level violation handled by computeSessionRuleScore, not here,
+ * because it requires counting across all trades before it can fire.
  *
  * @param trade  Minimal trade data (riskPct, profitLoss, followedRules)
  * @param ctx    Pulse config + session state assembled by the caller
@@ -167,7 +175,7 @@ export function evaluateViolations(
     }
   }
 
-  // --- Qualitative: Required rules missed ---
+  // --- Qualitative: Required rules missed (−4 each) ---
   const requiredRules = ctx.tradingRules.filter((r) => r.isRequired);
   for (const rule of requiredRules) {
     if (!trade.followedRules.includes(rule.id)) {
@@ -176,8 +184,24 @@ export function evaluateViolations(
         category: ViolationCategory.QUALITATIVE,
         severity: REQUIRED_RULE_PENALTY,
         details: `Required rule not followed: "${rule.description}"`,
-        threshold: 1, // must be followed (1 = required)
-        actual: 0, // 0 = not followed
+        threshold: 1,
+        actual: 0,
+        ruleId: rule.id,
+      });
+    }
+  }
+
+  // --- Qualitative: Optional rules missed (−1 each) ---
+  const optionalRules = ctx.tradingRules.filter((r) => !r.isRequired);
+  for (const rule of optionalRules) {
+    if (!trade.followedRules.includes(rule.id)) {
+      violations.push({
+        type: ViolationType.OPTIONAL_RULE_MISSED,
+        category: ViolationCategory.QUALITATIVE,
+        severity: OPTIONAL_RULE_PENALTY,
+        details: `Optional rule not followed: "${rule.description}"`,
+        threshold: 1,
+        actual: 0,
         ruleId: rule.id,
       });
     }
@@ -315,6 +339,121 @@ function clamp(value: number, min: number, max: number): number {
 }
 
 // ---------------------------------------------------------------------------
+// 5. computeSessionRuleScore
+// ---------------------------------------------------------------------------
+
+/**
+ * Computes the Session Rule Score for a completed calendar-day session.
+ * Called once at session end (on-read, lazily) after all trades are in.
+ *
+ * Scoring:
+ *   score = (required rules followed ÷ total required rules) × 100
+ *   Falls back to optional-only % when no required rules are configured.
+ *   Returns 100 when no rules at all are configured.
+ *
+ * Multi-miss penalty:
+ *   When ≥2 distinct required rules were missed at least once across any trade
+ *   in the session, an additional MULTI_REQUIRED_MISS_PENALTY violation is
+ *   returned so the caller can apply it to the discipline score.
+ *
+ * @param sessionTrades   All trades logged on this calendar day
+ * @param pulseRules      Full rule config from the Pulse document
+ * @param date            YYYY-MM-DD of the session
+ * @returns               SessionRuleScore (pure — no Firestore calls)
+ */
+export function computeSessionRuleScore(
+  sessionTrades: Array<{ followedRules?: string[] }>,
+  pulseRules: Array<{ id: string; description: string; isRequired: boolean }>,
+  date: string,
+): SessionRuleScore {
+  const requiredRules = pulseRules.filter((r) => r.isRequired);
+  const optionalRules = pulseRules.filter((r) => !r.isRequired);
+
+  const requiredTotal = requiredRules.length;
+  const optionalTotal = optionalRules.length;
+
+  if (sessionTrades.length === 0) {
+    // No trades — no execution grade for the day
+    return {
+      date,
+      requiredFollowed: requiredTotal,
+      requiredTotal,
+      optionalFollowed: optionalTotal,
+      optionalTotal,
+      score: 100,
+      requiredMissedCount: 0,
+      multiMissPenaltyApplied: false,
+    };
+  }
+
+  // Collect the set of rule IDs followed across ALL trades in the session.
+  // A rule counts as "followed" for the session if it was checked on every trade.
+  // A rule counts as "missed" if it was unchecked on ANY trade.
+  const missedRequiredIds = new Set<string>();
+  const missedOptionalIds = new Set<string>();
+
+  for (const trade of sessionTrades) {
+    const followed = trade.followedRules ?? [];
+    for (const rule of requiredRules) {
+      if (!followed.includes(rule.id)) {
+        missedRequiredIds.add(rule.id);
+      }
+    }
+    for (const rule of optionalRules) {
+      if (!followed.includes(rule.id)) {
+        missedOptionalIds.add(rule.id);
+      }
+    }
+  }
+
+  const requiredMissedCount = missedRequiredIds.size;
+  const requiredFollowed = requiredTotal - requiredMissedCount;
+  const optionalMissedCount = missedOptionalIds.size;
+  const optionalFollowed = optionalTotal - optionalMissedCount;
+
+  // Session Rule Score — required rules take precedence
+  let score: number;
+  if (requiredTotal > 0) {
+    score = Math.round((requiredFollowed / requiredTotal) * 100);
+  } else if (optionalTotal > 0) {
+    score = Math.round((optionalFollowed / optionalTotal) * 100);
+  } else {
+    score = 100; // no rules configured
+  }
+
+  // Multi-miss penalty fires when ≥2 distinct required rules missed
+  const multiMissPenaltyApplied =
+    requiredTotal > 0 && requiredMissedCount >= 2;
+
+  return {
+    date,
+    requiredFollowed,
+    requiredTotal,
+    optionalFollowed,
+    optionalTotal,
+    score,
+    requiredMissedCount,
+    multiMissPenaltyApplied,
+  };
+}
+
+/**
+ * Builds the MULTI_REQUIRED_RULE_MISS violation to apply to the discipline score
+ * when computeSessionRuleScore reports multiMissPenaltyApplied = true.
+ * Caller passes this to applyScorePenalties.
+ */
+export function buildMultiMissViolation(): TradeViolation {
+  return {
+    type: ViolationType.MULTI_REQUIRED_RULE_MISS,
+    category: ViolationCategory.QUALITATIVE,
+    severity: MULTI_REQUIRED_MISS_PENALTY,
+    details: "2+ required rules missed in this session — additional penalty applied",
+    threshold: 1,
+    actual: 0,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Exported constants (for testing and UI display)
 // ---------------------------------------------------------------------------
 
@@ -324,6 +463,8 @@ export const PENALTY_WEIGHTS = {
   TOTAL_DRAWDOWN_PENALTY,
   MAX_TRADES_PENALTY,
   REQUIRED_RULE_PENALTY,
+  OPTIONAL_RULE_PENALTY,
+  MULTI_REQUIRED_MISS_PENALTY,
 } as const;
 
 export const RECOVERY_WEIGHTS = RECOVERY;

@@ -12,6 +12,8 @@ import {
 } from '@heroicons/react/24/outline';
 import { formatCurrency } from "@/utils/format"
 import { PULSE_STATUS } from "@/types/pulse"
+import type { DisciplineZone } from "@/lib/disciplineTypes";
+import DisciplineMeter from "@/components/discipline/DisciplineMeter";
 
 type TimeRange = '7D' | '30D' | '90D' | '1Y' | 'ALL';
 type ComparisonType = 'PERIOD' | 'START';
@@ -41,6 +43,11 @@ interface PulseHeaderProps {
   maxTotalDrawdown: number;
   status: string;
   ruleViolations?: string[];
+  // Discipline engine — optional until Phase 1 data exists
+  disciplineScore?: number;
+  disciplineZone?: DisciplineZone;
+  sessionRuleScore?: number;
+  recoveryHint?: string;
 }
 
 export default function PulseHeader({
@@ -59,8 +66,16 @@ export default function PulseHeader({
   maxDailyDrawdown,
   maxTotalDrawdown,
   status,
-  ruleViolations = []
+  ruleViolations = [],
+  disciplineScore,
+  disciplineZone,
+  sessionRuleScore,
+  recoveryHint = '',
 }: PulseHeaderProps) {
+  const hasDisciplineData =
+    disciplineScore !== undefined &&
+    disciplineZone !== undefined &&
+    sessionRuleScore !== undefined;
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -200,6 +215,18 @@ export default function PulseHeader({
               </ul>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Discipline Meter Row */}
+      {hasDisciplineData && (
+        <div className="px-4 py-2.5 border-t border-gray-800/50">
+          <DisciplineMeter
+            score={disciplineScore!}
+            zone={disciplineZone!}
+            sessionRuleScore={sessionRuleScore!}
+            recoveryHint={recoveryHint}
+          />
         </div>
       )}
 

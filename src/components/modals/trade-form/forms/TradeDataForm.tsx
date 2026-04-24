@@ -175,6 +175,41 @@ export default function TradeDataForm({
 
         <div>
           <label className="block text-sm text-gray-400 mb-2">
+            Planned SL / Planned TP
+          </label>
+          <div className="grid grid-cols-2 gap-2">
+            <input
+              type="number"
+              name="plannedSL"
+              id="planned-sl"
+              step="0.00001"
+              min="0"
+              placeholder="Stop Loss"
+              disabled={isSubmitting}
+              className="input-dark w-full disabled:opacity-50 disabled:cursor-not-allowed"
+              value={formData.plannedSL}
+              onChange={onChange}
+            />
+            <input
+              type="number"
+              name="plannedTP"
+              id="planned-tp"
+              step="0.00001"
+              min="0"
+              placeholder="Take Profit"
+              disabled={isSubmitting}
+              className="input-dark w-full disabled:opacity-50 disabled:cursor-not-allowed"
+              value={formData.plannedTP}
+              onChange={onChange}
+            />
+          </div>
+          <p className="text-xs text-gray-500 mt-1">
+            Optional — enables risk metrics (intended R:R, exit quality)
+          </p>
+        </div>
+
+        <div>
+          <label className="block text-sm text-gray-400 mb-2">
             Profit/Loss ($) <span className="text-red-500">*</span>
           </label>
           <div className="relative">

@@ -1,4 +1,5 @@
 import { Timestamp } from "firebase/firestore";
+import type { TradeEngineMetrics } from "@/lib/disciplineTypes";
 
 export const MAX_RISK_PERCENTAGE = 3;
 export const MAX_DAILY_DRAWDOWN = 5; // Default maximum daily loss as percentage of account
@@ -57,6 +58,8 @@ export interface TradeExecution {
   lotSize: number;
   entryPrice: number;
   exitPrice: number;
+  plannedSL?: number; // Planned stop loss price
+  plannedTP?: number; // Planned take profit price
   entryReason: string;
   entryScreenshot?: string;
   exitScreenshot?: string;
@@ -127,6 +130,9 @@ export interface Trade {
   psychology?: TradePsychology;
   context?: TradeContext;
   reflection?: TradeReflection;
+
+  // Discipline engine (computed at submission, stored)
+  engineMetrics?: TradeEngineMetrics;
 
   // Other
   learnings?: string;

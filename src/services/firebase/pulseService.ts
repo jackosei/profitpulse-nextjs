@@ -364,16 +364,9 @@ export async function createTrade(
       );
     }
 
-    // Validate risk per trade
-    const riskAmount = Math.abs(tradeData.performance.profitLoss);
-    const riskPercentage = (riskAmount / pulseData.accountSize) * 100;
 
-    if (riskPercentage > pulseData.maxRiskPerTrade) {
-      return createErrorResponse(
-        ErrorCode.VALIDATION_ERROR,
-        `Trade risk (${riskPercentage.toFixed(2)}%) exceeds maximum allowed risk (${pulseData.maxRiskPerTrade}%)`,
-      );
-    }
+    // Note: risk per trade is now evaluated observationally by the discipline engine below.
+    // No hard block here — Phase 1 is non-enforcement.
 
     // Check daily drawdown limit
     const today = new Date(tradeData.date).toISOString().split("T")[0];

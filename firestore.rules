@@ -67,6 +67,15 @@ service cloud.firestore {
         allow read: if isOwner(get(/databases/$(database)/documents/pulses/$(pulseId)).data.userId) || isAdmin();
         allow create, update, delete: if isOwner(get(/databases/$(database)/documents/pulses/$(pulseId)).data.userId) || isAdmin();
       }
+
+      // Violation log subcollection rules
+      // Written by the discipline engine at trade submission; read for Phase 2 enforcement queries.
+      match /violationLog/{logId} {
+        allow read: if isOwner(get(/databases/$(database)/documents/pulses/$(pulseId)).data.userId) || isAdmin();
+        allow create: if isOwner(get(/databases/$(database)/documents/pulses/$(pulseId)).data.userId) || isAdmin();
+        // Violation log entries are immutable — no update. Only admins can delete.
+        allow delete: if isAdmin();
+      }
     }
   }
-} 
+}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { Pulse, Trade, PulseStatus } from "@/types/pulse";
 import * as pulseApiService from "@/services/api/pulseApi";
 import type {
@@ -20,7 +20,7 @@ export function usePulse(props?: UsePulseProps) {
   const [error, setError] = useState<string | null>(null);
 
   // Get user's pulses
-  const getUserPulses = async (
+  const getUserPulses = useCallback(async (
     userId: string,
     status?: string,
   ): Promise<Pulse[] | null> => {
@@ -52,10 +52,10 @@ export function usePulse(props?: UsePulseProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [onSuccess, onError]);
 
   // Get a single pulse by ID
-  const getPulseById = async (
+  const getPulseById = useCallback(async (
     pulseId: string,
     userId: string,
     limit?: number,
@@ -96,10 +96,10 @@ export function usePulse(props?: UsePulseProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [onSuccess, onError]);
 
   // Load more trades for pagination
-  const getMoreTrades = async (
+  const getMoreTrades = useCallback(async (
     firestoreId: string,
     lastDate: string,
     limit?: number,
@@ -140,10 +140,10 @@ export function usePulse(props?: UsePulseProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [onError]);
 
   // Create a new pulse
-  const createPulse = async (
+  const createPulse = useCallback(async (
     pulseData: PulseCreateData,
   ): Promise<Pulse | null> => {
     setLoading(true);
@@ -171,10 +171,10 @@ export function usePulse(props?: UsePulseProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [onSuccess, onError]);
 
   // Create a new trade
-  const createTrade = async (
+  const createTrade = useCallback(async (
     firestoreId: string,
     tradeData: TradeCreateData,
   ): Promise<Trade | null> => {
@@ -206,10 +206,10 @@ export function usePulse(props?: UsePulseProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [onSuccess, onError]);
 
   // Update a trade
-  const updateTrade = async (
+  const updateTrade = useCallback(async (
     firestoreId: string,
     tradeId: string,
     tradeData: TradeCreateData,
@@ -233,10 +233,10 @@ export function usePulse(props?: UsePulseProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [onError]);
 
   // Update a pulse
-  const updatePulse = async (
+  const updatePulse = useCallback(async (
     pulseId: string,
     userId: string,
     updateData: PulseUpdateData,
@@ -260,10 +260,10 @@ export function usePulse(props?: UsePulseProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [onError]);
 
   // Archive a pulse
-  const archivePulse = async (
+  const archivePulse = useCallback(async (
     pulseId: string,
     userId: string,
   ): Promise<boolean> => {
@@ -282,10 +282,10 @@ export function usePulse(props?: UsePulseProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [onError]);
 
   // Unarchive a pulse
-  const unarchivePulse = async (
+  const unarchivePulse = useCallback(async (
     pulseId: string,
     userId: string,
   ): Promise<boolean> => {
@@ -304,10 +304,10 @@ export function usePulse(props?: UsePulseProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [onError]);
 
   // Delete a pulse
-  const deletePulse = async (
+  const deletePulse = useCallback(async (
     pulseId: string,
     userId: string,
     confirmationName: string,
@@ -331,7 +331,7 @@ export function usePulse(props?: UsePulseProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [onError]);
 
   return {
     getUserPulses,

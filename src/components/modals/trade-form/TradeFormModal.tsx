@@ -15,6 +15,7 @@ import type {
   TradingEnvironment,
   EmotionalImpact,
 } from "./types";
+import { ViolationCategory } from "@/lib/disciplineTypes";
 
 // Import form components
 import TradeDataForm from "./forms/TradeDataForm";
@@ -233,20 +234,8 @@ export default function TradeFormModal({
   };
 
   const validateForm = () => {
-    // Check if all required rules are followed
-    const requiredRules =
-      pulse?.tradingRules?.filter((rule) => rule.isRequired) || [];
-    const missingRequiredRules = requiredRules.filter(
-      (rule) => !followedRules.includes(rule.id),
-    );
-
-    if (missingRequiredRules.length > 0) {
-      setError(
-        `Please confirm all required trading rules: ${missingRequiredRules.map((r) => r.description).join(", ")}`,
-      );
-      return false;
-    }
-
+    // Note: required rules are NOT a form gate. Unchecked required rules are
+    // passed to the discipline engine which applies a -4 score penalty per miss.
     if (!formData.instrument) {
       setError("Please select an instrument");
       return false;
@@ -450,6 +439,86 @@ export default function TradeFormModal({
           duration: 4000,
         },
       );
+
+      // Discipline breach notification — only on create (engine only runs at submission)
+      if (mode === "create" && response && typeof response === "object" && "engineMetrics" in response) {
+        const violations = (response as { engineMetrics?: { violations?: { category: string; type: string; severity: number; details: string }[] } }).engineMetrics?.violations ?? [];
+        if (violations.length > 0) {
+          const totalPenalty = violations.reduce((sum, v) => sum + v.severity, 0);
+          const ruleBreaches = violations.filter(
+            (v) => v.category === ViolationCategory.QUALITATIVE,
+          );
+          const quantBreaches = violations.filter(
+            (v) => v.category === ViolationCategory.QUANTITATIVE,
+          );
+
+          toast.custom(
+            (id) => (
+              <div className="w-[360px] rounded-xl border border-amber-500/30 bg-[#1a1a1a] shadow-xl p-4 text-sm">
+                {/* Header */}
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">⚠️</span>
+                    <span className="font-semibold text-amber-400">Discipline breach detected</span>
+                  </div>
+                  <button
+                    onClick={() => toast.dismiss(id)}
+                    className="text-gray-500 hover:text-gray-300 text-xs"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                {/* Rule misses */}
+                {ruleBreaches.length > 0 && (
+                  <div className="mb-3">
+                    <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1.5">
+                      Rules missed
+                    </p>
+                    <ul className="space-y-1.5">
+                      {ruleBreaches.map((v, i) => (
+                        <li key={i} className="flex items-start justify-between gap-2">
+                          <span className="text-gray-300 leading-snug">• {v.details}</span>
+                          <span className="shrink-0 text-xs font-medium text-red-400 bg-red-500/10 px-1.5 py-0.5 rounded">
+                            −{v.severity} pts
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Quantitative breaches */}
+                {quantBreaches.length > 0 && (
+                  <div className="mb-3">
+                    <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1.5">
+                      Risk &amp; limits
+                    </p>
+                    <ul className="space-y-1.5">
+                      {quantBreaches.map((v, i) => (
+                        <li key={i} className="flex items-start justify-between gap-2">
+                          <span className="text-gray-300 leading-snug">• {v.details}</span>
+                          <span className="shrink-0 text-xs font-medium text-red-400 bg-red-500/10 px-1.5 py-0.5 rounded">
+                            −{v.severity} pts
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Footer */}
+                <div className="border-t border-gray-700/60 pt-3 flex items-center justify-between">
+                  <span className="text-gray-400 text-xs">Score impact</span>
+                  <span className="font-bold text-red-400 text-sm">−{totalPenalty} pts deducted</span>
+                </div>
+              </div>
+            ),
+            { duration: 8000 },
+          );
+        }
+      }
+
 
       onSuccess?.();
       onClose();

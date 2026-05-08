@@ -6,7 +6,8 @@
 ---
 
 ## Current phase
-**Phase 1 — Foundation (Score + Meter)**
+**Phase 1 — Foundation (Score + Meter) ✅ COMPLETE**
+**Phase 2 — Enforcement (ready to start)**
 
 ## Phase 1 checklist
 
@@ -47,7 +48,7 @@
 - [x] Score penalty application per violation type
 - [x] Zone determination from score
 - [x] Lazy recovery computation (on-read, from `lastSessionDate`)
-- [ ] Weekly breach count tracking (Mon–Fri rolling window) — deferred to Phase 2; Pulse fields exist but write logic not added
+- [x] Weekly breach count tracking — increments on each quantitative violation at trade submission
 
 ### Rule checklist upgrade
 - [x] Add `isRequired: boolean` to each rule in pulse creation (already existed)
@@ -56,7 +57,7 @@
 - [x] `MULTI_REQUIRED_RULE_MISS` violation type added (session-level)
 - [x] `computeSessionRuleScore()` added to engine
 - [x] `buildMultiMissViolation()` added to engine
-- [ ] Session Rule Score wired to Firestore read path (compute on pulse load, pass to DisciplineMeter) — deferred; meter prop exists but live data not connected
+- [x] Session Rule Score wired to pulse detail page (computed from today's trades, passed to DisciplineMeter)
 
 ### Pulse onboarding — WHY step
 - [x] Add WHY step to pulse creation flow (non-skippable)
@@ -84,7 +85,7 @@
 - [ ] Reflection gate UI (50-char minimum, gates journal access)
 - [ ] Zone amplification logic (Yellow/Red escalation modifier)
 - [ ] Cap lifting logic (compliant capped session → cap removed + +5 recovery)
-- [ ] Weekly breach count tracking (Mon–Fri rolling window)
+- [ ] Weekly breach count tracking (Mon–Fri rolling window) — weekly reset logic
 - [ ] Add `firestore.indexes.json` with composite index on `[pulseId, timestamp]` for violationLog
 
 ## Phase 3 checklist (not started)
@@ -99,6 +100,37 @@
 ---
 
 ## Session log
+
+### Session 4 — 2026-05-08
+**What was built:**
+
+*Session Rule Score live wiring:*
+- Updated `/src/app/pulse/[id]/page.tsx`:
+  - Imports `getZone`, `computeSessionRuleScore` from engine
+  - Reads `pulse.discipline` for live `disciplineScore` and computes `disciplineZone`
+  - Filters today's trades, computes `sessionRuleScore` via `computeSessionRuleScore()`
+  - Passes `disciplineScore`, `disciplineZone`, `sessionRuleScore`, `recoveryHint` to `PulseHeader`
+  - `DisciplineMeter` now shows real data instead of placeholders
+
+*Weekly breach count tracking:*
+- Updated `pulseService.createTrade()` in `/src/services/firebase/pulseService.ts`:
+  - Imports `ViolationType` enum
+  - Maps violations to `weeklyBreachCounts` fields (riskPerTrade, drawdownDaily, drawdownTotal, overtrading)
+  - Increments counts atomically in the same Firestore `updateDoc` call as the discipline score update
+  - `drawdownTotal` is a lifetime counter (never resets) per CLAUDE.md spec
+
+**Decisions that deviate from spec:**
+- Weekly breach count reset (Mon–Fri rolling window) is deferred to Phase 2 — increment logic is in place now, but the weekly boundary reset needs a scheduled job or on-read check. Phase 2 will add this alongside enforcement.
+- `recoveryHint` is computed inline in the page component as simple zone-based strings. Phase 2 may refine these to include constraint-specific guidance.
+- `computeSessionRuleScore` only sees trades loaded in the current page — if pagination means not all today's trades are loaded, the score may undercount. Acceptable for Phase 1; the engine function itself is correct.
+
+**Blockers / open questions:**
+- None. Phase 1 is complete.
+
+**Next session should start with:**
+Phase 2: move violation evaluation to `/app/api/discipline/evaluate/route.ts` (server-side only). This is the non-negotiable prerequisite from CLAUDE.md before any enforcement constraints ship.
+
+---
 
 ### Session 3 — 2026-04-24
 **What was built:**

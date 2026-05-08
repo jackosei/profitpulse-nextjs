@@ -36,7 +36,7 @@ import {
   PulseUpdateData,
   TradeCreateData,
 } from "../api/pulseApi";
-import { createDefaultDisciplineFields } from "@/lib/disciplineTypes";
+import { createDefaultDisciplineFields, ViolationType } from "@/lib/disciplineTypes";
 import {
   evaluateViolations,
   applyScorePenalties,
@@ -544,11 +544,51 @@ export async function createTrade(
       const currentScore = discipline.disciplineScore ?? 100;
       const newScore = applyScorePenalties(currentScore, violations);
       const newZone = getZone(newScore);
+
+      // Compute weekly breach count increments
+      const breachIncrements: Record<string, number> = {};
+      for (const v of violations) {
+        switch (v.type) {
+          case ViolationType.RISK_PER_TRADE:
+            breachIncrements["discipline.weeklyBreachCounts.riskPerTrade"] =
+              (breachIncrements["discipline.weeklyBreachCounts.riskPerTrade"] ?? 0) + 1;
+            break;
+          case ViolationType.DAILY_DRAWDOWN:
+            breachIncrements["discipline.weeklyBreachCounts.drawdownDaily"] =
+              (breachIncrements["discipline.weeklyBreachCounts.drawdownDaily"] ?? 0) + 1;
+            break;
+          case ViolationType.TOTAL_DRAWDOWN:
+            // Lifetime counter — never resets on weekly boundary
+            breachIncrements["discipline.weeklyBreachCounts.drawdownTotal"] =
+              (breachIncrements["discipline.weeklyBreachCounts.drawdownTotal"] ?? 0) + 1;
+            break;
+          case ViolationType.MAX_TRADES_PER_DAY:
+            breachIncrements["discipline.weeklyBreachCounts.overtrading"] =
+              (breachIncrements["discipline.weeklyBreachCounts.overtrading"] ?? 0) + 1;
+            break;
+          // Qualitative violations don't map to weeklyBreachCounts
+        }
+      }
+
+      // Resolve increments against current values
+      const currentCounts = discipline.weeklyBreachCounts ?? {
+        riskPerTrade: 0,
+        drawdownDaily: 0,
+        drawdownTotal: 0,
+        overtrading: 0,
+      };
+      const breachUpdates: Record<string, number> = {};
+      for (const [key, increment] of Object.entries(breachIncrements)) {
+        const field = key.split(".").pop() as keyof typeof currentCounts;
+        breachUpdates[key] = (currentCounts[field] ?? 0) + increment;
+      }
+
       await updateDoc(doc(db, "pulses", firestoreId), {
         "discipline.disciplineScore": newScore,
         "discipline.disciplineState":
           newZone === "RED" ? "RESTRICTED" : newZone === "YELLOW" ? "LIMITED" : "NORMAL",
         "discipline.lastSessionDate": today,
+        ...breachUpdates,
       });
     } else if (discipline) {
       // Clean trade — just update last session date

@@ -16,6 +16,8 @@ import TradeHistory from "@/components/pulse/TradeHistory";
 import TradeCalendar from "@/components/pulse/TradeCalendar";
 import { toast } from "sonner";
 import ArchivePulseModal from "@/components/modals/ArchivePulseModal";
+import { getZone, computeSessionRuleScore } from "@/lib/disciplineEngine";
+import type { DisciplineZone } from "@/lib/disciplineTypes";
 
 type TimeRange = "7D" | "30D" | "90D" | "1Y" | "ALL";
 type ComparisonType = "PERIOD" | "START";
@@ -262,6 +264,39 @@ export default function PulseDetailsPage() {
     return <div className="p-6 text-red-500">{error || apiError}</div>;
   if (!pulse) return <div className="p-6">Pulse not found</div>;
 
+  // ---------------------------------------------------------------------------
+  // Discipline data — computed from pulse state + today's trades
+  // ---------------------------------------------------------------------------
+  const discipline = pulse.discipline;
+  const disciplineScore = discipline?.disciplineScore;
+  const disciplineZone: DisciplineZone | undefined =
+    disciplineScore !== undefined ? getZone(disciplineScore) : undefined;
+
+  // Compute today's Session Rule Score from loaded trades
+  const todayStr = new Date().toISOString().split("T")[0];
+  const todayTrades = (pulse.trades ?? []).filter(
+    (t) => t.date === todayStr,
+  );
+  const pulseRules = (pulse.tradingRules ?? []).map((r) => ({
+    id: r.id,
+    description: r.description,
+    isRequired: r.isRequired,
+  }));
+  const sessionScore =
+    pulseRules.length > 0
+      ? computeSessionRuleScore(todayTrades, pulseRules, todayStr)
+      : null;
+  const sessionRuleScore = sessionScore?.score;
+
+  // Recovery hint — simple, no recovery if clean
+  const recoveryHint =
+    disciplineZone === "RED"
+      ? "Log a clean session with all required rules followed to begin recovery"
+      : disciplineZone === "YELLOW"
+        ? "Continue following your rules — clean sessions recover +8 pts"
+        : "";
+
+
   return (
     <div className="min-h-screen p-0 md:p-6 space-y-4 md:space-y-6">
       <PulseHeader
@@ -283,6 +318,10 @@ export default function PulseDetailsPage() {
         maxTotalDrawdown={pulse.maxTotalDrawdown}
         status={pulse.status}
         ruleViolations={pulse.ruleViolations}
+        disciplineScore={disciplineScore}
+        disciplineZone={disciplineZone}
+        sessionRuleScore={sessionRuleScore}
+        recoveryHint={recoveryHint}
       />
 
       <PulseStats stats={periodStats} comparisonType={comparisonType} />

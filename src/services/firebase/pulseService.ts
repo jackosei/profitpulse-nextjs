@@ -425,8 +425,16 @@ export async function createTrade(
     };
 
     // Build minimal trade for evaluation
+    // riskPct must come from the planned SL distance — using P/L is wrong for winners.
+    // If no SL is provided we cannot know the intended risk, so pass 0 (engine skips risk check).
+    const { plannedSL, plannedTP, entryPrice, lotSize } = tradeData.execution;
+    const riskPctFromSL =
+      plannedSL && entryPrice && lotSize
+        ? (Math.abs(entryPrice - plannedSL) * lotSize / pulseData.accountSize) * 100
+        : 0;
+
     const tradeForEval: TradeForEvaluation = {
-      riskPct: (Math.abs(tradeData.performance.profitLoss) / pulseData.accountSize) * 100,
+      riskPct: riskPctFromSL,
       profitLoss: tradeData.performance.profitLoss,
       followedRules: tradeData.followedRules ?? [],
     };
@@ -435,7 +443,6 @@ export async function createTrade(
 
     // Compute derived metrics when plannedSL is available
     let engineMetrics: TradeEngineMetrics | undefined;
-    const { plannedSL, plannedTP, entryPrice, lotSize } = tradeData.execution;
 
     if (plannedSL && entryPrice && lotSize) {
       const slDistance = Math.abs(entryPrice - plannedSL);
@@ -460,15 +467,16 @@ export async function createTrade(
 
       engineMetrics = { intendedRiskPct, intendedRR, actualR, exitQuality, violations };
     } else {
-      // No SL provided — still store violations, set metrics to null
+      // No SL provided — risk metrics cannot be computed
       engineMetrics = {
-        intendedRiskPct: (Math.abs(tradeData.performance.profitLoss) / pulseData.accountSize) * 100,
+        intendedRiskPct: 0,
         intendedRR: null,
         actualR: 0,
         exitQuality: null,
         violations,
       };
     }
+
 
     // ------------------------------------------------------------------
     // Add trade to subcollection

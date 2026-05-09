@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { usePulse } from "@/hooks/usePulse";
@@ -20,6 +20,7 @@ import { getZone, computeSessionRuleScore } from "@/lib/disciplineEngine";
 import type { DisciplineZone, ActiveConstraints, DisciplineState } from "@/lib/disciplineTypes";
 import SessionGate from "@/components/discipline/SessionGate";
 import ReflectionGate from "@/components/discipline/ReflectionGate";
+import LimitsTracker from "@/components/discipline/LimitsTracker";
 
 type TimeRange = "7D" | "30D" | "90D" | "1Y" | "ALL";
 type ComparisonType = "PERIOD" | "START";
@@ -69,6 +70,7 @@ export default function PulseDetailsPage() {
   // Phase 2: Enforcement local state
   const [reflectionPending, setReflectionPending] = useState(false);
   const [sessionGateAcked, setSessionGateAcked] = useState(false);
+  const prevConstraintsRef = useRef<string | null>(null);
 
   const fetchPulse = useCallback(async () => {
     if (!user || !id) return;
@@ -270,7 +272,20 @@ export default function PulseDetailsPage() {
     if (pulse?.discipline?.reflectionGatePending !== undefined) {
       setReflectionPending(pulse.discipline.reflectionGatePending);
     }
-  }, [pulse?.discipline?.reflectionGatePending]);
+
+    // Check if active constraints escalated to re-trigger Session Gate
+    if (pulse?.discipline?.activeConstraints) {
+      const currentConstraintsStr = JSON.stringify(pulse.discipline.activeConstraints);
+      if (prevConstraintsRef.current !== null && prevConstraintsRef.current !== currentConstraintsStr) {
+        // Constraints changed! If there are any active constraints, force a re-ack.
+        const c = pulse.discipline.activeConstraints;
+        if (c.riskCapPct !== null || c.tradeCapCount !== null || c.lockoutUntil !== null || c.noTradeDays > 0) {
+          setSessionGateAcked(false);
+        }
+      }
+      prevConstraintsRef.current = currentConstraintsStr;
+    }
+  }, [pulse?.discipline?.reflectionGatePending, pulse?.discipline?.activeConstraints]);
 
   if (loading || apiLoading) return <Loader />;
   if (error || apiError)
@@ -346,6 +361,8 @@ export default function PulseDetailsPage() {
         activeConstraints={activeConstraints}
         disciplineState={disciplineState}
       />
+
+      <LimitsTracker pulse={pulse} />
 
       <PulseStats stats={periodStats} comparisonType={comparisonType} />
 

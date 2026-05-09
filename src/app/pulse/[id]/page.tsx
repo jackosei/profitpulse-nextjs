@@ -66,6 +66,10 @@ export default function PulseDetailsPage() {
   const [showArchiveModal, setShowArchiveModal] = useState(false);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
 
+  // Phase 2: Enforcement local state
+  const [reflectionPending, setReflectionPending] = useState(false);
+  const [sessionGateAcked, setSessionGateAcked] = useState(false);
+
   const fetchPulse = useCallback(async () => {
     if (!user || !id) return;
     try {
@@ -261,6 +265,13 @@ export default function PulseDetailsPage() {
     fetchPulse();
   }, [fetchPulse]);
 
+  // Sync reflection pending state when pulse data changes
+  useEffect(() => {
+    if (pulse?.discipline?.reflectionGatePending !== undefined) {
+      setReflectionPending(pulse.discipline.reflectionGatePending);
+    }
+  }, [pulse?.discipline?.reflectionGatePending]);
+
   if (loading || apiLoading) return <Loader />;
   if (error || apiError)
     return <div className="p-6 text-red-500">{error || apiError}</div>;
@@ -306,11 +317,6 @@ export default function PulseDetailsPage() {
     noTradeDays: 0,
   };
   const disciplineState: DisciplineState = discipline?.disciplineState ?? "NORMAL";
-  const [reflectionPending, setReflectionPending] = useState(
-    discipline?.reflectionGatePending ?? false,
-  );
-  const [sessionGateAcked, setSessionGateAcked] = useState(false);
-
 
   return (
     <div className="min-h-screen p-0 md:p-6 space-y-4 md:space-y-6">

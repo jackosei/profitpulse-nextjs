@@ -19,11 +19,10 @@ Full spec: `/docs/discipline-engine-spec-v1.docx`
 ---
 
 ## Current build phase
-**Phase 1 — Foundation (Score + Meter)**
-No enforcement constraints are shipped yet. Phase 1 is observational only — violations are
-detected and scored, the meter is displayed, but no session gates, caps, or lockouts are active.
-This is intentional: Phase 1 data validates that scoring weights feel proportional before
-enforcement lands in Phase 2.
+**Phase 2 — Enforcement (State machine + Constraints)**
+Phase 1 (observational scoring) is complete and released as v3.0.0.
+Phase 2 moves all evaluation logic server-side and adds enforcement constraints
+(caps, lockouts, session gates). The client reads state but never computes it.
 
 ---
 

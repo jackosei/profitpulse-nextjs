@@ -173,7 +173,8 @@ export function usePulse(props?: UsePulseProps) {
     }
   }, [onSuccess, onError]);
 
-  // Create a new trade
+  // Create a new trade — calls server-side /api/discipline/evaluate
+  // All violation detection, score mutation, and persistence happen server-side.
   const createTrade = useCallback(async (
     firestoreId: string,
     tradeData: TradeCreateData,
@@ -182,17 +183,38 @@ export function usePulse(props?: UsePulseProps) {
     setError(null);
 
     try {
-      const response = await pulseApiService.createTrade(
-        firestoreId,
-        tradeData,
-      );
+      // Get Firebase auth token for server-side verification
+      const { getFirebaseToken } = await import("@/services/auth");
+      const token = await getFirebaseToken();
+      if (!token) {
+        throw new Error("Not authenticated");
+      }
 
-      if (response.success && response.data) {
-        onSuccess?.(response.data);
-        return response.data;
+      const response = await fetch("/api/discipline/evaluate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          pulseId: tradeData.pulseId,
+          userId: tradeData.userId,
+          tradeData,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.json().catch(() => ({}));
+        throw new Error(errorBody.error || `Server error (${response.status})`);
+      }
+
+      const result = await response.json();
+
+      if (result.success && result.data?.trade) {
+        onSuccess?.(result.data.trade);
+        return result.data.trade as Trade;
       } else {
-        const errorMessage =
-          response.error?.message || "Failed to create trade";
+        const errorMessage = result.error || "Failed to create trade";
         setError(errorMessage);
         onError?.(errorMessage);
         return null;

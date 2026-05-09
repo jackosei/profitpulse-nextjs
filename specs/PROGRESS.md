@@ -6,8 +6,8 @@
 ---
 
 ## Current phase
-**Phase 1 — Foundation (Score + Meter) ✅ COMPLETE**
-**Phase 2 — Enforcement (ready to start)**
+**Phase 1 — Foundation (Score + Meter) ✅ COMPLETE** (v3.0.0)
+**Phase 2 — Enforcement (State machine + Constraints) — IN PROGRESS**
 
 ## Phase 1 checklist
 
@@ -75,8 +75,8 @@
 
 ---
 
-## Phase 2 checklist (not started)
-- [ ] Move violation evaluation to `/app/api/discipline/evaluate/route.ts`
+## Phase 2 checklist
+- [x] Move violation evaluation to `/app/api/discipline/evaluate/route.ts`
 - [ ] Discipline state machine (NORMAL → LIMITED → RESTRICTED → RECOVERY)
 - [ ] Session gate: acknowledgement screen on constraint active days
 - [ ] Risk cap: inline warning + submission check
@@ -100,6 +100,52 @@
 ---
 
 ## Session log
+
+### Session 5 — 2026-05-09
+**What was built:**
+
+*Phase 1 release (v3.0.0):*
+- Updated `CHANGELOG.md` with comprehensive v3.0.0 entry
+- Bumped `package.json` to v3.0.0
+- Created annotated git tag `v3.0.0` and pushed to remote
+
+*Server-side discipline evaluation migration:*
+- Created `/src/app/api/discipline/evaluate/route.ts`:
+  - Full server-side API route using `firebase-admin` SDK
+  - Handles auth (Firebase ID token verification), trade validation, lazy session recovery, violation evaluation, engine metrics computation, trade persistence, violation log writes, daily loss tracking, total drawdown tracking, discipline score updates, weekly breach count increments, and pulse stats recalculation
+  - Single atomic endpoint — all trade creation + discipline logic in one route
+- Updated `/src/hooks/usePulse.ts`:
+  - `createTrade` now calls `POST /api/discipline/evaluate` with Firebase auth token
+  - No longer routes through `pulseApi.createTrade → pulseService.createTrade`
+- Updated `/src/services/firebase/pulseService.ts`:
+  - Removed all discipline engine imports (`evaluateViolations`, `applyScorePenalties`, `getZone`, `computeRecovery`, `ViolationType`, evaluation types)
+  - Replaced `createTrade` function body (~390 lines) with deprecation stub
+  - Kept `createDefaultDisciplineFields` import (used by `createPulse`)
+- Updated `/specs/CLAUDE.md`: phase line set to Phase 2
+
+*Instrument point value polish:*
+- Aligned label text (`Instruments`) and placeholder text across Create/Update modals
+- Reduced placeholder text size to `text-xs` in instrument input fields
+
+**Verification:**
+- `tsc --noEmit`: 0 errors
+- `grep evaluateViolations src/`: only in `disciplineEngine.ts` (definition) + `route.ts` (call)
+- `grep applyScorePenalties src/`: only in `disciplineEngine.ts` (definition) + `route.ts` (call)
+- `grep computeRecovery src/`: only in `disciplineEngine.ts` (definition) + `route.ts` (call)
+- `pulseService.ts`: zero engine evaluation imports remaining
+- `page.tsx`: still imports `getZone`, `computeSessionRuleScore` (display-only — safe)
+
+**Decisions that deviate from spec:**
+- `createTrade` in `pulseService.ts` is kept as a deprecated stub rather than fully removed — provides clear error message if anything accidentally calls it
+- Daily drawdown hard block in old `createTrade` removed — the API route detects and scores it via the engine instead of blocking trade submission (consistent with CLAUDE.md: "Do not block journal entries for cap violations")
+
+**Blockers / open questions:**
+- None. The server-side migration prerequisite is complete.
+
+**Next session should start with:**
+Phase 2 enforcement implementation: discipline state machine (NORMAL → LIMITED → RESTRICTED → RECOVERY), session gates, risk caps, trade count caps, no-trade day blocking, and reflection gate UI.
+
+---
 
 ### Session 4 — 2026-05-08
 **What was built:**

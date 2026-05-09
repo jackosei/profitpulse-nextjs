@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { BookOpen, AlertCircle, Check } from "lucide-react";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -84,7 +85,7 @@ export default function ReflectionGate({
         <div className="px-6 py-4 bg-red-500/10 border-b border-red-500/20">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-full bg-red-500/20 flex items-center justify-center">
-              <span className="text-lg">🪞</span>
+              <BookOpen className="w-4 h-4 text-red-400" />
             </div>
             <div>
               <h2 className="text-sm font-semibold text-gray-200">
@@ -127,7 +128,8 @@ export default function ReflectionGate({
                 isValid ? "text-emerald-400" : "text-gray-500"
               }`}
             >
-              {charCount}/50 characters {isValid ? "✓" : "minimum"}
+              {charCount}/50 characters {isValid && <Check className="inline w-3 h-3 ml-1" />}
+              {!isValid && " minimum"}
             </span>
 
             {isValid && (
@@ -138,7 +140,10 @@ export default function ReflectionGate({
           </div>
 
           {error && (
-            <p className="text-xs text-red-400 mt-2">⚠ {error}</p>
+            <p className="flex items-center gap-1.5 text-xs text-red-400 mt-2">
+              <AlertCircle className="w-3.5 h-3.5" />
+              {error}
+            </p>
           )}
         </div>
 

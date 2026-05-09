@@ -1,6 +1,7 @@
 "use client";
 
 import type { DisciplineZone, ActiveConstraints, DisciplineState } from "@/lib/disciplineTypes";
+import { TrendingDown, Hash, Ban, Info } from "lucide-react";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -93,25 +94,40 @@ export default function DisciplineMeter({
   return (
     <div className="flex flex-col gap-2 py-2 px-3 bg-dark/40 rounded-lg border border-gray-800/60 min-w-[220px]">
       {/* ── Header row: score + zone label + session badge ── */}
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex items-center justify-between gap-3 mb-1">
         {/* Score + zone label */}
-        <div className="flex items-baseline gap-1.5">
-          <span className={`text-2xl font-bold tabular-nums ${colors.text}`}>
-            {safeScore}
-          </span>
-          <span className="text-xs text-gray-500">/100</span>
-          <span
-            className={`ml-1.5 text-xs font-medium px-1.5 py-0.5 rounded border ${colors.text} ${colors.bg} ${colors.border}`}
-          >
-            {ZONE_LABEL[zone]}
-          </span>
+        <div className="flex flex-col gap-0.5">
+          <div className="flex items-center gap-1">
+            <span className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold">
+              Discipline Score
+            </span>
+            <div title="Your lifetime Discipline Score (0-100). It determines your Zone (Stable, At Risk, Enforcement) and dictates which trading constraints are active.">
+              <Info className="w-3 h-3 text-gray-500 cursor-help" />
+            </div>
+          </div>
+          <div className="flex items-baseline gap-1.5">
+            <span className={`text-2xl font-bold tabular-nums ${colors.text}`}>
+              {safeScore}
+            </span>
+            <span className="text-xs text-gray-500">/100</span>
+            <span
+              className={`ml-1.5 text-xs font-medium px-1.5 py-0.5 rounded border ${colors.text} ${colors.bg} ${colors.border}`}
+            >
+              {ZONE_LABEL[zone]}
+            </span>
+          </div>
         </div>
 
         {/* Session Rule Score badge */}
-        <div className="flex flex-col items-end gap-0.5">
-          <span className="text-[10px] text-gray-500 leading-none">
-            Today&apos;s execution
-          </span>
+        <div className="flex flex-col items-end gap-0.5 mt-1">
+          <div className="flex items-center gap-1">
+            <span className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold">
+              Today's Execution
+            </span>
+            <div title="The percentage of your qualitative trading rules you successfully followed across all trades logged today.">
+              <Info className="w-3 h-3 text-gray-500 cursor-help" />
+            </div>
+          </div>
           <span
             className={`text-sm font-semibold tabular-nums ${ruleScoreColor(sessionRuleScore)}`}
           >
@@ -173,18 +189,21 @@ export default function DisciplineMeter({
             <StateBadge state={disciplineState} />
           )}
           {activeConstraints.riskCapPct !== null && (
-            <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">
-              📉 {Math.round(activeConstraints.riskCapPct * 100)}% risk cap
+            <span className="flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">
+              <TrendingDown className="w-3 h-3" />
+              {Math.round(activeConstraints.riskCapPct * 100)}% risk cap
             </span>
           )}
           {activeConstraints.tradeCapCount !== null && (
-            <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">
-              🔢 {activeConstraints.tradeCapCount} trade cap
+            <span className="flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">
+              <Hash className="w-3 h-3" />
+              {activeConstraints.tradeCapCount} trade cap
             </span>
           )}
           {activeConstraints.noTradeDays > 0 && (
-            <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-red-500/10 text-red-400 border border-red-500/20">
-              🚫 {activeConstraints.noTradeDays}d no-trade
+            <span className="flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded bg-red-500/10 text-red-400 border border-red-500/20">
+              <Ban className="w-3 h-3" />
+              {activeConstraints.noTradeDays}d no-trade
             </span>
           )}
         </div>

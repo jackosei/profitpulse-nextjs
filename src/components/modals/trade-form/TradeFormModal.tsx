@@ -20,6 +20,7 @@ import {
   ViolationType,
 } from "@/lib/disciplineTypes";
 import type { ActiveConstraints } from "@/lib/disciplineTypes";
+import { AlertTriangle, X } from "lucide-react";
 
 // Import form components
 import TradeDataForm from "./forms/TradeDataForm";
@@ -471,14 +472,14 @@ export default function TradeFormModal({
                 {/* Header */}
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
-                    <span className="text-lg">⚠️</span>
+                    <AlertTriangle className="w-5 h-5 text-amber-400" />
                     <span className="font-semibold text-amber-400">Discipline breach detected</span>
                   </div>
                   <button
                     onClick={() => toast.dismiss(id)}
-                    className="text-gray-500 hover:text-gray-300 text-xs"
+                    className="text-gray-500 hover:text-gray-300"
                   >
-                    ✕
+                    <X className="w-4 h-4" />
                   </button>
                 </div>
 

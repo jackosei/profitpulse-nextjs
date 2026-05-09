@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import type { ActiveConstraints, DisciplineState } from "@/lib/disciplineTypes";
+import { TrendingDown, Hash, Ban, Lock, RefreshCw, AlertTriangle } from "lucide-react";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -73,9 +74,13 @@ export default function SessionGate({
         <div className={`px-6 py-4 ${colors.bg} border-b ${colors.border}`}>
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-full bg-gray-800/80 flex items-center justify-center">
-              <span className="text-lg">
-                {disciplineState === "RESTRICTED" ? "🔒" : disciplineState === "RECOVERY" ? "🔄" : "⚠️"}
-              </span>
+              {disciplineState === "RESTRICTED" ? (
+                <Lock className={`w-4 h-4 ${colors.text}`} />
+              ) : disciplineState === "RECOVERY" ? (
+                <RefreshCw className={`w-4 h-4 ${colors.text}`} />
+              ) : (
+                <AlertTriangle className={`w-4 h-4 ${colors.text}`} />
+              )}
             </div>
             <div>
               <h2 className="text-sm font-semibold text-gray-200">
@@ -92,7 +97,7 @@ export default function SessionGate({
         <div className="px-6 py-4 space-y-3">
           {constraints.riskCapPct !== null && (
             <ConstraintBadge
-              icon="📉"
+              icon={<TrendingDown className="w-4 h-4" />}
               label="Risk Cap"
               value={`${Math.round(constraints.riskCapPct * 100)}% of your configured limit`}
               color="text-amber-400"
@@ -100,7 +105,7 @@ export default function SessionGate({
           )}
           {constraints.tradeCapCount !== null && (
             <ConstraintBadge
-              icon="🔢"
+              icon={<Hash className="w-4 h-4" />}
               label="Trade Cap"
               value={`Maximum ${constraints.tradeCapCount} trades today`}
               color="text-amber-400"
@@ -108,7 +113,7 @@ export default function SessionGate({
           )}
           {constraints.noTradeDays > 0 && (
             <ConstraintBadge
-              icon="🚫"
+              icon={<Ban className="w-4 h-4" />}
               label="No-Trade Day"
               value={`${constraints.noTradeDays} day${constraints.noTradeDays > 1 ? "s" : ""} remaining`}
               color="text-red-400"
@@ -154,14 +159,14 @@ function ConstraintBadge({
   value,
   color,
 }: {
-  icon: string;
+  icon: React.ReactNode;
   label: string;
   value: string;
   color: string;
 }) {
   return (
     <div className="flex items-start gap-2.5 p-2.5 rounded-lg bg-gray-800/40 border border-gray-700/40">
-      <span className="text-base mt-0.5">{icon}</span>
+      <div className="mt-0.5 text-gray-400">{icon}</div>
       <div>
         <p className={`text-xs font-semibold ${color}`}>{label}</p>
         <p className="text-xs text-gray-400">{value}</p>

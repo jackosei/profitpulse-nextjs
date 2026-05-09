@@ -41,12 +41,14 @@ import {
   evaluateViolations,
   applyScorePenalties,
   getZone,
+  computeRecovery,
 } from "@/lib/disciplineEngine";
 import type {
   EvaluationContext,
   TradeForEvaluation,
   TradeEngineMetrics,
   ViolationLogEntry,
+  SessionSummary,
 } from "@/lib/disciplineTypes";
 
 /**
@@ -399,6 +401,79 @@ export async function createTrade(
     );
     const dailyTradeCount = todayTradesSnap.size;
 
+    // ------------------------------------------------------------------
+    // Lazy recovery: if this is the first trade of a new calendar day,
+    // credit recovery points for the previous (completed) session.
+    // ------------------------------------------------------------------
+    const discipline = pulseData.discipline;
+    const lastSessionDate = discipline?.lastSessionDate ?? null;
+    const isNewDay = lastSessionDate !== null && lastSessionDate !== today;
+
+    if (isNewDay && discipline && dailyTradeCount === 0) {
+      // Fetch all trades from the previous session
+      const prevSnap = await getDocs(
+        query(
+          collection(db, "pulses", firestoreId, "trades"),
+          where("date", "==", lastSessionDate),
+        ),
+      );
+      const prevTrades = prevSnap.docs.map((d) => d.data());
+
+      // Determine if the previous session had any violations
+      const prevHasViolations = prevTrades.some(
+        (t) => (t.engineMetrics?.violations ?? []).length > 0,
+      );
+
+      // Determine if all required rules were followed across every trade
+      const pulseRules = pulseData.tradingRules ?? [];
+      const requiredRuleIds = pulseRules
+        .filter((r: { isRequired: boolean }) => r.isRequired)
+        .map((r: { id: string }) => r.id);
+      const allRequiredFollowed =
+        requiredRuleIds.length === 0 ||
+        prevTrades.every((t) =>
+          requiredRuleIds.every((id: string) =>
+            (t.followedRules ?? []).includes(id),
+          ),
+        );
+
+      // Determine full journal: at least one trade with reflection > 50 chars
+      const hasFullJournal = prevTrades.some(
+        (t) =>
+          typeof t.reflection?.whatILearned === "string" &&
+          t.reflection.whatILearned.trim().length > 50,
+      );
+
+      const prevSession: SessionSummary = {
+        tradeCount: prevTrades.length,
+        hasViolations: prevHasViolations,
+        allRequiredRulesFollowed: allRequiredFollowed,
+        hasFullJournal,
+        reflectionGateCompleted: false, // Phase 2
+        consecutiveCleanDays: 0,        // Phase 2 — streak tracking not yet implemented
+        requiredRulesMissedCount: 0,
+        sessionRuleScore: 100,
+      };
+
+      const recoveryPts = computeRecovery(
+        discipline.disciplineScore ?? 100,
+        prevSession,
+        discipline.reflectionGatePending ?? false,
+      );
+
+      if (recoveryPts > 0) {
+        const recoveredScore = Math.min(100, (discipline.disciplineScore ?? 100) + recoveryPts);
+        const recoveredZone = getZone(recoveredScore);
+        await updateDoc(doc(db, "pulses", firestoreId), {
+          "discipline.disciplineScore": recoveredScore,
+          "discipline.disciplineState":
+            recoveredZone === "RED" ? "RESTRICTED" : recoveredZone === "YELLOW" ? "LIMITED" : "NORMAL",
+        });
+        // Reflect the updated score in memory so the new trade's penalty is applied on top
+        discipline.disciplineScore = recoveredScore;
+      }
+    }
+
     // Count risk violations today from existing trades
     const riskBreachesToday = todayTradesSnap.docs.reduce((count, d) => {
       const t = d.data();
@@ -410,7 +485,6 @@ export async function createTrade(
     }, 0);
 
     // Build evaluation context from pulse state
-    const discipline = pulseData.discipline;
     const ctx: EvaluationContext = {
       accountSize: pulseData.accountSize,
       maxRiskPerTrade: pulseData.maxRiskPerTrade,

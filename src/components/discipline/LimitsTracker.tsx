@@ -24,11 +24,7 @@ export default function LimitsTracker({ pulse }: LimitsTrackerProps) {
     
     // Max Trades Per Day
     const maxTrades = pulse.discipline?.maxTradesPerDay || null;
-    const todayTradesCount = pulse.trades?.filter(t => {
-      const timeToUse = t.execution.exitTime ?? t.execution.entryTime ?? todayStr;
-      const tradeDate = new Date(timeToUse).toISOString().split("T")[0];
-      return tradeDate === todayStr;
-    }).length || 0;
+    const todayTradesCount = pulse.trades?.filter(t => t.date === todayStr).length || 0;
     const tradesPct = maxTrades && maxTrades > 0 ? (todayTradesCount / maxTrades) * 100 : 0;
 
     return {

@@ -198,6 +198,9 @@ export interface EvaluationContext {
   dailyLossSoFar: number; // cumulative loss $ today (positive number)
   totalDrawdown: number; // cumulative total drawdown $ (positive number)
   riskBreachesToday: number; // RISK_PER_TRADE violations already today
+
+  // Phase 2: active constraints at time of trade
+  activeConstraints: ActiveConstraints; // current enforcement caps/lockouts
 }
 
 /**

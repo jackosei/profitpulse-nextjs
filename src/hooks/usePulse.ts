@@ -178,7 +178,7 @@ export function usePulse(props?: UsePulseProps) {
   const createTrade = useCallback(async (
     firestoreId: string,
     tradeData: TradeCreateData,
-  ): Promise<Trade | null> => {
+  ): Promise<any | null> => {
     setLoading(true);
     setError(null);
 
@@ -212,7 +212,7 @@ export function usePulse(props?: UsePulseProps) {
 
       if (result.success && result.data?.trade) {
         onSuccess?.(result.data.trade);
-        return result.data.trade as Trade;
+        return result.data; // Return the full payload
       } else {
         const errorMessage = result.error || "Failed to create trade";
         setError(errorMessage);

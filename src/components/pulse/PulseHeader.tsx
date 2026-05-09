@@ -12,7 +12,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { formatCurrency } from "@/utils/format"
 import { PULSE_STATUS } from "@/types/pulse"
-import type { DisciplineZone } from "@/lib/disciplineTypes";
+import type { DisciplineZone, ActiveConstraints, DisciplineState } from "@/lib/disciplineTypes";
 import DisciplineMeter from "@/components/discipline/DisciplineMeter";
 
 type TimeRange = '7D' | '30D' | '90D' | '1Y' | 'ALL';
@@ -48,6 +48,8 @@ interface PulseHeaderProps {
   disciplineZone?: DisciplineZone;
   sessionRuleScore?: number;
   recoveryHint?: string;
+  activeConstraints?: ActiveConstraints;
+  disciplineState?: DisciplineState;
 }
 
 export default function PulseHeader({
@@ -71,6 +73,8 @@ export default function PulseHeader({
   disciplineZone,
   sessionRuleScore,
   recoveryHint = '',
+  activeConstraints,
+  disciplineState,
 }: PulseHeaderProps) {
   const hasDisciplineData =
     disciplineScore !== undefined &&
@@ -226,6 +230,8 @@ export default function PulseHeader({
             zone={disciplineZone!}
             sessionRuleScore={sessionRuleScore!}
             recoveryHint={recoveryHint}
+            activeConstraints={activeConstraints}
+            disciplineState={disciplineState}
           />
         </div>
       )}

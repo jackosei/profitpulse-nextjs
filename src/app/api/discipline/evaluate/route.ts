@@ -39,7 +39,16 @@ import type {
   ViolationLogEntry,
 } from "@/lib/disciplineTypes";
 import { ViolationType } from "@/lib/disciplineTypes";
+import type { ActiveConstraints, DisciplineState } from "@/lib/disciplineTypes";
 import { getDefaultPointValue } from "@/lib/instrumentPointValues";
+import {
+  computeConstraints,
+  computeStateTransition,
+  shouldLiftConstraints,
+  computeWeeklyReset,
+  amplifyPenalty,
+  mergeConstraints,
+} from "@/lib/enforcementEngine";
 
 // ---------------------------------------------------------------------------
 // Auth helper
@@ -161,6 +170,26 @@ export async function POST(request: Request) {
     const isNewDay = lastSessionDate !== null && lastSessionDate !== today;
 
     if (isNewDay && discipline && dailyTradeCount === 0) {
+      // ── Weekly breach count reset (Monday boundary) ────────────────
+      const resetCounts = computeWeeklyReset(
+        discipline.weeklyBreachCounts ?? {
+          riskPerTrade: 0, drawdownDaily: 0, drawdownTotal: 0, overtrading: 0,
+        },
+        today,
+        lastSessionDate,
+      );
+      const countsChanged =
+        resetCounts.riskPerTrade !== (discipline.weeklyBreachCounts?.riskPerTrade ?? 0) ||
+        resetCounts.drawdownDaily !== (discipline.weeklyBreachCounts?.drawdownDaily ?? 0) ||
+        resetCounts.overtrading !== (discipline.weeklyBreachCounts?.overtrading ?? 0);
+      if (countsChanged) {
+        await adminDb.collection("pulses").doc(firestoreId).update({
+          "discipline.weeklyBreachCounts": resetCounts,
+        });
+        discipline.weeklyBreachCounts = resetCounts;
+      }
+
+      // ── Constraint lifting (clean previous session) ────────────────
       const prevSnap = await adminDb
         .collection("pulses")
         .doc(firestoreId)
@@ -172,7 +201,23 @@ export async function POST(request: Request) {
       const prevHasViolations = prevTrades.some(
         (t) => ((t.engineMetrics?.violations as Array<unknown>) ?? []).length > 0,
       );
+      const sessionWasClean = !prevHasViolations && prevTrades.length > 0;
 
+      // Lift constraints if previous capped session was clean
+      const existingConstraints = discipline.activeConstraints ?? {
+        riskCapPct: null, tradeCapCount: null, lockoutUntil: null, noTradeDays: 0,
+      };
+      const { liftedConstraints, recoveryBonus: liftBonus } =
+        shouldLiftConstraints(existingConstraints, sessionWasClean);
+
+      if (liftBonus > 0) {
+        await adminDb.collection("pulses").doc(firestoreId).update({
+          "discipline.activeConstraints": liftedConstraints,
+        });
+        discipline.activeConstraints = liftedConstraints;
+      }
+
+      // ── Recovery points ────────────────────────────────────────────
       const pulseRules: TradeRule[] = pulseData.tradingRules ?? [];
       const requiredRuleIds = pulseRules
         .filter((r) => r.isRequired)
@@ -206,7 +251,7 @@ export async function POST(request: Request) {
         discipline.disciplineScore ?? 100,
         prevSession,
         discipline.reflectionGatePending ?? false,
-      );
+      ) + liftBonus;
 
       if (recoveryPts > 0) {
         const recoveredScore = Math.min(
@@ -214,17 +259,19 @@ export async function POST(request: Request) {
           (discipline.disciplineScore ?? 100) + recoveryPts,
         );
         const recoveredZone = getZone(recoveredScore);
+        const recoveredState = computeStateTransition(
+          discipline.disciplineState ?? "NORMAL",
+          recoveredScore,
+          discipline.activeConstraints ?? {
+            riskCapPct: null, tradeCapCount: null, lockoutUntil: null, noTradeDays: 0,
+          },
+        );
         await adminDb.collection("pulses").doc(firestoreId).update({
           "discipline.disciplineScore": recoveredScore,
-          "discipline.disciplineState":
-            recoveredZone === "RED"
-              ? "RESTRICTED"
-              : recoveredZone === "YELLOW"
-                ? "LIMITED"
-                : "NORMAL",
+          "discipline.disciplineState": recoveredState,
         });
-        // Reflect updated score in memory
         discipline.disciplineScore = recoveredScore;
+        discipline.disciplineState = recoveredState;
       }
     }
 
@@ -240,6 +287,14 @@ export async function POST(request: Request) {
     }, 0);
 
     // ── Build evaluation context ───────────────────────────────────────
+    const defaultConstraints = {
+      riskCapPct: null,
+      tradeCapCount: null,
+      lockoutUntil: null,
+      noTradeDays: 0,
+    };
+    const currentConstraints = discipline?.activeConstraints ?? defaultConstraints;
+
     const ctx: EvaluationContext = {
       accountSize: pulseData.accountSize,
       maxRiskPerTrade: pulseData.maxRiskPerTrade,
@@ -251,6 +306,7 @@ export async function POST(request: Request) {
       dailyLossSoFar: Math.abs(dailyLosses),
       totalDrawdown: pulseData.totalDrawdown ?? 0,
       riskBreachesToday,
+      activeConstraints: currentConstraints,
     };
 
     // ── Compute risk from SL ───────────────────────────────────────────
@@ -381,77 +437,84 @@ export async function POST(request: Request) {
       });
     }
 
-    // ── Update discipline score ────────────────────────────────────────
+    // ── Update discipline score + enforcement ──────────────────────────
     let newScore = discipline?.disciplineScore ?? 100;
     let newZone = getZone(newScore);
+    let newConstraints: ActiveConstraints = currentConstraints;
+    let newState: DisciplineState = discipline?.disciplineState ?? "NORMAL";
+    let isViolationTrade = false;
+
+    // Flag if trading under no-trade-day or lockout (trade is allowed per spec but flagged)
+    if (currentConstraints.noTradeDays > 0) {
+      isViolationTrade = true;
+    }
 
     if (discipline && violations.length > 0) {
+      // ── Zone amplification: penalties hit harder in Yellow/Red ──────
+      const currentZone = getZone(discipline.disciplineScore ?? 100);
+      const amplifiedViolations = violations.map((v) => ({
+        ...v,
+        severity: amplifyPenalty(v.severity, currentZone),
+      }));
+
       const currentScore = discipline.disciplineScore ?? 100;
-      newScore = applyScorePenalties(currentScore, violations);
+      newScore = applyScorePenalties(currentScore, amplifiedViolations);
       newZone = getZone(newScore);
 
-      // Compute weekly breach count increments
-      const breachIncrements: Record<string, number> = {};
+      // ── Breach count increments ────────────────────────────────────
+      const currentCounts = discipline.weeklyBreachCounts ?? {
+        riskPerTrade: 0, drawdownDaily: 0, drawdownTotal: 0, overtrading: 0,
+      };
+      const updatedCounts = { ...currentCounts };
       for (const v of violations) {
         switch (v.type) {
           case ViolationType.RISK_PER_TRADE:
-            breachIncrements["discipline.weeklyBreachCounts.riskPerTrade"] =
-              (breachIncrements[
-                "discipline.weeklyBreachCounts.riskPerTrade"
-              ] ?? 0) + 1;
-            break;
+            updatedCounts.riskPerTrade += 1; break;
           case ViolationType.DAILY_DRAWDOWN:
-            breachIncrements["discipline.weeklyBreachCounts.drawdownDaily"] =
-              (breachIncrements[
-                "discipline.weeklyBreachCounts.drawdownDaily"
-              ] ?? 0) + 1;
-            break;
+            updatedCounts.drawdownDaily += 1; break;
           case ViolationType.TOTAL_DRAWDOWN:
-            breachIncrements["discipline.weeklyBreachCounts.drawdownTotal"] =
-              (breachIncrements[
-                "discipline.weeklyBreachCounts.drawdownTotal"
-              ] ?? 0) + 1;
-            break;
+            updatedCounts.drawdownTotal += 1; break;
           case ViolationType.MAX_TRADES_PER_DAY:
-            breachIncrements["discipline.weeklyBreachCounts.overtrading"] =
-              (breachIncrements[
-                "discipline.weeklyBreachCounts.overtrading"
-              ] ?? 0) + 1;
-            break;
+            updatedCounts.overtrading += 1; break;
         }
       }
 
-      // Resolve increments against current values
-      const currentCounts = discipline.weeklyBreachCounts ?? {
-        riskPerTrade: 0,
-        drawdownDaily: 0,
-        drawdownTotal: 0,
-        overtrading: 0,
-      };
-      const breachUpdates: Record<string, number> = {};
-      for (const [key, increment] of Object.entries(breachIncrements)) {
-        const field = key.split(".").pop() as keyof typeof currentCounts;
-        breachUpdates[key] = (currentCounts[field] ?? 0) + increment;
-      }
+      // ── Compute enforcement constraints ────────────────────────────
+      const { constraints: incomingConstraints, reflectionGatePending } =
+        computeConstraints(
+          violations,
+          updatedCounts,
+          discipline.maxTradesPerDay ?? null,
+        );
+      newConstraints = mergeConstraints(currentConstraints, incomingConstraints);
+      newState = computeStateTransition(
+        discipline.disciplineState ?? "NORMAL",
+        newScore,
+        newConstraints,
+      );
 
       await adminDb
         .collection("pulses")
         .doc(firestoreId)
         .update({
           "discipline.disciplineScore": newScore,
-          "discipline.disciplineState":
-            newZone === "RED"
-              ? "RESTRICTED"
-              : newZone === "YELLOW"
-                ? "LIMITED"
-                : "NORMAL",
+          "discipline.disciplineState": newState,
+          "discipline.activeConstraints": newConstraints,
+          "discipline.reflectionGatePending":
+            reflectionGatePending || (discipline.reflectionGatePending ?? false),
           "discipline.lastSessionDate": today,
-          ...breachUpdates,
+          "discipline.weeklyBreachCounts": updatedCounts,
         });
     } else if (discipline) {
-      // Clean trade — just update last session date
+      // Clean trade — update last session date, compute state
+      newState = computeStateTransition(
+        discipline.disciplineState ?? "NORMAL",
+        newScore,
+        currentConstraints,
+      );
       await adminDb.collection("pulses").doc(firestoreId).update({
         "discipline.lastSessionDate": today,
+        "discipline.disciplineState": newState,
       });
     }
 
@@ -471,6 +534,10 @@ export async function POST(request: Request) {
         violations,
         newScore,
         newZone,
+        newState,
+        activeConstraints: newConstraints,
+        isViolationTrade,
+        reflectionGatePending: discipline?.reflectionGatePending ?? false,
       },
     });
   } catch (error) {

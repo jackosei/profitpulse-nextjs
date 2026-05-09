@@ -1,6 +1,6 @@
 "use client";
 
-import type { DisciplineZone } from "@/lib/disciplineTypes";
+import type { DisciplineZone, ActiveConstraints, DisciplineState } from "@/lib/disciplineTypes";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -18,6 +18,10 @@ interface DisciplineMeterProps {
    * Assembled by the parent from the engine's recovery logic.
    */
   recoveryHint: string;
+  /** Phase 2: active enforcement constraints */
+  activeConstraints?: ActiveConstraints;
+  /** Phase 2: discipline state machine state */
+  disciplineState?: DisciplineState;
 }
 
 // ---------------------------------------------------------------------------
@@ -77,6 +81,8 @@ export default function DisciplineMeter({
   zone,
   sessionRuleScore,
   recoveryHint,
+  activeConstraints,
+  disciplineState,
 }: DisciplineMeterProps) {
   const safeScore = clamp(Math.round(score), 0, 100);
   const colors = ZONE_COLOR[zone];
@@ -159,6 +165,68 @@ export default function DisciplineMeter({
           {recoveryHint}
         </p>
       )}
+
+      {/* ── Active constraint badges (Phase 2) ── */}
+      {activeConstraints && hasActiveConstraints(activeConstraints) && (
+        <div className="flex flex-wrap gap-1.5 border-t border-gray-800/60 pt-2 mt-0.5">
+          {disciplineState && disciplineState !== "NORMAL" && (
+            <StateBadge state={disciplineState} />
+          )}
+          {activeConstraints.riskCapPct !== null && (
+            <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">
+              📉 {Math.round(activeConstraints.riskCapPct * 100)}% risk cap
+            </span>
+          )}
+          {activeConstraints.tradeCapCount !== null && (
+            <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">
+              🔢 {activeConstraints.tradeCapCount} trade cap
+            </span>
+          )}
+          {activeConstraints.noTradeDays > 0 && (
+            <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-red-500/10 text-red-400 border border-red-500/20">
+              🚫 {activeConstraints.noTradeDays}d no-trade
+            </span>
+          )}
+        </div>
+      )}
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Sub-components
+// ---------------------------------------------------------------------------
+
+const STATE_BADGE_CONFIG: Record<
+  DisciplineState,
+  { label: string; color: string; bg: string; border: string }
+> = {
+  NORMAL: { label: "Normal", color: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-emerald-500/20" },
+  LIMITED: { label: "Limited", color: "text-yellow-400", bg: "bg-yellow-500/10", border: "border-yellow-500/20" },
+  RESTRICTED: { label: "Restricted", color: "text-red-400", bg: "bg-red-500/10", border: "border-red-500/20" },
+  RECOVERY: { label: "Recovery", color: "text-blue-400", bg: "bg-blue-500/10", border: "border-blue-500/20" },
+};
+
+function StateBadge({ state }: { state: DisciplineState }) {
+  const cfg = STATE_BADGE_CONFIG[state];
+  return (
+    <span
+      className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${cfg.bg} ${cfg.color} border ${cfg.border}`}
+    >
+      {cfg.label}
+    </span>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function hasActiveConstraints(c: ActiveConstraints): boolean {
+  return (
+    c.riskCapPct !== null ||
+    c.tradeCapCount !== null ||
+    c.lockoutUntil !== null ||
+    c.noTradeDays > 0
   );
 }

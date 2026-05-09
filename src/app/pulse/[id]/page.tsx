@@ -17,7 +17,9 @@ import TradeCalendar from "@/components/pulse/TradeCalendar";
 import { toast } from "sonner";
 import ArchivePulseModal from "@/components/modals/ArchivePulseModal";
 import { getZone, computeSessionRuleScore } from "@/lib/disciplineEngine";
-import type { DisciplineZone } from "@/lib/disciplineTypes";
+import type { DisciplineZone, ActiveConstraints, DisciplineState } from "@/lib/disciplineTypes";
+import SessionGate from "@/components/discipline/SessionGate";
+import ReflectionGate from "@/components/discipline/ReflectionGate";
 
 type TimeRange = "7D" | "30D" | "90D" | "1Y" | "ALL";
 type ComparisonType = "PERIOD" | "START";
@@ -166,7 +168,7 @@ export default function PulseDetailsPage() {
       // Get initial trades (first period's worth of trades)
       const initialPeriodEnd = new Date(
         new Date(sortedTrades[0]?.date || now).getTime() +
-          daysToSubtract * 24 * 60 * 60 * 1000,
+        daysToSubtract * 24 * 60 * 60 * 1000,
       );
       const initialTrades = sortedTrades.filter(
         (trade) => new Date(trade.date) <= initialPeriodEnd,
@@ -296,6 +298,19 @@ export default function PulseDetailsPage() {
         ? "Continue following your rules — clean sessions recover +8 pts"
         : "";
 
+  // Phase 2: enforcement constraints
+  const activeConstraints: ActiveConstraints = discipline?.activeConstraints ?? {
+    riskCapPct: null,
+    tradeCapCount: null,
+    lockoutUntil: null,
+    noTradeDays: 0,
+  };
+  const disciplineState: DisciplineState = discipline?.disciplineState ?? "NORMAL";
+  const [reflectionPending, setReflectionPending] = useState(
+    discipline?.reflectionGatePending ?? false,
+  );
+  const [sessionGateAcked, setSessionGateAcked] = useState(false);
+
 
   return (
     <div className="min-h-screen p-0 md:p-6 space-y-4 md:space-y-6">
@@ -322,6 +337,8 @@ export default function PulseDetailsPage() {
         disciplineZone={disciplineZone}
         sessionRuleScore={sessionRuleScore}
         recoveryHint={recoveryHint}
+        activeConstraints={activeConstraints}
+        disciplineState={disciplineState}
       />
 
       <PulseStats stats={periodStats} comparisonType={comparisonType} />
@@ -394,6 +411,30 @@ export default function PulseDetailsPage() {
         onConfirm={handleArchive}
         pulseName={pulse.name}
       />
+
+      {/* Phase 2: Session Gate — constraint acknowledgement */}
+      {!sessionGateAcked && disciplineState !== "NORMAL" && (
+        <SessionGate
+          pulseId={pulse.id}
+          constraints={activeConstraints}
+          disciplineState={disciplineState}
+          whyStatement={discipline?.whyStatement ?? ""}
+          onAcknowledge={() => setSessionGateAcked(true)}
+        />
+      )}
+
+      {/* Phase 2: Reflection Gate — blocks until reflection completed */}
+      {reflectionPending && user && (
+        <ReflectionGate
+          pulseId={pulse.id}
+          userId={user.uid}
+          onComplete={(newScore) => {
+            setReflectionPending(false);
+            toast.success(`Reflection submitted! +5 recovery → Score: ${newScore}`);
+            fetchPulse(); // Refresh pulse data
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -77,16 +77,16 @@
 
 ## Phase 2 checklist
 - [x] Move violation evaluation to `/app/api/discipline/evaluate/route.ts`
-- [ ] Discipline state machine (NORMAL → LIMITED → RESTRICTED → RECOVERY)
-- [ ] Session gate: acknowledgement screen on constraint active days
-- [ ] Risk cap: inline warning + submission check
-- [ ] Trade count cap: banner countdown + submission block
-- [ ] No-trade day: hard block + "Log violation trade" fallback
-- [ ] Reflection gate UI (50-char minimum, gates journal access)
-- [ ] Zone amplification logic (Yellow/Red escalation modifier)
-- [ ] Cap lifting logic (compliant capped session → cap removed + +5 recovery)
-- [ ] Weekly breach count tracking (Mon–Fri rolling window) — weekly reset logic
-- [ ] Add `firestore.indexes.json` with composite index on `[pulseId, timestamp]` for violationLog
+- [x] Discipline state machine (NORMAL → LIMITED → RESTRICTED → RECOVERY)
+- [x] Session gate: acknowledgement screen on constraint active days
+- [x] Risk cap: inline warning + submission check
+- [x] Trade count cap: banner countdown + submission block
+- [x] No-trade day: hard block + "Log violation trade" fallback
+- [x] Reflection gate UI (50-char minimum, gates journal access)
+- [x] Zone amplification logic (Yellow/Red escalation modifier)
+- [x] Cap lifting logic (compliant capped session → cap removed + +5 recovery)
+- [x] Weekly breach count tracking (Mon–Fri rolling window) — weekly reset logic
+- [x] Add `firestore.indexes.json` with composite index on `[pulseId, timestamp]` for violationLog
 
 ## Phase 3 checklist (not started)
 - [ ] Tier 1 WHY reminder notifications (in-app + email)
@@ -144,6 +144,36 @@
 
 **Next session should start with:**
 Phase 2 enforcement implementation: discipline state machine (NORMAL → LIMITED → RESTRICTED → RECOVERY), session gates, risk caps, trade count caps, no-trade day blocking, and reflection gate UI.
+
+---
+
+### Session 6 — 2026-05-09
+**What was built:**
+
+*Phase 2 Enforcement Architecture:*
+- Created pure `/src/lib/enforcementEngine.ts` containing:
+  - `computeConstraints`: Maps violations and weekly breach counts to enforcement caps and lockouts.
+  - `computeStateTransition`: Defines the state machine (NORMAL → LIMITED → RESTRICTED → RECOVERY).
+  - `shouldLiftConstraints`: Lifts caps and awards bonus points on clean sessions.
+  - `computeWeeklyReset`: Resets weekly breach counters on the Monday boundary.
+  - `amplifyPenalty`: Multiplies penalties based on Discipline Zone severity (Yellow 1.25x, Red 1.5x).
+- Wired `enforcementEngine` into `/app/api/discipline/evaluate/route.ts`:
+  - Added atomic breach tracking, constraint processing, and score mutation.
+  - Returns `activeConstraints`, `isViolationTrade`, and `disciplineState` payload to the client.
+- Added `/app/api/discipline/reflect/route.ts` to securely clear `reflectionGatePending` and award +5 points for completing reflections.
+
+*Client UI Enforcement:*
+- Created `SessionGate.tsx`: Requires explicit user acknowledgement of active constraints (Risk Cap, Trade Cap, Lockout) before proceeding into the session.
+- Created `ReflectionGate.tsx`: Blocks journal entry access after specific violations until the user completes a 50+ character reflection.
+- Updated `DisciplineMeter.tsx` to display active constraint badges and state machine badges beneath the recovery hint.
+- Updated `TradeFormModal.tsx`: Reads server-side payload constraints and shows specialized constraint warnings in the violation toast (e.g., "Next session risk capped at 50%").
+- Created `firestore.indexes.json` with required composite indexes for pulse queries.
+
+**Blockers / open questions:**
+- None. Phase 2 implementation is fully integrated and functioning server-side.
+
+**Next session should start with:**
+Testing and verification of Phase 2, followed by beginning Phase 3 (Review & Refinement) which focuses on dashboard components like `DisciplineChart` and historical rule hit-rates.
 
 ---
 

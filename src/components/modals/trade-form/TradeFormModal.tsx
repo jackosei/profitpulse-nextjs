@@ -15,7 +15,11 @@ import type {
   TradingEnvironment,
   EmotionalImpact,
 } from "./types";
-import { ViolationCategory } from "@/lib/disciplineTypes";
+import {
+  ViolationCategory,
+  ViolationType,
+} from "@/lib/disciplineTypes";
+import type { ActiveConstraints } from "@/lib/disciplineTypes";
 
 // Import form components
 import TradeDataForm from "./forms/TradeDataForm";
@@ -421,14 +425,16 @@ export default function TradeFormModal({
         tradeData.reflection = reflectionData;
       }
 
-      let response;
+      let response: any = null;
+      let tradeResult;
       if (mode === "create") {
         response = await createTrade(firestoreId, tradeData);
+        tradeResult = response?.trade;
       } else {
-        response = await updateTrade(firestoreId, trade!.id!, tradeData);
+        tradeResult = await updateTrade(firestoreId, trade!.id!, tradeData);
       }
 
-      if (!response) {
+      if (!tradeResult) {
         throw new Error(`Failed to ${mode} trade`);
       }
 
@@ -440,10 +446,17 @@ export default function TradeFormModal({
         },
       );
 
-      // Discipline breach notification — only on create (engine only runs at submission)
-      if (mode === "create" && response && typeof response === "object" && "engineMetrics" in response) {
-        const violations = (response as { engineMetrics?: { violations?: { category: string; type: string; severity: number; details: string }[] } }).engineMetrics?.violations ?? [];
-        if (violations.length > 0) {
+      // Discipline breach notification — only on create
+      if (mode === "create" && response) {
+        const violations = (response.violations as { category: string; type: string; severity: number; details: string }[]) ?? [];
+        const isViolationTrade = response.isViolationTrade === true;
+        const activeConstraints = response.activeConstraints as ActiveConstraints;
+        const hasCaps =
+          activeConstraints?.riskCapPct !== null ||
+          activeConstraints?.tradeCapCount !== null ||
+          activeConstraints?.noTradeDays > 0;
+
+        if (violations.length > 0 || isViolationTrade || hasCaps) {
           const totalPenalty = violations.reduce((sum, v) => sum + v.severity, 0);
           const ruleBreaches = violations.filter(
             (v) => v.category === ViolationCategory.QUALITATIVE,
@@ -507,14 +520,52 @@ export default function TradeFormModal({
                   </div>
                 )}
 
-                {/* Footer */}
-                <div className="border-t border-gray-700/60 pt-3 flex items-center justify-between">
-                  <span className="text-gray-400 text-xs">Score impact</span>
-                  <span className="font-bold text-red-400 text-sm">−{totalPenalty} pts deducted</span>
+                {/* Enforcement Constraint Warning */}
+                {(isViolationTrade || hasCaps) && (
+                  <div className="mb-3">
+                    <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1.5">
+                      Enforcement Actions
+                    </p>
+                    <ul className="space-y-1.5">
+                      {isViolationTrade && (
+                        <li className="flex items-start gap-2">
+                          <span className="text-red-400 leading-snug font-medium">
+                            • Trade logged during a No-Trade Day
+                          </span>
+                        </li>
+                      )}
+                      {activeConstraints?.riskCapPct !== null && (
+                        <li className="flex items-start gap-2">
+                          <span className="text-amber-400 leading-snug">
+                            • Next session risk capped at {Math.round(activeConstraints!.riskCapPct! * 100)}%
+                          </span>
+                        </li>
+                      )}
+                      {activeConstraints?.tradeCapCount !== null && (
+                        <li className="flex items-start gap-2">
+                          <span className="text-amber-400 leading-snug">
+                            • Next session trade count capped at {activeConstraints.tradeCapCount}
+                          </span>
+                        </li>
+                      )}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Footer summary */}
+                <div className="mt-4 pt-3 border-t border-gray-800/60 flex items-center justify-between">
+                  <span className="text-xs font-medium text-amber-500/80">
+                    Discipline score impacted
+                  </span>
+                  {totalPenalty > 0 && (
+                    <span className="text-sm font-bold text-red-400">
+                      -{totalPenalty} pts total
+                    </span>
+                  )}
                 </div>
               </div>
             ),
-            { duration: 8000 },
+            { duration: 6000 },
           );
         }
       }

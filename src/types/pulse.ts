@@ -24,6 +24,10 @@ export interface Pulse {
   firestoreId?: string;
   name: string;
   instruments: string[];
+  /** Dollar value per 1 point/pip of price movement per 1 contract/lot.
+   *  Set at Pulse creation per instrument. Defaults to 1 (stocks) for unknowns.
+   *  Used by the engine to compute accurate dollar risk from SL distance. */
+  instrumentPointValues?: Record<string, number>;
   accountSize: number;
   maxRiskPerTrade: number;
   maxDailyDrawdown: number; // User-defined max daily loss percentage

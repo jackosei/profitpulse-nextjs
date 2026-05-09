@@ -8,6 +8,7 @@ import { MAX_RISK_PERCENTAGE, MAX_DAILY_DRAWDOWN, MAX_TOTAL_DRAWDOWN, type Pulse
 import { PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
 import { v4 as uuidv4 } from 'uuid';
 import { usePulse } from '@/hooks/usePulse';
+import { getDefaultPointValue } from '@/lib/instrumentPointValues';
 
 interface UpdatePulseModalProps {
   isOpen: boolean;
@@ -26,8 +27,17 @@ export default function UpdatePulseModal({ isOpen, onClose, onSuccess, pulse }: 
     maxRiskPerTrade: (pulse?.maxRiskPerTrade ?? 0).toString(),
     maxDailyDrawdown: (pulse?.maxDailyDrawdown ?? 0).toString(),
     maxTotalDrawdown: (pulse?.maxTotalDrawdown ?? 0).toString(),
-    instruments: (pulse?.instruments ?? []).join(', '),
     updateReason: ''
+  });
+  const [instruments, setInstruments] = useState<string[]>(pulse?.instruments ?? []);
+  const [instrumentInput, setInstrumentInput] = useState('');
+  const [instrumentPointVals, setInstrumentPointVals] = useState<Record<string, number>>(() => {
+    // Initialize from existing pulse data or lookup table
+    const vals: Record<string, number> = {};
+    for (const sym of (pulse?.instruments ?? [])) {
+      vals[sym] = pulse?.instrumentPointValues?.[sym] ?? getDefaultPointValue(sym);
+    }
+    return vals;
   });
   const [tradingRules, setTradingRules] = useState<TradeRule[]>(pulse?.tradingRules || []);
   const [ruleInput, setRuleInput] = useState('');
@@ -38,11 +48,11 @@ export default function UpdatePulseModal({ isOpen, onClose, onSuccess, pulse }: 
     const trimmedRule = ruleInput.trim();
     if (trimmedRule) {
       setTradingRules([
-        ...tradingRules, 
-        { 
-          id: uuidv4(), 
-          description: trimmedRule, 
-          isRequired: isRuleRequired 
+        ...tradingRules,
+        {
+          id: uuidv4(),
+          description: trimmedRule,
+          isRequired: isRuleRequired
         }
       ]);
       setRuleInput('');
@@ -58,6 +68,41 @@ export default function UpdatePulseModal({ isOpen, onClose, onSuccess, pulse }: 
     if (e.key === 'Enter') {
       e.preventDefault();
       handleAddRule();
+    }
+  };
+
+  const handleInstrumentKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      handleAddInstrument(instrumentInput);
+    }
+  };
+
+  const handleAddInstrument = (value: string) => {
+    const trimmed = value.trim().toUpperCase();
+    if (trimmed && !instruments.includes(trimmed)) {
+      setInstruments(prev => [...prev, trimmed]);
+      setInstrumentPointVals(prev => ({
+        ...prev,
+        [trimmed]: getDefaultPointValue(trimmed),
+      }));
+    }
+    setInstrumentInput('');
+  };
+
+  const handleRemoveInstrument = (sym: string) => {
+    setInstruments(prev => prev.filter(i => i !== sym));
+    setInstrumentPointVals(prev => {
+      const next = { ...prev };
+      delete next[sym];
+      return next;
+    });
+  };
+
+  const handlePointValueChange = (sym: string, value: string) => {
+    const num = parseFloat(value);
+    if (!isNaN(num) && num > 0) {
+      setInstrumentPointVals(prev => ({ ...prev, [sym]: num }));
     }
   };
 
@@ -87,7 +132,7 @@ export default function UpdatePulseModal({ isOpen, onClose, onSuccess, pulse }: 
       return false;
     }
 
-    if (!formData.instruments.trim()) {
+    if (instruments.length === 0) {
       setError('Please provide at least one instrument');
       return false;
     }
@@ -98,13 +143,13 @@ export default function UpdatePulseModal({ isOpen, onClose, onSuccess, pulse }: 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    
+
     if (!validateForm()) return;
     if (pulse.hasBeenUpdated) {
       setError('This pulse has already been updated once');
       return;
     }
-    
+
     setLoading(true);
 
     try {
@@ -115,28 +160,29 @@ export default function UpdatePulseModal({ isOpen, onClose, onSuccess, pulse }: 
         maxRiskPerTrade: Number(formData.maxRiskPerTrade),
         maxDailyDrawdown: Number(formData.maxDailyDrawdown),
         maxTotalDrawdown: Number(formData.maxTotalDrawdown),
-        instruments: formData.instruments.split(',').map(i => i.trim()).filter(i => i),
+        instruments,
+        instrumentPointValues: instrumentPointVals,
         tradingRules: tradingRules,
         updateReason: formData.updateReason
       };
 
       const success = await updatePulse(pulse.id, user.uid, updateData);
-      
+
       if (!success) {
         throw new Error('Failed to update pulse');
       }
-      
+
       toast.success('Pulse updated successfully!', {
         description: 'The pulse settings have been updated.',
         duration: 4000,
       });
-      
+
       onSuccess?.();
       onClose();
     } catch (error: Error | unknown) {
       console.error('Error updating pulse:', error);
       setError(error instanceof Error ? error.message : 'Failed to update pulse. Please try again.');
-      
+
       toast.error('Failed to update pulse', {
         description: error instanceof Error ? error.message : 'Please try again',
         duration: 5000,
@@ -194,16 +240,50 @@ export default function UpdatePulseModal({ isOpen, onClose, onSuccess, pulse }: 
                     </div>
 
                     <div>
-                      <label className="block text-sm text-gray-400 mb-2">Instruments (comma-separated)</label>
+                      <label className="block text-sm text-gray-400 mb-2">Instruments</label>
+                      {/* Instrument tags with point value */}
+                      {instruments.length > 0 && (
+                        <div className="space-y-2 mb-3">
+                          {instruments.map((sym) => (
+                            <div key={sym} className="flex items-center gap-2">
+                              <span className="bg-gray-800 text-gray-200 px-2 py-1 rounded-md text-sm flex items-center gap-1 min-w-[64px]">
+                                {sym}
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveInstrument(sym)}
+                                  className="ml-1 text-gray-400 hover:text-gray-200"
+                                >
+                                  ×
+                                </button>
+                              </span>
+                              <div className="flex items-center gap-1.5 text-xs text-gray-400">
+                                <span>$</span>
+                                <input
+                                  type="number"
+                                  min="0.01"
+                                  step="0.01"
+                                  value={instrumentPointVals[sym] ?? 1}
+                                  onChange={(e) => handlePointValueChange(sym, e.target.value)}
+                                  className="input-dark w-20 text-xs py-1 px-2"
+                                  title="Dollar value per 1 point/pip per contract"
+                                />
+                                <span className="text-[10px] text-gray-500">per point/pip</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                       <input
                         type="text"
-                        required
                         disabled={isSubmitting}
-                        className="input-dark w-full disabled:opacity-50 disabled:cursor-not-allowed"
-                        value={formData.instruments}
-                        onChange={(e) => setFormData(prev => ({ ...prev, instruments: e.target.value }))}
-                        placeholder="e.g., EURUSD, GBPUSD, USDJPY"
+                        className="input-dark w-full text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+                        value={instrumentInput}
+                        onChange={(e) => setInstrumentInput(e.target.value)}
+                        onKeyDown={handleInstrumentKeyDown}
+                        onBlur={() => handleAddInstrument(instrumentInput)}
+                        placeholder="Type symbol and press Enter (e.g. NQ, EURUSD, AAPL)"
                       />
+                      <p className="text-xs text-gray-500 mt-1">Point/pip values are auto-filled — adjust if your broker differs.</p>
                     </div>
 
                     <div>
@@ -258,9 +338,8 @@ export default function UpdatePulseModal({ isOpen, onClose, onSuccess, pulse }: 
                         {tradingRules.map((rule) => (
                           <div
                             key={rule.id}
-                            className={`bg-gray-800 text-gray-200 px-3 py-2 rounded-md text-sm flex items-center justify-between w-full ${
-                              rule.isRequired ? 'border-l-2 border-accent' : ''
-                            }`}
+                            className={`bg-gray-800 text-gray-200 px-3 py-2 rounded-md text-sm flex items-center justify-between w-full ${rule.isRequired ? 'border-l-2 border-accent' : ''
+                              }`}
                           >
                             <div className="flex items-center">
                               {rule.isRequired && (

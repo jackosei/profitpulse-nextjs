@@ -9,6 +9,7 @@ import { PlusIcon, TrashIcon, ArrowLeftIcon } from '@heroicons/react/24/outline'
 import { v4 as uuidv4 } from 'uuid';
 import { usePulse } from '@/hooks/usePulse';
 import { TradeRule } from '@/types/pulse';
+import { getDefaultPointValue } from '@/lib/instrumentPointValues';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -49,6 +50,7 @@ export default function CreatePulseModal({ isOpen, onClose, onSuccess }: CreateP
     maxTotalDrawdown: '',
     note: ''
   });
+  const [instrumentPointValues, setInstrumentPointValues] = useState<Record<string, number>>({});
   const [tradingRules, setTradingRules] = useState<TradeRule[]>([]);
   const [ruleInput, setRuleInput] = useState('');
   const [isRuleRequired, setIsRuleRequired] = useState(false);
@@ -67,11 +69,16 @@ export default function CreatePulseModal({ isOpen, onClose, onSuccess }: CreateP
   // =========================================================================
 
   const handleAddInstrument = (value: string) => {
-    const trimmedValue = value.trim();
+    const trimmedValue = value.trim().toUpperCase();
     if (trimmedValue && !formData.instruments.includes(trimmedValue)) {
       setFormData(prev => ({
         ...prev,
         instruments: [...prev.instruments, trimmedValue]
+      }));
+      // Pre-populate point value from lookup table
+      setInstrumentPointValues(prev => ({
+        ...prev,
+        [trimmedValue]: getDefaultPointValue(trimmedValue),
       }));
     }
     setInstrumentInput('');
@@ -82,6 +89,18 @@ export default function CreatePulseModal({ isOpen, onClose, onSuccess }: CreateP
       ...prev,
       instruments: prev.instruments.filter(instrument => instrument !== instrumentToRemove)
     }));
+    setInstrumentPointValues(prev => {
+      const next = { ...prev };
+      delete next[instrumentToRemove];
+      return next;
+    });
+  };
+
+  const handlePointValueChange = (symbol: string, value: string) => {
+    const num = parseFloat(value);
+    if (!isNaN(num) && num > 0) {
+      setInstrumentPointValues(prev => ({ ...prev, [symbol]: num }));
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -95,11 +114,11 @@ export default function CreatePulseModal({ isOpen, onClose, onSuccess }: CreateP
     const trimmedRule = ruleInput.trim();
     if (trimmedRule) {
       setTradingRules([
-        ...tradingRules, 
-        { 
-          id: uuidv4(), 
-          description: trimmedRule, 
-          isRequired: isRuleRequired 
+        ...tradingRules,
+        {
+          id: uuidv4(),
+          description: trimmedRule,
+          isRequired: isRuleRequired
         }
       ]);
       setRuleInput('');
@@ -127,23 +146,23 @@ export default function CreatePulseModal({ isOpen, onClose, onSuccess }: CreateP
       setError('Pulse name must be at least 3 characters');
       return false;
     }
-    
+
     if (!/^[a-zA-Z0-9\s-]+$/.test(formData.name)) {
       setError('Pulse name can only contain letters, numbers, spaces and hyphens');
       return false;
     }
 
-    if (Number(formData.maxRiskPerTrade) > MAX_RISK_PERCENTAGE ) {
+    if (Number(formData.maxRiskPerTrade) > MAX_RISK_PERCENTAGE) {
       setError(`Maximum risk per trade cannot exceed ${MAX_RISK_PERCENTAGE}%`);
       return false;
     }
 
-    if (Number(formData.maxDailyDrawdown) > MAX_DAILY_DRAWDOWN ) {
+    if (Number(formData.maxDailyDrawdown) > MAX_DAILY_DRAWDOWN) {
       setError(`Maximum daily drawdown cannot exceed ${MAX_DAILY_DRAWDOWN}%`);
       return false;
     }
 
-    if (Number(formData.maxTotalDrawdown) > MAX_TOTAL_DRAWDOWN ) {
+    if (Number(formData.maxTotalDrawdown) > MAX_TOTAL_DRAWDOWN) {
       setError(`Maximum total drawdown cannot exceed ${MAX_TOTAL_DRAWDOWN}%`);
       return false;
     }
@@ -186,10 +205,11 @@ export default function CreatePulseModal({ isOpen, onClose, onSuccess }: CreateP
 
     try {
       if (!user) throw new Error('User not authenticated');
-      
+
       const pulseData = {
         name: formData.name,
         instruments: formData.instruments,
+        instrumentPointValues,
         accountSize: Number(formData.accountSize),
         maxRiskPerTrade: Number(formData.maxRiskPerTrade),
         maxDailyDrawdown: Number(formData.maxDailyDrawdown),
@@ -202,19 +222,19 @@ export default function CreatePulseModal({ isOpen, onClose, onSuccess }: CreateP
       };
 
       const response = await createPulse(pulseData);
-      
+
       if (!response) {
         throw new Error('Failed to create pulse');
       }
-      
+
       toast.success('Pulse created successfully!', {
         description: `${pulseData.name} with ${pulseData.accountSize} account size`,
         duration: 4000,
       });
-      
+
       onSuccess?.();
       onClose();
-      
+
       // Reset all state
       setFormData({
         name: '',
@@ -225,6 +245,7 @@ export default function CreatePulseModal({ isOpen, onClose, onSuccess }: CreateP
         maxTotalDrawdown: '20',
         note: ''
       });
+      setInstrumentPointValues({});
       setTradingRules([]);
       setWhyStatement('');
       setWhyDiscipline('');
@@ -233,7 +254,7 @@ export default function CreatePulseModal({ isOpen, onClose, onSuccess }: CreateP
     } catch (error: unknown) {
       console.error('Error creating pulse:', error);
       setError(error instanceof Error ? error.message : 'Failed to create pulse. Please try again.');
-      
+
       toast.error('Failed to create pulse', {
         description: error instanceof Error ? error.message : 'Please try again',
         duration: 5000,
@@ -281,12 +302,10 @@ export default function CreatePulseModal({ isOpen, onClose, onSuccess }: CreateP
                     {step === 'config' ? 'Create New Pulse' : 'Your WHY'}
                   </h2>
                   <div className="flex items-center gap-2 mt-1.5">
-                    <div className={`h-1 flex-1 rounded-full transition-colors ${
-                      step === 'config' ? 'bg-accent' : 'bg-accent/40'
-                    }`} />
-                    <div className={`h-1 flex-1 rounded-full transition-colors ${
-                      step === 'why' ? 'bg-accent' : 'bg-gray-700'
-                    }`} />
+                    <div className={`h-1 flex-1 rounded-full transition-colors ${step === 'config' ? 'bg-accent' : 'bg-accent/40'
+                      }`} />
+                    <div className={`h-1 flex-1 rounded-full transition-colors ${step === 'why' ? 'bg-accent' : 'bg-gray-700'
+                      }`} />
                   </div>
                   <p className="text-xs text-gray-500 mt-1">
                     Step {step === 'config' ? '1' : '2'} of 2
@@ -314,24 +333,39 @@ export default function CreatePulseModal({ isOpen, onClose, onSuccess }: CreateP
                     </div>
 
                     <div>
-                      <label className="block text-sm text-gray-400 mb-2">Trading Pairs/Instruments</label>
-                      <div className="flex flex-wrap gap-2 mb-2">
-                        {formData.instruments.map((instrument) => (
-                          <span
-                            key={instrument}
-                            className="bg-gray-800 text-gray-200 px-2 py-1 rounded-md text-sm flex items-center"
-                          >
-                            {instrument}
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveInstrument(instrument)}
-                              className="ml-2 text-gray-400 hover:text-gray-200"
-                            >
-                              ×
-                            </button>
-                          </span>
-                        ))}
-                      </div>
+                      <label className="block text-sm text-gray-400 mb-2">Instruments</label>
+                      {/* Added instruments with point value */}
+                      {formData.instruments.length > 0 && (
+                        <div className="space-y-2 mb-3">
+                          {formData.instruments.map((instrument) => (
+                            <div key={instrument} className="flex items-center gap-2">
+                              <span className="bg-gray-800 text-gray-200 px-2 py-1 rounded-md text-sm flex items-center gap-1 min-w-[64px]">
+                                {instrument}
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveInstrument(instrument)}
+                                  className="ml-1 text-gray-400 hover:text-gray-200"
+                                >
+                                  ×
+                                </button>
+                              </span>
+                              <div className="flex items-center gap-1.5 text-xs text-gray-400">
+                                <span>$</span>
+                                <input
+                                  type="number"
+                                  min="0.01"
+                                  step="0.01"
+                                  value={instrumentPointValues[instrument] ?? 1}
+                                  onChange={(e) => handlePointValueChange(instrument, e.target.value)}
+                                  className="input-dark w-20 text-xs py-1 px-2"
+                                  title="Dollar value per 1 point/pip per contract"
+                                />
+                                <span className="text-gray-500">per point/pip</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                       <input
                         type="text"
                         disabled={loading}
@@ -340,8 +374,9 @@ export default function CreatePulseModal({ isOpen, onClose, onSuccess }: CreateP
                         onChange={(e) => setInstrumentInput(e.target.value)}
                         onKeyDown={handleKeyDown}
                         onBlur={() => handleAddInstrument(instrumentInput)}
-                        placeholder="Type and press Enter or comma to add"
+                        placeholder="Type symbol and press Enter (e.g. NQ, EURUSD, AAPL)"
                       />
+                      <p className="text-xs text-gray-500 mt-1">Point/pip values are auto-filled — adjust if your broker differs.</p>
                     </div>
 
                     <div>
@@ -408,9 +443,8 @@ export default function CreatePulseModal({ isOpen, onClose, onSuccess }: CreateP
                         {tradingRules.map((rule) => (
                           <div
                             key={rule.id}
-                            className={`bg-gray-800 text-gray-200 px-3 py-2 rounded-md text-sm flex items-center justify-between w-full ${
-                              rule.isRequired ? 'border-l-2 border-accent' : ''
-                            }`}
+                            className={`bg-gray-800 text-gray-200 px-3 py-2 rounded-md text-sm flex items-center justify-between w-full ${rule.isRequired ? 'border-l-2 border-accent' : ''
+                              }`}
                           >
                             <div className="flex items-center">
                               {rule.isRequired && (
@@ -529,13 +563,12 @@ export default function CreatePulseModal({ isOpen, onClose, onSuccess }: CreateP
                       <textarea
                         id="whyStatement"
                         disabled={loading}
-                        className={`input-dark w-full h-28 disabled:opacity-50 disabled:cursor-not-allowed resize-none ${
-                          whyTouched.statement && whyStatement.trim().length < WHY_MIN_CHARS
-                            ? 'border-red-500/50 focus:border-red-500'
-                            : whyStatement.trim().length >= WHY_MIN_CHARS
-                              ? 'border-emerald-500/30 focus:border-emerald-500'
-                              : ''
-                        }`}
+                        className={`input-dark w-full h-28 disabled:opacity-50 disabled:cursor-not-allowed resize-none ${whyTouched.statement && whyStatement.trim().length < WHY_MIN_CHARS
+                          ? 'border-red-500/50 focus:border-red-500'
+                          : whyStatement.trim().length >= WHY_MIN_CHARS
+                            ? 'border-emerald-500/30 focus:border-emerald-500'
+                            : ''
+                          }`}
                         value={whyStatement}
                         onChange={(e) => setWhyStatement(e.target.value)}
                         onBlur={() => setWhyTouched(prev => ({ ...prev, statement: true }))}
@@ -549,11 +582,10 @@ export default function CreatePulseModal({ isOpen, onClose, onSuccess }: CreateP
                         ) : (
                           <span />
                         )}
-                        <span className={`text-xs tabular-nums ${
-                          whyStatement.trim().length >= WHY_MIN_CHARS
-                            ? 'text-emerald-400'
-                            : 'text-gray-500'
-                        }`}>
+                        <span className={`text-xs tabular-nums ${whyStatement.trim().length >= WHY_MIN_CHARS
+                          ? 'text-emerald-400'
+                          : 'text-gray-500'
+                          }`}>
                           {whyStatement.trim().length}/{WHY_MIN_CHARS}
                         </span>
                       </div>
@@ -573,13 +605,12 @@ export default function CreatePulseModal({ isOpen, onClose, onSuccess }: CreateP
                       <textarea
                         id="whyDiscipline"
                         disabled={loading}
-                        className={`input-dark w-full h-28 disabled:opacity-50 disabled:cursor-not-allowed resize-none ${
-                          whyTouched.discipline && whyDiscipline.trim().length < WHY_MIN_CHARS
-                            ? 'border-red-500/50 focus:border-red-500'
-                            : whyDiscipline.trim().length >= WHY_MIN_CHARS
-                              ? 'border-emerald-500/30 focus:border-emerald-500'
-                              : ''
-                        }`}
+                        className={`input-dark w-full h-28 disabled:opacity-50 disabled:cursor-not-allowed resize-none ${whyTouched.discipline && whyDiscipline.trim().length < WHY_MIN_CHARS
+                          ? 'border-red-500/50 focus:border-red-500'
+                          : whyDiscipline.trim().length >= WHY_MIN_CHARS
+                            ? 'border-emerald-500/30 focus:border-emerald-500'
+                            : ''
+                          }`}
                         value={whyDiscipline}
                         onChange={(e) => setWhyDiscipline(e.target.value)}
                         onBlur={() => setWhyTouched(prev => ({ ...prev, discipline: true }))}
@@ -593,11 +624,10 @@ export default function CreatePulseModal({ isOpen, onClose, onSuccess }: CreateP
                         ) : (
                           <span />
                         )}
-                        <span className={`text-xs tabular-nums ${
-                          whyDiscipline.trim().length >= WHY_MIN_CHARS
-                            ? 'text-emerald-400'
-                            : 'text-gray-500'
-                        }`}>
+                        <span className={`text-xs tabular-nums ${whyDiscipline.trim().length >= WHY_MIN_CHARS
+                          ? 'text-emerald-400'
+                          : 'text-gray-500'
+                          }`}>
                           {whyDiscipline.trim().length}/{WHY_MIN_CHARS}
                         </span>
                       </div>

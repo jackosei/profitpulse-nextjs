@@ -37,6 +37,7 @@ import {
   TradeCreateData,
 } from "../api/pulseApi";
 import { createDefaultDisciplineFields, ViolationType } from "@/lib/disciplineTypes";
+import { getDefaultPointValue } from "@/lib/instrumentPointValues";
 import {
   evaluateViolations,
   applyScorePenalties,
@@ -499,12 +500,18 @@ export async function createTrade(
     };
 
     // Build minimal trade for evaluation
-    // riskPct must come from the planned SL distance — using P/L is wrong for winners.
+    // riskPct uses the instrument's point/pip value so dollar risk is accurate
+    // across Forex, Futures, and Stocks. Falls back to 1 for unknown instruments.
     // If no SL is provided we cannot know the intended risk, so pass 0 (engine skips risk check).
     const { plannedSL, plannedTP, entryPrice, lotSize } = tradeData.execution;
+    const instrumentSymbol = tradeData.instrument ?? "";
+    const pointValue =
+      pulseData.instrumentPointValues?.[instrumentSymbol] ??
+      pulseData.instrumentPointValues?.[instrumentSymbol.toUpperCase()] ??
+      getDefaultPointValue(instrumentSymbol);
     const riskPctFromSL =
       plannedSL && entryPrice && lotSize
-        ? (Math.abs(entryPrice - plannedSL) * lotSize / pulseData.accountSize) * 100
+        ? (Math.abs(entryPrice - plannedSL) * pointValue * lotSize / pulseData.accountSize) * 100
         : 0;
 
     const tradeForEval: TradeForEvaluation = {
@@ -520,7 +527,7 @@ export async function createTrade(
 
     if (plannedSL && entryPrice && lotSize) {
       const slDistance = Math.abs(entryPrice - plannedSL);
-      const riskAmountFromSL = slDistance * lotSize;
+      const riskAmountFromSL = slDistance * pointValue * lotSize;
       const intendedRiskPct = (riskAmountFromSL / pulseData.accountSize) * 100;
 
       const intendedRR =
@@ -540,6 +547,7 @@ export async function createTrade(
           : null;
 
       engineMetrics = { intendedRiskPct, intendedRR, actualR, exitQuality, violations };
+
     } else {
       // No SL provided — risk metrics cannot be computed
       engineMetrics = {
@@ -944,6 +952,7 @@ export async function updatePulse(
       maxDailyDrawdown: updateData.maxDailyDrawdown,
       maxTotalDrawdown: updateData.maxTotalDrawdown,
       instruments: updateData.instruments,
+      instrumentPointValues: updateData.instrumentPointValues ?? {},
       tradingRules: updateData.tradingRules,
       hasBeenUpdated: true,
       lastUpdate: {

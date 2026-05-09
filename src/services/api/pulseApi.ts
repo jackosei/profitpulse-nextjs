@@ -11,6 +11,8 @@ import * as pulseService from "../firebase/pulseService";
 export interface PulseCreateData {
   name: string;
   instruments: string[];
+  /** Point/pip value per instrument — auto-populated from lookup, user-editable */
+  instrumentPointValues?: Record<string, number>;
   accountSize: number;
   maxRiskPerTrade: number;
   maxDailyDrawdown: number;
@@ -30,6 +32,8 @@ export interface PulseUpdateData {
   maxDailyDrawdown: number;
   maxTotalDrawdown: number;
   instruments: string[];
+  /** Point/pip value per instrument — carries updated values on pulse edit */
+  instrumentPointValues?: Record<string, number>;
   tradingRules?: TradeRule[];
   updateReason: string;
 }

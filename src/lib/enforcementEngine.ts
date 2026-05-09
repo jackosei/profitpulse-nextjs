@@ -57,8 +57,11 @@ export function computeConstraints(
         // weeklyBreachCounts already includes this violation's increment
         const totalRiskBreaches = weeklyBreachCounts.riskPerTrade;
 
-        if (totalRiskBreaches >= 3) {
-          // Breach 3+: 50% risk cap
+        if (totalRiskBreaches >= 4) {
+          // Breach 4+: no-trade day escalation
+          noTradeDays = Math.max(noTradeDays, 1);
+        } else if (totalRiskBreaches === 3) {
+          // Breach 3: 50% risk cap
           riskCapPct = pickMoreRestrictive(riskCapPct, 0.5);
         } else if (totalRiskBreaches === 2) {
           // Breach 2: 75% risk cap next day
@@ -69,6 +72,11 @@ export function computeConstraints(
       }
 
       case ViolationType.DAILY_DRAWDOWN: {
+        const totalDailyDrawdownBreaches = weeklyBreachCounts.drawdownDaily;
+        if (totalDailyDrawdownBreaches >= 2) {
+          // Repeat in same week: no-trade day next day
+          noTradeDays = Math.max(noTradeDays, 1);
+        }
         // Day locked + reflection gate
         reflectionGatePending = true;
         break;
@@ -92,8 +100,12 @@ export function computeConstraints(
       }
 
       case ViolationType.MAX_TRADES_PER_DAY: {
-        // Day locked + (limit−1) cap next day
-        if (maxTradesPerDay !== null && maxTradesPerDay > 1) {
+        const totalOvertradingBreaches = weeklyBreachCounts.overtrading;
+        if (totalOvertradingBreaches >= 2) {
+          // Repeat in same week: no-trade day next day
+          noTradeDays = Math.max(noTradeDays, 1);
+        } else if (maxTradesPerDay !== null && maxTradesPerDay > 1) {
+          // Day locked + (limit−1) cap next day
           tradeCapCount = pickMoreRestrictiveInt(
             tradeCapCount,
             maxTradesPerDay - 1,

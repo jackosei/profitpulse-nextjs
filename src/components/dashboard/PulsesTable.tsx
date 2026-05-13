@@ -3,6 +3,7 @@ import { useRouter } from "next/navigation"
 import type { Pulse } from "@/types/pulse"
 import { formatCurrency, formatRatio } from "@/utils/format"
 import PulseDetailsModal from "@/components/modals/PulseDetailsModal"
+import { Lock, AlertCircle, AlertTriangle } from "lucide-react"
 
 interface PulsesTableProps {
 	pulses: Pulse[]
@@ -41,21 +42,35 @@ function PulseTableRow({ pulse }: { pulse: Pulse }) {
 		if (pulse.status === 'locked') {
 			return {
 				color: 'text-red-500',
-				icon: '🔒',
+				icon: <Lock className="w-3.5 h-3.5" />,
 				text: 'Locked - Risk Limits Exceeded'
 			}
 		}
-		if (todayLossPercentage > pulse.maxDailyDrawdown * 0.8) {
+		if (pulse.maxDailyDrawdown > 0 && todayLossPercentage >= pulse.maxDailyDrawdown) {
+			return {
+				color: 'text-red-500',
+				icon: <AlertCircle className="w-3.5 h-3.5" />,
+				text: 'Daily Drawdown Exceeded'
+			}
+		}
+		if (pulse.maxTotalDrawdown > 0 && totalDrawdownPercentage >= pulse.maxTotalDrawdown) {
+			return {
+				color: 'text-red-500',
+				icon: <AlertCircle className="w-3.5 h-3.5" />,
+				text: 'Total Drawdown Exceeded'
+			}
+		}
+		if (pulse.maxDailyDrawdown > 0 && todayLossPercentage > pulse.maxDailyDrawdown * 0.8) {
 			return {
 				color: 'text-yellow-500',
-				icon: '⚠️',
+				icon: <AlertTriangle className="w-3.5 h-3.5" />,
 				text: 'Near Daily Drawdown Limit'
 			}
 		}
-		if (totalDrawdownPercentage > pulse.maxTotalDrawdown * 0.8) {
+		if (pulse.maxTotalDrawdown > 0 && totalDrawdownPercentage > pulse.maxTotalDrawdown * 0.8) {
 			return {
 				color: 'text-yellow-500',
-				icon: '⚠️',
+				icon: <AlertTriangle className="w-3.5 h-3.5" />,
 				text: 'Near Total Drawdown Limit'
 			}
 		}
@@ -127,10 +142,10 @@ function PulseTableRow({ pulse }: { pulse: Pulse }) {
 					</button>
 				</td>
 			</tr>
-			<PulseDetailsModal 
-				isOpen={showDetailsModal} 
-				onClose={() => setShowDetailsModal(false)} 
-				pulse={pulse} 
+			<PulseDetailsModal
+				isOpen={showDetailsModal}
+				onClose={() => setShowDetailsModal(false)}
+				pulse={pulse}
 			/>
 		</>
 	)

@@ -246,6 +246,17 @@ export default function TradeFormModal({
       setError("Please select an instrument");
       return false;
     }
+    
+    if (!formData.date) {
+      setError("Please select a trade date");
+      return false;
+    }
+
+    const todayStr = new Date().toISOString().split("T")[0];
+    if (formData.date > todayStr) {
+      setError("Future dates are not allowed for trades");
+      return false;
+    }
 
     if (!formData.lotSize || Number(formData.lotSize) <= 0) {
       setError("Please enter a valid lot size");

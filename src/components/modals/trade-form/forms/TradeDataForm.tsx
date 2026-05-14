@@ -42,6 +42,7 @@ export default function TradeDataForm({
             id="trade-date"
             required
             disabled={isSubmitting}
+            max={new Date().toISOString().split("T")[0]}
             className="input-dark w-full disabled:opacity-50 disabled:cursor-not-allowed text-white"
             value={formData.date}
             onChange={onChange}

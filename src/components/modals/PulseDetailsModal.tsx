@@ -1,11 +1,14 @@
-import {  PulseDetailsModalProps } from '@/types/pulse';
+"use client";
+
+import { PulseDetailsModalProps } from '@/types/pulse';
 import { isPulseLocked } from '@/types/pulse';
 import { formatCurrency, formatRatio } from '@/utils/format';
 import { Lock } from 'lucide-react';
-
-
+import { useModalEscape } from '@/hooks/useModalEscape';
 
 export default function PulseDetailsModal({ isOpen, onClose, pulse }: PulseDetailsModalProps) {
+  useModalEscape(isOpen, onClose);
+
   if (!isOpen) return null;
 
   // Calculate risk indicators
@@ -16,13 +19,29 @@ export default function PulseDetailsModal({ isOpen, onClose, pulse }: PulseDetai
   const totalDrawdownPercentage = ((pulse.totalDrawdown || 0) / pulse.accountSize) * 100;
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <div className="relative bg-dark p-6 rounded-lg border border-gray-800 w-full max-w-3xl max-h-[90vh] overflow-y-auto">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-bold text-foreground">{pulse.name} Details</h2>
-          <button 
-            onClick={onClose} 
-            className="text-gray-400 hover:text-white"
+    <div
+      className="fixed inset-0 z-50 min-h-[100dvh] w-full overflow-y-auto bg-black/50 !mt-0"
+      onClick={onClose}
+      role="presentation"
+    >
+      <div
+        className="flex min-h-[100dvh] w-full items-center justify-center p-4"
+        onClick={onClose}
+      >
+        <div
+          className="w-full max-w-3xl"
+          onClick={(e) => e.stopPropagation()}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="pulse-details-title"
+        >
+          <div className="relative max-h-[90vh] overflow-y-auto rounded-lg border border-gray-800 bg-dark p-6">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <h2 id="pulse-details-title" className="text-xl font-bold text-foreground">{pulse.name} Details</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-2xl text-gray-400 hover:text-white"
             aria-label="Close"
           >
             ✕
@@ -190,6 +209,8 @@ export default function PulseDetailsModal({ isOpen, onClose, pulse }: PulseDetai
             </div>
           )}
 
+        </div>
+          </div>
         </div>
       </div>
     </div>

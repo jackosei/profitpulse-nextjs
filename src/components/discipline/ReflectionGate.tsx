@@ -79,7 +79,7 @@ export default function ReflectionGate({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+    <div className="fixed inset-0 z-50 flex min-h-[100dvh] w-full items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
       <div className="w-full max-w-lg rounded-2xl border border-red-500/30 bg-[#121212] shadow-2xl overflow-hidden">
         {/* Header */}
         <div className="px-6 py-4 bg-red-500/10 border-b border-red-500/20">

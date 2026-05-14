@@ -19,6 +19,7 @@ import {
   ViolationCategory,
 } from "@/lib/disciplineTypes";
 import type { ActiveConstraints } from "@/lib/disciplineTypes";
+import { useModalEscape } from "@/hooks/useModalEscape";
 import { AlertTriangle, X } from "lucide-react";
 
 // Import form components
@@ -614,6 +615,8 @@ export default function TradeFormModal({
     }
   };
 
+  useModalEscape(isOpen && !isSubmitting && !loadingPulse, onClose);
+
   if (!isOpen) return null;
 
   // Tab completion indicators
@@ -640,10 +643,28 @@ export default function TradeFormModal({
     formData.improvementIdeas;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-3 sm:p-4">
-      <div className="relative my-2 flex w-full max-w-4xl flex-col overflow-hidden rounded-lg border border-gray-800 bg-dark shadow-xl sm:my-4 max-h-[min(95vh,calc(100dvh-1rem))]">
+    <div
+      className="fixed inset-0 z-50 min-h-[100dvh] w-full overflow-y-auto bg-black/50 !mt-0"
+      onClick={() => {
+        if (!isSubmitting && !loadingPulse) onClose();
+      }}
+      role="presentation"
+    >
+      <div
+        className="flex min-h-[100dvh] w-full items-start justify-center p-4 sm:p-4"
+        onClick={() => {
+          if (!isSubmitting && !loadingPulse) onClose();
+        }}
+      >
+        <div
+          className="relative my-2 flex w-full max-w-4xl flex-col overflow-hidden rounded-lg border border-gray-800 bg-dark shadow-xl sm:my-4 max-h-[min(95vh,calc(100dvh-1rem))]"
+          onClick={(e) => e.stopPropagation()}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="trade-form-title"
+        >
         <div className="flex shrink-0 items-center justify-between border-b border-gray-800 px-5 py-3 sm:px-6 sm:py-3.5">
-          <h2 className="text-2xl font-bold text-foreground">
+          <h2 id="trade-form-title" className="text-2xl font-bold text-foreground">
             {mode === "create" ? "Add Trade" : "Edit Trade"}
           </h2>
           <button
@@ -816,6 +837,7 @@ export default function TradeFormModal({
             </div>
           </form>
         )}
+      </div>
       </div>
     </div>
   );

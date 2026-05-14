@@ -68,7 +68,7 @@ export default function SessionGate({
   const colors = stateColors[disciplineState];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+    <div className="fixed inset-0 z-50 flex min-h-[100dvh] w-full items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
       <div className="w-full max-w-md rounded-2xl border border-gray-700/60 bg-[#121212] shadow-2xl overflow-hidden">
         {/* Header */}
         <div className={`px-6 py-4 ${colors.bg} border-b ${colors.border}`}>

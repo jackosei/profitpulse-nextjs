@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from 'react';
+import { useModalEscape } from '@/hooks/useModalEscape';
 import { useAuth } from '@/context/AuthContext';
 import { toast } from 'sonner';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
@@ -272,6 +273,8 @@ export default function CreatePulseModal({ isOpen, onClose, onSuccess }: CreateP
     onClose();
   };
 
+  useModalEscape(isOpen && !loading, handleClose);
+
   if (!isOpen) return null;
 
   // =========================================================================
@@ -279,40 +282,68 @@ export default function CreatePulseModal({ isOpen, onClose, onSuccess }: CreateP
   // =========================================================================
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50">
-      <div className="fixed inset-0 overflow-y-auto">
-        <div className="flex min-h-full items-center justify-center p-4">
-          <div className="w-full max-w-md">
-            <div className="bg-dark p-6 rounded-lg border border-gray-800 max-h-[90vh] overflow-y-auto">
-
-              {/* ── Step indicator ── */}
-              <div className="flex items-center gap-3 mb-5">
+    <div
+      className="fixed inset-0 z-50 min-h-[100dvh] w-full overflow-y-auto bg-black/50 !mt-0"
+      onClick={handleClose}
+      role="presentation"
+    >
+      <div
+        className="flex min-h-[100dvh] w-full items-center justify-center p-4"
+        onClick={handleClose}
+      >
+        <div
+          className="w-full max-w-md"
+          onClick={(e) => e.stopPropagation()}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="create-pulse-title"
+        >
+          <div className="max-h-[90vh] overflow-y-auto rounded-lg border border-gray-800 bg-dark p-6">
+            {/* ── Step indicator + close ── */}
+            <div className="mb-5 flex items-start justify-between gap-3">
+              <div className="flex min-w-0 flex-1 items-center gap-3">
                 {step === 'why' && (
                   <button
                     type="button"
                     onClick={handleBackToConfig}
-                    className="p-1 text-gray-400 hover:text-white rounded transition-colors"
+                    className="shrink-0 rounded p-1 text-gray-400 transition-colors hover:text-white"
                     aria-label="Back to configuration"
                   >
-                    <ArrowLeftIcon className="w-5 h-5" />
+                    <ArrowLeftIcon className="h-5 w-5" />
                   </button>
                 )}
-                <div className="flex-1">
-                  <h2 className="text-xl font-bold text-foreground">
+                <div className="min-w-0 flex-1">
+                  <h2 id="create-pulse-title" className="text-xl font-bold text-foreground">
                     {step === 'config' ? 'Create New Pulse' : 'Your WHY'}
                   </h2>
-                  <div className="flex items-center gap-2 mt-1.5">
-                    <div className={`h-1 flex-1 rounded-full transition-colors ${step === 'config' ? 'bg-accent' : 'bg-accent/40'
-                      }`} />
-                    <div className={`h-1 flex-1 rounded-full transition-colors ${step === 'why' ? 'bg-accent' : 'bg-gray-700'
-                      }`} />
+                  <div className="mt-1.5 flex items-center gap-2">
+                    <div
+                      className={`h-1 flex-1 rounded-full transition-colors ${
+                        step === 'config' ? 'bg-accent' : 'bg-accent/40'
+                      }`}
+                    />
+                    <div
+                      className={`h-1 flex-1 rounded-full transition-colors ${
+                        step === 'why' ? 'bg-accent' : 'bg-gray-700'
+                      }`}
+                    />
                   </div>
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="mt-1 text-xs text-gray-500">
                     Step {step === 'config' ? '1' : '2'} of 2
                     {step === 'config' ? ' — Configuration' : ' — Discipline commitment'}
                   </p>
                 </div>
               </div>
+              <button
+                type="button"
+                onClick={handleClose}
+                disabled={loading}
+                className="shrink-0 text-2xl text-gray-400 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                aria-label="Close"
+              >
+                ✕
+              </button>
+            </div>
 
               {/* ════════════════════════════════════════════════════════════ */}
               {/* STEP 1: Config (original form)                              */}
@@ -665,7 +696,6 @@ export default function CreatePulseModal({ isOpen, onClose, onSuccess }: CreateP
                 </form>
               )}
 
-            </div>
           </div>
         </div>
       </div>

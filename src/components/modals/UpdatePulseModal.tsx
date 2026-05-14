@@ -9,6 +9,7 @@ import { PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
 import { v4 as uuidv4 } from 'uuid';
 import { usePulse } from '@/hooks/usePulse';
 import { getDefaultPointValue } from '@/lib/instrumentPointValues';
+import { useModalEscape } from '@/hooks/useModalEscape';
 
 interface UpdatePulseModalProps {
   isOpen: boolean;
@@ -192,27 +193,31 @@ export default function UpdatePulseModal({ isOpen, onClose, onSuccess, pulse }: 
     }
   };
 
-  if (!isOpen) return null;
-
   const handleBackdropClick = () => {
     if (!isSubmitting) onClose();
   };
 
+  useModalEscape(isOpen && !isSubmitting, handleBackdropClick);
+
+  if (!isOpen) return null;
+
   return (
     <div
-      className="fixed inset-0 z-50 bg-black/50"
+      className="fixed inset-0 z-50 min-h-[100dvh] w-full overflow-y-auto bg-black/50 !mt-0"
       onClick={handleBackdropClick}
       role="presentation"
     >
-      <div className="fixed inset-0 overflow-y-auto" onClick={handleBackdropClick}>
-        <div className="flex min-h-full items-center justify-center p-4" onClick={handleBackdropClick}>
-          <div
-            className="w-full max-w-md"
-            onClick={(e) => e.stopPropagation()}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="update-pulse-title"
-          >
+      <div
+        className="flex min-h-[100dvh] w-full items-center justify-center p-4"
+        onClick={handleBackdropClick}
+      >
+        <div
+          className="w-full max-w-md"
+          onClick={(e) => e.stopPropagation()}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="update-pulse-title"
+        >
             <div className="flex max-h-[90vh] flex-col overflow-hidden rounded-lg border border-gray-800 bg-dark">
               <div className="flex shrink-0 items-center justify-between border-b border-gray-800 px-5 py-3 sm:px-6 sm:py-3.5">
                 <h2 id="update-pulse-title" className="text-xl font-bold text-foreground">
@@ -222,7 +227,7 @@ export default function UpdatePulseModal({ isOpen, onClose, onSuccess, pulse }: 
                   type="button"
                   onClick={onClose}
                   disabled={isSubmitting}
-                  className="text-2xl text-gray-400 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="text-2xl text-gray-400 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
                   aria-label="Close"
                 >
                   ✕
@@ -467,7 +472,6 @@ export default function UpdatePulseModal({ isOpen, onClose, onSuccess, pulse }: 
               )}
               </div>
             </div>
-          </div>
         </div>
       </div>
     </div>

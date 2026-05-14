@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useModalEscape } from "@/hooks/useModalEscape";
 import { TradeDetailsModalProps } from "@/types/pulse";
 import { formatCurrency } from "@/utils/format";
 import UpdateTradeModal from "./UpdateTradeModal";
@@ -15,6 +16,13 @@ export default function TradeDetailsModal({
 }: TradeDetailsModalProps & { onRefresh?: () => void }) {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
+  const handleDismiss = () => {
+    if (isEditModalOpen) setIsEditModalOpen(false);
+    else onClose();
+  };
+
+  useModalEscape(isOpen, handleDismiss);
+
   if (!isOpen) return null;
 
   const handleEditSuccess = () => {
@@ -28,20 +36,38 @@ export default function TradeDetailsModal({
 
   return (
     <>
-      <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-        <div className="relative bg-dark p-6 rounded-lg border border-gray-800 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-bold text-foreground">Trade Details</h2>
+      <div
+        className="fixed inset-0 z-50 min-h-[100dvh] w-full overflow-y-auto bg-black/50 !mt-0"
+        onClick={handleDismiss}
+        role="presentation"
+      >
+        <div
+          className="flex min-h-[100dvh] w-full items-center justify-center p-4"
+          onClick={handleDismiss}
+        >
+          <div
+            className="relative max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-lg border border-gray-800 bg-dark p-6"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="trade-details-title"
+          >
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <h2 id="trade-details-title" className="text-xl font-bold text-foreground">
+              Trade Details
+            </h2>
             <div className="flex items-center gap-2">
               <button
+                type="button"
                 onClick={() => setIsEditModalOpen(true)}
-                className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm flex items-center gap-2 transition-colors"
+                className="flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-1.5 text-sm text-white transition-colors hover:bg-blue-700"
                 aria-label="Edit trade"
               >
                 <PencilIcon className="h-4 w-4" />
                 Edit
               </button>
               <button
+                type="button"
                 onClick={onClose}
                 className="text-gray-400 hover:text-white"
                 aria-label="Close"
@@ -220,6 +246,7 @@ export default function TradeDetailsModal({
           </div>
         </div>
       </div>
+    </div>
 
       {/* Update Trade Modal */}
       {pulse && (

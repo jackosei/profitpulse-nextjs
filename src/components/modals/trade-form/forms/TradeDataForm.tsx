@@ -107,7 +107,7 @@ export default function TradeDataForm({
 
         <div>
           <label className="block text-sm text-gray-400 mb-2">
-            Type / Lot Size <span className="text-red-500">*</span>
+            Trade Type / Contract or Lot Size <span className="text-red-500">*</span>
           </label>
           <div className="grid grid-cols-2 gap-2">
             <select
@@ -127,7 +127,7 @@ export default function TradeDataForm({
               required
               step="0.01"
               min="0.01"
-              placeholder="Lot Size"
+              placeholder="Contract/Lot Size"
               disabled={isSubmitting}
               className="input-dark w-full disabled:opacity-50 disabled:cursor-not-allowed"
               value={formData.lotSize}
@@ -222,25 +222,23 @@ export default function TradeDataForm({
               required
               step="0.01"
               disabled={isSubmitting}
-              className={`input-dark w-full disabled:opacity-50 disabled:cursor-not-allowed pl-9 ${
-                parseFloat(formData.profitLoss) > 0
-                  ? "border-green-500/50 focus:border-green-500"
-                  : parseFloat(formData.profitLoss) < 0
-                    ? "border-red-500/50 focus:border-red-500"
-                    : ""
-              }`}
+              className={`input-dark w-full disabled:opacity-50 disabled:cursor-not-allowed pl-9 ${parseFloat(formData.profitLoss) > 0
+                ? "border-green-500/50 focus:border-green-500"
+                : parseFloat(formData.profitLoss) < 0
+                  ? "border-red-500/50 focus:border-red-500"
+                  : ""
+                }`}
               value={formData.profitLoss}
               onChange={onChange}
             />
             <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
               <span
-                className={`text-lg ${
-                  parseFloat(formData.profitLoss) > 0
-                    ? "text-green-500"
-                    : parseFloat(formData.profitLoss) < 0
-                      ? "text-red-500"
-                      : "text-gray-500"
-                }`}
+                className={`text-lg ${parseFloat(formData.profitLoss) > 0
+                  ? "text-green-500"
+                  : parseFloat(formData.profitLoss) < 0
+                    ? "text-red-500"
+                    : "text-gray-500"
+                  }`}
               >
                 $
               </span>

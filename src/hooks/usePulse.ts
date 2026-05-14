@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { Pulse, Trade, PulseStatus, TradeEvaluationResult } from "@/types/pulse";
 import * as pulseApiService from "@/services/api/pulseApi";
 import type {
@@ -19,6 +19,14 @@ export function usePulse(props?: UsePulseProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  /** Keep latest callbacks without recreating API methods (avoids useEffect loops). */
+  const onSuccessRef = useRef(onSuccess);
+  const onErrorRef = useRef(onError);
+  useEffect(() => {
+    onSuccessRef.current = onSuccess;
+    onErrorRef.current = onError;
+  }, [onSuccess, onError]);
+
   // Get user's pulses
   const getUserPulses = useCallback(async (
     userId: string,
@@ -34,25 +42,25 @@ export function usePulse(props?: UsePulseProps) {
       );
 
       if (response.success && response.data) {
-        onSuccess?.(response.data);
+        onSuccessRef.current?.(response.data);
         return response.data;
       } else {
         const errorMessage =
           response.error?.message || "Failed to fetch pulses";
         setError(errorMessage);
-        onError?.(errorMessage);
+        onErrorRef.current?.(errorMessage);
         return null;
       }
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : "An unknown error occurred";
       setError(errorMessage);
-      onError?.(errorMessage);
+      onErrorRef.current?.(errorMessage);
       return null;
     } finally {
       setLoading(false);
     }
-  }, [onSuccess, onError]);
+  }, []);
 
   // Get a single pulse by ID
   const getPulseById = useCallback(async (
@@ -79,24 +87,24 @@ export function usePulse(props?: UsePulseProps) {
       );
 
       if (response.success && response.data) {
-        onSuccess?.(response.data);
+        onSuccessRef.current?.(response.data);
         return response.data;
       } else {
         const errorMessage = response.error?.message || "Failed to fetch pulse";
         setError(errorMessage);
-        onError?.(errorMessage);
+        onErrorRef.current?.(errorMessage);
         return null;
       }
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : "An unknown error occurred";
       setError(errorMessage);
-      onError?.(errorMessage);
+      onErrorRef.current?.(errorMessage);
       return null;
     } finally {
       setLoading(false);
     }
-  }, [onSuccess, onError]);
+  }, []);
 
   // Load more trades for pagination
   const getMoreTrades = useCallback(async (
@@ -128,19 +136,19 @@ export function usePulse(props?: UsePulseProps) {
         const errorMessage =
           response.error?.message || "Failed to load more trades";
         setError(errorMessage);
-        onError?.(errorMessage);
+        onErrorRef.current?.(errorMessage);
         return null;
       }
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : "An unknown error occurred";
       setError(errorMessage);
-      onError?.(errorMessage);
+      onErrorRef.current?.(errorMessage);
       return null;
     } finally {
       setLoading(false);
     }
-  }, [onError]);
+  }, []);
 
   // Create a new pulse
   const createPulse = useCallback(async (
@@ -153,25 +161,25 @@ export function usePulse(props?: UsePulseProps) {
       const response = await pulseApiService.createPulse(pulseData);
 
       if (response.success && response.data) {
-        onSuccess?.(response.data);
+        onSuccessRef.current?.(response.data);
         return response.data;
       } else {
         const errorMessage =
           response.error?.message || "Failed to create pulse";
         setError(errorMessage);
-        onError?.(errorMessage);
+        onErrorRef.current?.(errorMessage);
         return null;
       }
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : "An unknown error occurred";
       setError(errorMessage);
-      onError?.(errorMessage);
+      onErrorRef.current?.(errorMessage);
       return null;
     } finally {
       setLoading(false);
     }
-  }, [onSuccess, onError]);
+  }, []);
 
   // Create a new trade — calls server-side /api/discipline/evaluate
   // All violation detection, score mutation, and persistence happen server-side.
@@ -211,24 +219,24 @@ export function usePulse(props?: UsePulseProps) {
       const result = await response.json();
 
       if (result.success && result.data?.trade) {
-        onSuccess?.(result.data.trade);
+        onSuccessRef.current?.(result.data.trade);
         return result.data; // Return the full payload
       } else {
         const errorMessage = result.error || "Failed to create trade";
         setError(errorMessage);
-        onError?.(errorMessage);
+        onErrorRef.current?.(errorMessage);
         return null;
       }
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : "An unknown error occurred";
       setError(errorMessage);
-      onError?.(errorMessage);
+      onErrorRef.current?.(errorMessage);
       return null;
     } finally {
       setLoading(false);
     }
-  }, [onSuccess, onError]);
+  }, []);
 
   // Update a trade
   const updateTrade = useCallback(async (
@@ -250,12 +258,12 @@ export function usePulse(props?: UsePulseProps) {
       const errorMessage =
         err instanceof Error ? err.message : "Failed to update trade";
       setError(errorMessage);
-      onError?.(errorMessage);
+      onErrorRef.current?.(errorMessage);
       return false;
     } finally {
       setLoading(false);
     }
-  }, [onError]);
+  }, []);
 
   // Update a pulse
   const updatePulse = useCallback(async (
@@ -277,12 +285,12 @@ export function usePulse(props?: UsePulseProps) {
       const errorMessage =
         err instanceof Error ? err.message : "Failed to update pulse";
       setError(errorMessage);
-      onError?.(errorMessage);
+      onErrorRef.current?.(errorMessage);
       return false;
     } finally {
       setLoading(false);
     }
-  }, [onError]);
+  }, []);
 
   // Archive a pulse
   const archivePulse = useCallback(async (
@@ -299,12 +307,12 @@ export function usePulse(props?: UsePulseProps) {
       const errorMessage =
         err instanceof Error ? err.message : "Failed to archive pulse";
       setError(errorMessage);
-      onError?.(errorMessage);
+      onErrorRef.current?.(errorMessage);
       return false;
     } finally {
       setLoading(false);
     }
-  }, [onError]);
+  }, []);
 
   // Unarchive a pulse
   const unarchivePulse = useCallback(async (
@@ -321,12 +329,12 @@ export function usePulse(props?: UsePulseProps) {
       const errorMessage =
         err instanceof Error ? err.message : "Failed to unarchive pulse";
       setError(errorMessage);
-      onError?.(errorMessage);
+      onErrorRef.current?.(errorMessage);
       return false;
     } finally {
       setLoading(false);
     }
-  }, [onError]);
+  }, []);
 
   // Delete a pulse
   const deletePulse = useCallback(async (
@@ -348,12 +356,12 @@ export function usePulse(props?: UsePulseProps) {
       const errorMessage =
         err instanceof Error ? err.message : "Failed to delete pulse";
       setError(errorMessage);
-      onError?.(errorMessage);
+      onErrorRef.current?.(errorMessage);
       return false;
     } finally {
       setLoading(false);
     }
-  }, [onError]);
+  }, []);
 
   return {
     getUserPulses,

@@ -399,7 +399,7 @@ export default function CreatePulseModal({ isOpen, onClose, onSuccess }: CreateP
                         required
                         min="0"
                         max="10"
-                        step="0.1"
+                        step="0.01"
                         disabled={loading}
                         className="input-dark w-full disabled:opacity-50 disabled:cursor-not-allowed"
                         value={formData.maxRiskPerTrade}
@@ -414,7 +414,7 @@ export default function CreatePulseModal({ isOpen, onClose, onSuccess }: CreateP
                         required
                         min="0"
                         max={MAX_DAILY_DRAWDOWN}
-                        step="0.1"
+                        step="0.01"
                         disabled={loading}
                         className="input-dark w-full disabled:opacity-50 disabled:cursor-not-allowed"
                         value={formData.maxDailyDrawdown}
@@ -429,7 +429,7 @@ export default function CreatePulseModal({ isOpen, onClose, onSuccess }: CreateP
                         required
                         min="0"
                         max={MAX_TOTAL_DRAWDOWN}
-                        step="0.1"
+                        step="0.01"
                         disabled={loading}
                         className="input-dark w-full disabled:opacity-50 disabled:cursor-not-allowed"
                         value={formData.maxTotalDrawdown}

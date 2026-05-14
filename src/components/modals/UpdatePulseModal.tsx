@@ -293,7 +293,7 @@ export default function UpdatePulseModal({ isOpen, onClose, onSuccess, pulse }: 
                         required
                         min="0"
                         max={MAX_RISK_PERCENTAGE}
-                        step="0.1"
+                        step="0.01"
                         disabled={isSubmitting}
                         className="input-dark w-full disabled:opacity-50 disabled:cursor-not-allowed"
                         value={formData.maxRiskPerTrade}
@@ -308,7 +308,7 @@ export default function UpdatePulseModal({ isOpen, onClose, onSuccess, pulse }: 
                         required
                         min="0"
                         max={MAX_DAILY_DRAWDOWN}
-                        step="0.1"
+                        step="0.01"
                         disabled={isSubmitting}
                         className="input-dark w-full disabled:opacity-50 disabled:cursor-not-allowed"
                         value={formData.maxDailyDrawdown}
@@ -323,7 +323,7 @@ export default function UpdatePulseModal({ isOpen, onClose, onSuccess, pulse }: 
                         required
                         min="0"
                         max={MAX_TOTAL_DRAWDOWN}
-                        step="0.1"
+                        step="0.01"
                         disabled={isSubmitting}
                         className="input-dark w-full disabled:opacity-50 disabled:cursor-not-allowed"
                         value={formData.maxTotalDrawdown}

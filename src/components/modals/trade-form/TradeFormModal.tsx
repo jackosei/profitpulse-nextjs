@@ -640,29 +640,34 @@ export default function TradeFormModal({
     formData.improvementIdeas;
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 overflow-y-auto">
-      <div className="relative bg-dark p-6 rounded-lg border border-gray-800 w-full max-w-4xl max-h-[95vh] overflow-y-auto my-8">
-        <div className="flex justify-between items-center mb-4 sticky top-0 bg-dark z-10 pb-4">
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-3 sm:p-4">
+      <div className="relative my-2 flex min-h-0 w-full max-w-4xl max-h-[min(95vh,calc(100dvh-1rem))] flex-col overflow-hidden rounded-lg border border-gray-800 bg-dark shadow-xl sm:my-4">
+        <div className="flex shrink-0 items-center justify-between border-b border-gray-800 px-5 py-3 sm:px-6 sm:py-3.5">
           <h2 className="text-2xl font-bold text-foreground">
             {mode === "create" ? "Add Trade" : "Edit Trade"}
           </h2>
           <button
+            type="button"
             onClick={onClose}
             disabled={isSubmitting}
-            className="text-gray-400 hover:text-white disabled:opacity-50 text-2xl"
+            className="text-2xl text-gray-400 hover:text-white disabled:opacity-50"
+            aria-label="Close"
           >
             ✕
           </button>
         </div>
 
         {loadingPulse ? (
-          <div className="flex justify-center items-center py-12">
+          <div className="flex flex-1 items-center justify-center py-16">
             <LoadingSpinner />
           </div>
         ) : (
-          <form onSubmit={handleSubmit}>
-            {/* Tab Navigation */}
-            <div className="flex border-b border-gray-800 mb-6 overflow-x-auto">
+          <form
+            className="flex min-h-0 flex-1 flex-col overflow-hidden"
+            onSubmit={handleSubmit}
+          >
+            {/* Tab navigation — fixed below header; only tab content scrolls */}
+            <div className="flex shrink-0 overflow-x-auto border-b border-gray-800 bg-dark px-1 sm:px-3">
               <button
                 type="button"
                 className={`px-4 py-3 text-sm font-medium flex items-center gap-2 ${
@@ -738,7 +743,7 @@ export default function TradeFormModal({
               </button>
             </div>
 
-            {/* Tab Content */}
+            <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4 sm:px-6">
             {activeTab === "trade" && (
               <>
                 <TradeDataForm
@@ -783,8 +788,9 @@ export default function TradeFormModal({
                 <p className="text-sm text-red-400">{error || apiError}</p>
               </div>
             )}
+            </div>
 
-            <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-800">
+            <div className="flex shrink-0 flex-wrap items-center justify-end gap-3 border-t border-gray-800 bg-dark px-5 py-4 sm:px-6">
               <button
                 type="button"
                 onClick={onClose}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import type { Pulse, Trade } from "@/types/pulse";
+import type { Pulse, Trade, TradeEvaluationResult } from "@/types/pulse";
 import { toast } from "sonner";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
 import { usePulse } from "@/hooks/usePulse";
@@ -15,6 +15,11 @@ import type {
   TradingEnvironment,
   EmotionalImpact,
 } from "./types";
+import {
+  ViolationCategory,
+} from "@/lib/disciplineTypes";
+import type { ActiveConstraints } from "@/lib/disciplineTypes";
+import { AlertTriangle, X } from "lucide-react";
 
 // Import form components
 import TradeDataForm from "./forms/TradeDataForm";
@@ -61,6 +66,7 @@ export default function TradeFormModal({
     createTrade,
     updateTrade,
     loading: apiLoading,
+    error: apiError,
   } = usePulse({
     onError: (message) => toast.error(message),
   });
@@ -80,6 +86,8 @@ export default function TradeFormModal({
         lotSize: String(trade.execution?.lotSize || ""),
         entryPrice: String(trade.execution?.entryPrice || ""),
         exitPrice: String(trade.execution?.exitPrice || ""),
+        plannedSL: String(trade.execution?.plannedSL || ""),
+        plannedTP: String(trade.execution?.plannedTP || ""),
         entryReason: trade.execution?.entryReason || "",
         profitLoss: String(trade.performance?.profitLoss || ""),
         learnings: trade.learnings || "",
@@ -117,6 +125,8 @@ export default function TradeFormModal({
       lotSize: "",
       entryPrice: "",
       exitPrice: "",
+      plannedSL: "",
+      plannedTP: "",
       entryReason: "",
       profitLoss: "",
       learnings: "",
@@ -229,22 +239,21 @@ export default function TradeFormModal({
   };
 
   const validateForm = () => {
-    // Check if all required rules are followed
-    const requiredRules =
-      pulse?.tradingRules?.filter((rule) => rule.isRequired) || [];
-    const missingRequiredRules = requiredRules.filter(
-      (rule) => !followedRules.includes(rule.id),
-    );
-
-    if (missingRequiredRules.length > 0) {
-      setError(
-        `Please confirm all required trading rules: ${missingRequiredRules.map((r) => r.description).join(", ")}`,
-      );
+    // Note: required rules are NOT a form gate. Unchecked required rules are
+    // passed to the discipline engine which applies a -4 score penalty per miss.
+    if (!formData.instrument) {
+      setError("Please select an instrument");
+      return false;
+    }
+    
+    if (!formData.date) {
+      setError("Please select a trade date");
       return false;
     }
 
-    if (!formData.instrument) {
-      setError("Please select an instrument");
+    const todayStr = new Date().toISOString().split("T")[0];
+    if (formData.date > todayStr) {
+      setError("Future dates are not allowed for trades");
       return false;
     }
 
@@ -347,6 +356,8 @@ export default function TradeFormModal({
           entryPrice: Number(formData.entryPrice),
           exitPrice: Number(formData.exitPrice),
           entryReason: formData.entryReason,
+          ...(formData.plannedSL && Number(formData.plannedSL) > 0 && { plannedSL: Number(formData.plannedSL) }),
+          ...(formData.plannedTP && Number(formData.plannedTP) > 0 && { plannedTP: Number(formData.plannedTP) }),
           ...(formData.entryTime && { entryTime: formData.entryTime }),
           ...(formData.exitTime && { exitTime: formData.exitTime }),
           ...(formData.entryScreenshot && {
@@ -426,15 +437,18 @@ export default function TradeFormModal({
         tradeData.reflection = reflectionData;
       }
 
-      let response;
+      let response: TradeEvaluationResult | null = null;
+      let tradeResult;
       if (mode === "create") {
         response = await createTrade(firestoreId, tradeData);
+        tradeResult = response?.trade;
       } else {
-        response = await updateTrade(firestoreId, trade!.id!, tradeData);
+        tradeResult = await updateTrade(firestoreId, trade!.id!, tradeData);
       }
 
-      if (!response) {
-        throw new Error(`Failed to ${mode} trade`);
+      if (!tradeResult) {
+        // Stop submission. error state and toast are handled automatically by usePulse
+        return;
       }
 
       toast.success(
@@ -444,6 +458,131 @@ export default function TradeFormModal({
           duration: 4000,
         },
       );
+
+      // Discipline breach notification — only on create
+      if (mode === "create" && response) {
+        const violations = (response.violations as { category: string; type: string; severity: number; details: string }[]) ?? [];
+        const isViolationTrade = response.isViolationTrade === true;
+        const activeConstraints = response.activeConstraints as ActiveConstraints;
+        const hasCaps =
+          activeConstraints?.riskCapPct !== null ||
+          activeConstraints?.tradeCapCount !== null ||
+          activeConstraints?.noTradeDays > 0;
+
+        if (violations.length > 0 || isViolationTrade || hasCaps) {
+          const totalPenalty = violations.reduce((sum, v) => sum + v.severity, 0);
+          const ruleBreaches = violations.filter(
+            (v) => v.category === ViolationCategory.QUALITATIVE,
+          );
+          const quantBreaches = violations.filter(
+            (v) => v.category === ViolationCategory.QUANTITATIVE,
+          );
+
+          toast.custom(
+            (id) => (
+              <div className="w-[360px] rounded-xl border border-amber-500/30 bg-[#1a1a1a] shadow-xl p-4 text-sm">
+                {/* Header */}
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="w-5 h-5 text-amber-400" />
+                    <span className="font-semibold text-amber-400">Discipline breach detected</span>
+                  </div>
+                  <button
+                    onClick={() => toast.dismiss(id)}
+                    className="text-gray-500 hover:text-gray-300"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {/* Rule misses */}
+                {ruleBreaches.length > 0 && (
+                  <div className="mb-3">
+                    <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1.5">
+                      Rules missed
+                    </p>
+                    <ul className="space-y-1.5">
+                      {ruleBreaches.map((v, i) => (
+                        <li key={i} className="flex items-start justify-between gap-2">
+                          <span className="text-gray-300 leading-snug">• {v.details}</span>
+                          <span className="shrink-0 text-xs font-medium text-red-400 bg-red-500/10 px-1.5 py-0.5 rounded">
+                            −{v.severity} pts
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Quantitative breaches */}
+                {quantBreaches.length > 0 && (
+                  <div className="mb-3">
+                    <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1.5">
+                      Risk &amp; limits
+                    </p>
+                    <ul className="space-y-1.5">
+                      {quantBreaches.map((v, i) => (
+                        <li key={i} className="flex items-start justify-between gap-2">
+                          <span className="text-gray-300 leading-snug">• {v.details}</span>
+                          <span className="shrink-0 text-xs font-medium text-red-400 bg-red-500/10 px-1.5 py-0.5 rounded">
+                            −{v.severity} pts
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Enforcement Constraint Warning */}
+                {(isViolationTrade || hasCaps) && (
+                  <div className="mb-3">
+                    <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1.5">
+                      Enforcement Actions
+                    </p>
+                    <ul className="space-y-1.5">
+                      {isViolationTrade && (
+                        <li className="flex items-start gap-2">
+                          <span className="text-red-400 leading-snug font-medium">
+                            • Trade logged during a No-Trade Day
+                          </span>
+                        </li>
+                      )}
+                      {activeConstraints?.riskCapPct !== null && (
+                        <li className="flex items-start gap-2">
+                          <span className="text-amber-400 leading-snug">
+                            • Next session risk capped at {Math.round(activeConstraints!.riskCapPct! * 100)}%
+                          </span>
+                        </li>
+                      )}
+                      {activeConstraints?.tradeCapCount !== null && (
+                        <li className="flex items-start gap-2">
+                          <span className="text-amber-400 leading-snug">
+                            • Next session trade count capped at {activeConstraints.tradeCapCount}
+                          </span>
+                        </li>
+                      )}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Footer summary */}
+                <div className="mt-4 pt-3 border-t border-gray-800/60 flex items-center justify-between">
+                  <span className="text-xs font-medium text-amber-500/80">
+                    Discipline score impacted
+                  </span>
+                  {totalPenalty > 0 && (
+                    <span className="text-sm font-bold text-red-400">
+                      -{totalPenalty} pts total
+                    </span>
+                  )}
+                </div>
+              </div>
+            ),
+            { duration: 6000 },
+          );
+        }
+      }
+
 
       onSuccess?.();
       onClose();
@@ -639,9 +778,9 @@ export default function TradeFormModal({
               />
             )}
 
-            {error && (
+            {(error || apiError) && (
               <div className="mt-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
-                <p className="text-sm text-red-400">{error}</p>
+                <p className="text-sm text-red-400">{error || apiError}</p>
               </div>
             )}
 

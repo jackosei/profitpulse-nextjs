@@ -1,7 +1,7 @@
 import { Menu, MenuButton, MenuItems, MenuItem } from '@headlessui/react';
-import { 
-  TrashIcon, 
-  ArchiveBoxIcon, 
+import {
+  TrashIcon,
+  ArchiveBoxIcon,
   EllipsisVerticalIcon,
   CalendarIcon,
   ChevronDownIcon,
@@ -11,7 +11,10 @@ import {
   LockClosedIcon
 } from '@heroicons/react/24/outline';
 import { formatCurrency } from "@/utils/format"
-import { PULSE_STATUS } from "@/types/pulse"
+import { PULSE_STATUS, isPulseLocked } from "@/types/pulse"
+import type { Pulse } from "@/types/pulse";
+import type { DisciplineZone, ActiveConstraints, DisciplineState } from "@/lib/disciplineTypes";
+import DisciplineMeter from "@/components/discipline/DisciplineMeter";
 
 type TimeRange = '7D' | '30D' | '90D' | '1Y' | 'ALL';
 type ComparisonType = 'PERIOD' | 'START';
@@ -41,6 +44,14 @@ interface PulseHeaderProps {
   maxTotalDrawdown: number;
   status: string;
   ruleViolations?: string[];
+  // Discipline engine — optional until Phase 1 data exists
+  disciplineScore?: number;
+  disciplineZone?: DisciplineZone;
+  sessionRuleScore?: number;
+  recoveryHint?: string;
+  activeConstraints?: ActiveConstraints;
+  disciplineState?: DisciplineState;
+  pulse?: Pulse;
 }
 
 export default function PulseHeader({
@@ -59,10 +70,23 @@ export default function PulseHeader({
   maxDailyDrawdown,
   maxTotalDrawdown,
   status,
-  ruleViolations = []
+  ruleViolations = [],
+  disciplineScore,
+  disciplineZone,
+  sessionRuleScore,
+  recoveryHint = '',
+  activeConstraints,
+  disciplineState,
+  pulse,
 }: PulseHeaderProps) {
+  const hasDisciplineData =
+    disciplineScore !== undefined &&
+    disciplineZone !== undefined &&
+    sessionRuleScore !== undefined;
 
   const getStatusColor = (status: string) => {
+    console.log(pulse)
+
     switch (status) {
       case PULSE_STATUS.ACTIVE:
         return 'bg-green-500/20 text-green-500 border-green-500/20';
@@ -85,29 +109,29 @@ export default function PulseHeader({
             {instrument}
           </span>
           <div className={`px-2 py-1 text-xs rounded border ${getStatusColor(status)} capitalize`}>
-            {status === PULSE_STATUS.LOCKED && <LockClosedIcon className="w-3 h-3 inline-block mr-1" />}
-            {status}
+            {pulse && isPulseLocked(pulse) && <LockClosedIcon className="w-3 h-3 inline-block mr-1" />}
+            {pulse && isPulseLocked(pulse) ? 'Locked' : status}
           </div>
-           
-           {/* Risk Rules Section - Now in the middle */}
-        <div className="hidden md:flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <ShieldExclamationIcon className="w-4 h-4 text-gray-400" />
-            <div className="flex items-center gap-3">
-              <span className="text-xs text-gray-300">
-                Risk: <span className="text-white font-medium">{maxRiskPerTrade}%</span>
-              </span>
-              <span className="text-xs text-gray-300">
-                Daily DD: <span className="text-white font-medium">{maxDailyDrawdown}%</span>
-              </span>
-              <span className="text-xs text-gray-300">
-                Total DD: <span className="text-white font-medium">{maxTotalDrawdown}%</span>
-              </span>
+
+          {/* Risk Rules Section - Now in the middle */}
+          <div className="hidden md:flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <ShieldExclamationIcon className="w-4 h-4 text-gray-400" />
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-gray-300">
+                  Risk: <span className="text-white font-medium">{maxRiskPerTrade}%</span>
+                </span>
+                <span className="text-xs text-gray-300">
+                  Daily DD: <span className="text-white font-medium">{maxDailyDrawdown}%</span>
+                </span>
+                <span className="text-xs text-gray-300">
+                  Total DD: <span className="text-white font-medium">{maxTotalDrawdown}%</span>
+                </span>
+              </div>
             </div>
           </div>
-        </div>
 
-       
+
         </div>
 
         <div className="flex items-center gap-4">
@@ -127,9 +151,8 @@ export default function PulseHeader({
                 {({ active }) => (
                   <button
                     onClick={onUpdate}
-                    className={`${
-                      active ? 'bg-white/5' : ''
-                    } flex items-center w-full px-4 py-2.5 text-sm text-gray-300 hover:text-blue-500`}
+                    className={`${active ? 'bg-white/5' : ''
+                      } flex items-center w-full px-4 py-2.5 text-sm text-gray-300 hover:text-blue-500`}
                   >
                     <PencilIcon className="w-4 h-4 mr-2" />
                     Update Settings
@@ -140,9 +163,8 @@ export default function PulseHeader({
                 {({ active }) => (
                   <button
                     onClick={onArchive}
-                    className={`${
-                      active ? 'bg-white/5' : ''
-                    } flex items-center w-full px-4 py-2.5 text-sm text-gray-300 hover:text-yellow-500`}
+                    className={`${active ? 'bg-white/5' : ''
+                      } flex items-center w-full px-4 py-2.5 text-sm text-gray-300 hover:text-yellow-500`}
                   >
                     <ArchiveBoxIcon className="w-4 h-4 mr-2" />
                     Archive Pulse
@@ -153,9 +175,8 @@ export default function PulseHeader({
                 {({ active }) => (
                   <button
                     onClick={onDelete}
-                    className={`${
-                      active ? 'bg-white/5' : ''
-                    } flex items-center w-full px-4 py-2.5 text-sm text-gray-300 hover:text-red-500`}
+                    className={`${active ? 'bg-white/5' : ''
+                      } flex items-center w-full px-4 py-2.5 text-sm text-gray-300 hover:text-red-500`}
                   >
                     <TrashIcon className="w-4 h-4 mr-2" />
                     Delete Pulse
@@ -187,7 +208,7 @@ export default function PulseHeader({
       </div>
 
       {/* Rule Violations Alert */}
-      {status === PULSE_STATUS.LOCKED && ruleViolations.length > 0 && (
+      {pulse && isPulseLocked(pulse) && ruleViolations.length > 0 && (
         <div className="px-4 py-2 bg-red-500/10 border-t border-red-500/20">
           <div className="flex items-start gap-2">
             <LockClosedIcon className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" />
@@ -200,6 +221,20 @@ export default function PulseHeader({
               </ul>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Discipline Meter Row */}
+      {hasDisciplineData && (
+        <div className="px-4 py-2.5 border-t border-gray-800/50">
+          <DisciplineMeter
+            score={disciplineScore!}
+            zone={disciplineZone!}
+            sessionRuleScore={sessionRuleScore!}
+            recoveryHint={recoveryHint}
+            activeConstraints={activeConstraints}
+            disciplineState={disciplineState}
+          />
         </div>
       )}
 
@@ -218,11 +253,9 @@ export default function PulseHeader({
                   {({ active }) => (
                     <button
                       onClick={() => onTimeRangeChange(range.value)}
-                      className={`${
-                        active ? 'bg-white/5' : ''
-                      } ${
-                        selectedTimeRange === range.value ? 'text-blue-500' : 'text-gray-300'
-                      } flex items-center w-full px-4 py-2 text-sm`}
+                      className={`${active ? 'bg-white/5' : ''
+                        } ${selectedTimeRange === range.value ? 'text-blue-500' : 'text-gray-300'
+                        } flex items-center w-full px-4 py-2 text-sm`}
                     >
                       {range.label}
                     </button>
@@ -234,9 +267,8 @@ export default function PulseHeader({
 
           <button
             onClick={onComparisonTypeChange}
-            className={`flex items-center gap-1.5 px-2 py-1.5 text-sm ${
-              comparisonType === 'PERIOD' ? 'text-blue-500' : 'text-gray-300'
-            } hover:text-white rounded transition-colors`}
+            className={`flex items-center gap-1.5 px-2 py-1.5 text-sm ${comparisonType === 'PERIOD' ? 'text-blue-500' : 'text-gray-300'
+              } hover:text-white rounded transition-colors`}
             title={comparisonType === 'PERIOD' ? 'Comparing to Previous Period' : 'Comparing to Starting Stats'}
           >
             <ArrowsRightLeftIcon className="w-4 h-4" />

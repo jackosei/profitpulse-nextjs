@@ -1,8 +1,9 @@
 import { memo, useCallback, useState } from "react"
 import { useRouter } from "next/navigation"
-import type { Pulse } from "@/types/pulse"
+import { type Pulse, isPulseLocked, PULSE_MESSAGES } from "@/types/pulse"
 import { formatCurrency, formatRatio } from "@/utils/format"
 import PulseDetailsModal from "@/components/modals/PulseDetailsModal"
+import { Lock, AlertCircle, AlertTriangle } from "lucide-react"
 
 interface PulsesTableProps {
 	pulses: Pulse[]
@@ -38,24 +39,32 @@ function PulseTableRow({ pulse }: { pulse: Pulse }) {
 	const totalDrawdownPercentage = ((pulse.totalDrawdown || 0) / pulse.accountSize) * 100
 
 	const getRiskIndicator = () => {
-		if (pulse.status === 'locked') {
+		if (isPulseLocked(pulse)) {
 			return {
 				color: 'text-red-500',
-				icon: '🔒',
-				text: 'Locked - Risk Limits Exceeded'
+				icon: <Lock className="w-3.5 h-3.5" />,
+				text: PULSE_MESSAGES.LOCKED_STATUS_TITLE
 			}
 		}
-		if (todayLossPercentage > pulse.maxDailyDrawdown * 0.8) {
+		if (pulse.maxDailyDrawdown > 0 && todayLossPercentage >= pulse.maxDailyDrawdown) {
+			return {
+				color: 'text-red-500',
+				icon: <AlertCircle className="w-3.5 h-3.5" />,
+				text: 'Daily Drawdown Exceeded'
+			}
+		}
+		// (Removed redundant Total Drawdown check since isPulseLocked covers it)
+		if (pulse.maxDailyDrawdown > 0 && todayLossPercentage > pulse.maxDailyDrawdown * 0.8) {
 			return {
 				color: 'text-yellow-500',
-				icon: '⚠️',
+				icon: <AlertTriangle className="w-3.5 h-3.5" />,
 				text: 'Near Daily Drawdown Limit'
 			}
 		}
-		if (totalDrawdownPercentage > pulse.maxTotalDrawdown * 0.8) {
+		if (pulse.maxTotalDrawdown > 0 && totalDrawdownPercentage > pulse.maxTotalDrawdown * 0.8) {
 			return {
 				color: 'text-yellow-500',
-				icon: '⚠️',
+				icon: <AlertTriangle className="w-3.5 h-3.5" />,
 				text: 'Near Total Drawdown Limit'
 			}
 		}
@@ -68,7 +77,7 @@ function PulseTableRow({ pulse }: { pulse: Pulse }) {
 		<>
 			<tr
 				key={pulse.id}
-				className={`group hover:bg-gray-800/50 cursor-pointer ${pulse.status === 'locked' ? 'bg-red-900/10' : ''}`}
+				className={`group hover:bg-gray-800/50 cursor-pointer ${isPulseLocked(pulse) ? 'bg-red-900/10' : ''}`}
 				onClick={handleRowClick}
 			>
 				<td className="p-4 font-medium text-sm">
@@ -127,10 +136,10 @@ function PulseTableRow({ pulse }: { pulse: Pulse }) {
 					</button>
 				</td>
 			</tr>
-			<PulseDetailsModal 
-				isOpen={showDetailsModal} 
-				onClose={() => setShowDetailsModal(false)} 
-				pulse={pulse} 
+			<PulseDetailsModal
+				isOpen={showDetailsModal}
+				onClose={() => setShowDetailsModal(false)}
+				pulse={pulse}
 			/>
 		</>
 	)

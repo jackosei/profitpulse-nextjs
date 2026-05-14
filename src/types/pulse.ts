@@ -1,8 +1,19 @@
 import { Timestamp } from "firebase/firestore";
+import type { TradeEngineMetrics, PulseDisciplineFields, ActiveConstraints } from "@/lib/disciplineTypes";
+
+export interface TradeEvaluationResult {
+  trade: Trade;
+  violations: { category: string; type: string; severity: number; details: string }[];
+  newScore: number;
+  newZone: string;
+  isViolationTrade: boolean;
+  activeConstraints: ActiveConstraints;
+  disciplineState: string;
+}
 
 export const MAX_RISK_PERCENTAGE = 3;
-export const MAX_DAILY_DRAWDOWN = 5; // Default maximum daily loss as percentage of account
-export const MAX_TOTAL_DRAWDOWN = 10; // Default maximum total loss as percentage of account
+export const MAX_DAILY_DRAWDOWN = 100; // Default maximum daily loss as percentage of account
+export const MAX_TOTAL_DRAWDOWN = 100; // Default maximum total loss as percentage of account
 
 export const PULSE_STATUS = {
   ACTIVE: "active",
@@ -11,6 +22,20 @@ export const PULSE_STATUS = {
 } as const;
 
 export type PulseStatus = (typeof PULSE_STATUS)[keyof typeof PULSE_STATUS];
+
+export const PULSE_MESSAGES = {
+  LOCKED_STATUS_TITLE: "Locked - Total Drawdown Exceeded",
+  LOCKED_ERROR_MESSAGE: "Trade submission failed - This pulse is permanently locked due to excessive drawdown.",
+} as const;
+
+export function isPulseLocked(pulse: Pulse): boolean {
+  if (pulse.status === PULSE_STATUS.LOCKED) return true;
+  if (pulse.maxTotalDrawdown > 0) {
+    const totalDrawdownPercentage = ((pulse.totalDrawdown || 0) / pulse.accountSize) * 100;
+    return totalDrawdownPercentage >= pulse.maxTotalDrawdown;
+  }
+  return false;
+}
 
 export interface TradeRule {
   id: string;
@@ -23,6 +48,10 @@ export interface Pulse {
   firestoreId?: string;
   name: string;
   instruments: string[];
+  /** Dollar value per 1 point/pip of price movement per 1 contract/lot.
+   *  Set at Pulse creation per instrument. Defaults to 1 (stocks) for unknowns.
+   *  Used by the engine to compute accurate dollar risk from SL distance. */
+  instrumentPointValues?: Record<string, number>;
   accountSize: number;
   maxRiskPerTrade: number;
   maxDailyDrawdown: number; // User-defined max daily loss percentage
@@ -48,6 +77,8 @@ export interface Pulse {
       maxTotalDrawdown: number;
     };
   };
+  // Discipline engine fields — optional for backward compat with pre-engine pulses
+  discipline?: PulseDisciplineFields;
 }
 
 // Nested data structures for better organization
@@ -57,6 +88,8 @@ export interface TradeExecution {
   lotSize: number;
   entryPrice: number;
   exitPrice: number;
+  plannedSL?: number; // Planned stop loss price
+  plannedTP?: number; // Planned take profit price
   entryReason: string;
   entryScreenshot?: string;
   exitScreenshot?: string;
@@ -69,32 +102,32 @@ export interface TradePerformance {
 
 export interface TradePsychology {
   emotionalState?:
-    | "Calm"
-    | "Excited"
-    | "Fearful"
-    | "Greedy"
-    | "Anxious"
-    | "Confident"
-    | "Other";
+  | "Calm"
+  | "Excited"
+  | "Fearful"
+  | "Greedy"
+  | "Anxious"
+  | "Confident"
+  | "Other";
   emotionalIntensity?: number; // 1-10 scale
   mentalState?:
-    | "Clear"
-    | "Distracted"
-    | "Tired"
-    | "Focused"
-    | "Rushed"
-    | "Other";
+  | "Clear"
+  | "Distracted"
+  | "Tired"
+  | "Focused"
+  | "Rushed"
+  | "Other";
   planAdherence?: "Fully" | "Partially" | "Deviated";
   impulsiveEntry?: boolean;
 }
 
 export interface TradeContext {
   marketCondition?:
-    | "Trending"
-    | "Ranging"
-    | "Volatile"
-    | "Calm"
-    | "News-driven";
+  | "Trending"
+  | "Ranging"
+  | "Volatile"
+  | "Calm"
+  | "News-driven";
   timeOfDay?: string;
   tradingEnvironment?: "Home" | "Office" | "Mobile" | "Other";
 }
@@ -127,6 +160,9 @@ export interface Trade {
   psychology?: TradePsychology;
   context?: TradeContext;
   reflection?: TradeReflection;
+
+  // Discipline engine (computed at submission, stored)
+  engineMetrics?: TradeEngineMetrics;
 
   // Other
   learnings?: string;

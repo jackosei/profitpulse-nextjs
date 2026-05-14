@@ -1,5 +1,75 @@
 # Changelog
 
+## [3.1.0] - 2026-05-14
+
+### Terminal Lockout (Prop-Firm Hardening)
+
+Complete enforcement of the permanent "Locked" account state for ultimate drawdown breaches, bringing full consistency across the API and Firestore database layers.
+
+- **Permanent Constraints**: Replaced temporary daily penalties with an absolute terminal lockout (`isLockedPermanently`) in `enforcementEngine.ts` when Total Drawdown limit is breached.
+- **Server-Side Firestore Sync**: Updated evaluation API to trigger an atomic Firestore `status: 'locked'` write upon terminal violation detection.
+- **Lazy Status Migration**: Implemented proactive legacy migration gate inside the `evaluate` API. Legacy pulses pre-dating the "Locked" status are auto-updated in Firestore to `locked` upon the next trade evaluate call.
+- **Enforcement Rejection (403)**: Evaluator API strictly rejects trade attempts on locked pulses with `403 Forbidden`.
+
+### UX Polish & Input Verification
+
+- **Dynamic Error UI**: Refactored `TradeFormModal` parsing logic to extract specialized `apiError` state from `usePulse` hooks, preventing duplicate toasts and feeding detailed backend error strings (e.g., "This pulse is permanently locked") into the form UI.
+- **Future-Date Guard**: Blocked future-dated trade logging via both:
+  - Native browser calendar restriction (`max` attribute on date inputs).
+  - State-level Javascript logic inside the main `validateForm()` hook.
+- **Unified UI Styling**: Ensured consistent "Add Trade" button lockout logic across both `TradeHistory` and `TradeCalendar` views, using reduced-opacity states and precise user-facing tooltip explanations.
+- **Constant Localization**: Centralized hardcoded titles and error responses inside `src/types/pulse.ts` under a single, reusable `PULSE_MESSAGES` object for enhanced codebase DRYness.
+
+## [3.0.0] - 2026-05-09
+
+### Major Features
+
+#### Discipline Engine — Phase 1 (Foundation: Score + Meter)
+
+A closed-loop behavioural system that scores rule violations and displays an adaptive discipline meter. Phase 1 is observational only — violations are detected and scored, but no enforcement constraints (caps, lockouts, gates) are active.
+
+- **Violation Detection**: Auto-detects 5 quantitative violation types (risk per trade, daily drawdown, total drawdown, max trades/day, overtrading) and qualitative violations (required/optional rule misses).
+- **Score Penalties**: Escalating penalties per violation type, with zone amplification (Green 75–100, Yellow 40–74, Red 0–39).
+- **Lazy Session Recovery**: On first trade of a new day, the engine evaluates yesterday's session and awards recovery points (+8 clean session, +3 full journal, +2 all rules followed, +10 streak bonus).
+- **Weekly Breach Count Tracking**: Tracks risk, drawdown, and overtrading violations per week. `drawdownTotal` is a lifetime counter.
+- **Rich Breach Notifications**: Custom toast UI categorising violations (Rules Missed vs. Risk & Limits) with penalty badges and total impact summary.
+
+#### Instrument Point Value System
+
+- **Lookup Table**: 30+ common instruments (NQ, ES, MNQ, MES, GC, CL, EURUSD, GBPUSD, etc.) with pre-configured dollar-per-point values.
+- **Per-Instrument Config**: Point value fields shown inline with each instrument tag at Pulse creation and update, auto-populated from lookup table, user-editable.
+- **Accurate Risk Calculation**: Risk formula now uses `|entry − SL| × pointValue × lots / accountSize` instead of raw price difference, making it accurate for Futures, Forex, and Stocks.
+
+#### WHY Onboarding Step
+
+- **Two-Step Pulse Creation**: Config → WHY commitment flow.
+- **WHY Fields**: "What is driving you to trade?" and "What does following your rules mean for you?" (30-char minimum each).
+- **Stored on Pulse Document**: Used in future notification tiers.
+
+#### Discipline Meter UI
+
+- **Gradient Meter**: Red→Yellow→Green gradient bar with score marker and zone label (Stable / At Risk / Enforcement).
+- **Session Rule Score Badge**: Daily execution grade computed from today's rule compliance.
+- **Recovery Path Hint**: Contextual guidance shown when zone ≠ Green.
+
+### Trade Data Enhancements
+
+- Added `plannedSL` and `plannedTP` fields to trade form.
+- Engine-derived metrics stored per trade: `intendedRiskPct`, `intendedRR`, `actualR`, `exitQuality`, `violations[]`.
+- Violation log subcollection for audit trail.
+
+### Pulse Document Updates
+
+- Added `discipline` field: `disciplineScore`, `disciplineState`, `activeConstraints`, `lastSessionDate`, `reflectionGatePending`, `weeklyBreachCounts`, `whyStatement`, `whyDiscipline`.
+- Added `instrumentPointValues` (Record<string, number>) for per-instrument point value config.
+
+### UI/UX Improvements
+
+- Instrument input upgraded from comma-separated text to tag-based input with inline point value editing (both Create and Update modals).
+- Consistent instrument UX across Create and Update Pulse flows.
+
+
+
 ## [2.0.0] - 2026-02-06
 
 ### Major Breaking Changes

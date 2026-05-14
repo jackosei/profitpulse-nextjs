@@ -8,7 +8,7 @@ import {
   eachDayOfInterval,
   isToday,
 } from "date-fns";
-import { Trade, Pulse } from "@/types/pulse";
+import { Trade, Pulse, isPulseLocked, PULSE_MESSAGES } from "@/types/pulse";
 import TradeDetailsModal from "@/components/modals/TradeDetailsModal";
 import {
   ChevronLeft,
@@ -100,22 +100,20 @@ export default function TradeCalendar({
             <div className="bg-gray-800/80 rounded-md p-0.5 flex">
               <button
                 onClick={() => onViewTypeChange("table")}
-                className={`p-1.5 rounded-md ${
-                  viewType === "table"
+                className={`p-1.5 rounded-md ${viewType === "table"
                     ? "bg-blue-600 text-white"
                     : "text-gray-400 hover:text-white"
-                } transition-colors flex items-center`}
+                  } transition-colors flex items-center`}
                 title="Table View"
               >
                 <TableIcon className="h-4 w-4" />
               </button>
               <button
                 onClick={() => onViewTypeChange("calendar")}
-                className={`p-1.5 rounded-md ${
-                  viewType === "calendar"
+                className={`p-1.5 rounded-md ${viewType === "calendar"
                     ? "bg-blue-600 text-white"
                     : "text-gray-400 hover:text-white"
-                } transition-colors flex items-center`}
+                  } transition-colors flex items-center`}
                 title="Calendar View"
               >
                 <CalendarIcon className="h-4 w-4" />
@@ -143,8 +141,11 @@ export default function TradeCalendar({
             </div>
           </div>
           <button
-            className="btn-primary text-sm md:text-base px-3 py-1.5 md:px-4 md:py-2"
+            className={`btn-primary text-sm md:text-base px-3 py-1.5 md:px-4 md:py-2 ${pulse && isPulseLocked(pulse) ? 'opacity-50 cursor-not-allowed' : ''
+              }`}
             onClick={onAddTrade}
+            disabled={pulse && isPulseLocked(pulse)}
+            title={pulse && isPulseLocked(pulse) ? PULSE_MESSAGES.LOCKED_STATUS_TITLE : ''}
           >
             Add Trade
           </button>
@@ -186,9 +187,8 @@ export default function TradeCalendar({
             return (
               <div
                 key={i}
-                className={`min-h-[80px] p-1 rounded border ${borderColor} ${
-                  isToday(day) ? "bg-gray-800/30" : "bg-gray-900/30"
-                } hover:bg-gray-800/50 transition-colors cursor-pointer`}
+                className={`min-h-[80px] p-1 rounded border ${borderColor} ${isToday(day) ? "bg-gray-800/30" : "bg-gray-900/30"
+                  } hover:bg-gray-800/50 transition-colors cursor-pointer`}
                 onClick={() =>
                   dayTrades.length > 0 && setSelectedTrade(dayTrades[0])
                 }
@@ -204,13 +204,12 @@ export default function TradeCalendar({
                 {dayTrades.length > 0 && (
                   <div className="mt-1">
                     <div
-                      className={`text-xs font-medium ${
-                        totalPL > 0
+                      className={`text-xs font-medium ${totalPL > 0
                           ? "text-green-400"
                           : totalPL < 0
                             ? "text-red-400"
                             : "text-gray-300"
-                      }`}
+                        }`}
                     >
                       {totalPL > 0 ? "+" : ""}
                       {totalPL.toFixed(2)}

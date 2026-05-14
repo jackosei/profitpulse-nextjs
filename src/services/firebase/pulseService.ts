@@ -36,6 +36,7 @@ import {
   PulseUpdateData,
   TradeCreateData,
 } from "../api/pulseApi";
+import { createDefaultDisciplineFields } from "@/lib/disciplineTypes";
 
 /**
  * Check if a pulse name already exists for the user
@@ -118,6 +119,10 @@ export async function createPulse(
         averageLoss: 0,
         profitFactor: 0,
       },
+      discipline: createDefaultDisciplineFields(
+        pulseData.whyStatement || "",
+        pulseData.whyDiscipline || "",
+      ),
     };
 
     // Add document to Firestore
@@ -288,150 +293,25 @@ export async function getMoreTrades(
 }
 
 /**
- * Create a new trade
+ * @deprecated Phase 2: Trade creation now goes through /api/discipline/evaluate.
+ * This function is preserved only for backward compatibility.
+ * DO NOT call this for new trade creation — use the API route instead.
  */
 export async function createTrade(
-  firestoreId: string,
-  tradeData: TradeCreateData,
+  _firestoreId: string,
+  _tradeData: TradeCreateData,
 ): Promise<ApiResponse<Trade>> {
-  try {
-    // Get pulse data to validate against risk parameters
-    const pulseDoc = await getDoc(doc(db, "pulses", firestoreId));
-    if (!pulseDoc.exists()) {
-      return createErrorResponse(ErrorCode.NOT_FOUND, "Pulse not found");
-    }
-
-    const pulseData = pulseDoc.data() as Pulse;
-
-    // Validate required fields
-    if (
-      !tradeData.instrument ||
-      !tradeData.execution.lotSize ||
-      !tradeData.execution.entryPrice ||
-      !tradeData.execution.exitPrice ||
-      !tradeData.execution.entryReason
-    ) {
-      return createErrorResponse(
-        ErrorCode.VALIDATION_ERROR,
-        "Missing required trade fields",
-      );
-    }
-
-    // Validate entry time vs exit time
-    if (
-      tradeData.execution.entryTime &&
-      tradeData.execution.exitTime &&
-      tradeData.execution.entryTime > tradeData.execution.exitTime
-    ) {
-      return createErrorResponse(
-        ErrorCode.VALIDATION_ERROR,
-        "Entry time must be earlier than exit time",
-      );
-    }
-
-    // Validate price vs profit/loss consistency
-    const priceDifference =
-      tradeData.execution.exitPrice - tradeData.execution.entryPrice;
-    const expectedProfitableDirection =
-      (tradeData.type === "Buy" && priceDifference > 0) ||
-      (tradeData.type === "Sell" && priceDifference < 0);
-
-    const isProfitable = tradeData.performance.profitLoss > 0;
-
-    if (
-      isProfitable !== expectedProfitableDirection &&
-      tradeData.performance.profitLoss !== 0
-    ) {
-      return createErrorResponse(
-        ErrorCode.VALIDATION_ERROR,
-        `The profit/loss amount doesn't match the expected result based on entry/exit prices. For a ${tradeData.type} trade with entry at ${tradeData.execution.entryPrice} and exit at ${tradeData.execution.exitPrice}, the P/L should ${expectedProfitableDirection ? "be positive" : "be negative"}`,
-      );
-    }
-
-    // Validate risk per trade
-    const riskAmount = Math.abs(tradeData.performance.profitLoss);
-    const riskPercentage = (riskAmount / pulseData.accountSize) * 100;
-
-    if (riskPercentage > pulseData.maxRiskPerTrade) {
-      return createErrorResponse(
-        ErrorCode.VALIDATION_ERROR,
-        `Trade risk (${riskPercentage.toFixed(2)}%) exceeds maximum allowed risk (${pulseData.maxRiskPerTrade}%)`,
-      );
-    }
-
-    // Check daily drawdown limit
-    const today = new Date(tradeData.date).toISOString().split("T")[0];
-    const dailyLosses = pulseData.dailyLoss?.[today] || 0;
-
-    if (tradeData.performance.profitLoss < 0) {
-      const newDailyLoss =
-        dailyLosses + Math.abs(tradeData.performance.profitLoss);
-      const dailyDrawdownPercentage =
-        (newDailyLoss / pulseData.accountSize) * 100;
-
-      if (dailyDrawdownPercentage > pulseData.maxDailyDrawdown) {
-        return createErrorResponse(
-          ErrorCode.VALIDATION_ERROR,
-          `This trade would exceed your maximum daily drawdown limit of ${pulseData.maxDailyDrawdown}%`,
-        );
-      }
-    }
-
-    // Add trade to subcollection
-    const tradeWithTimestamp = {
-      ...tradeData,
-      createdAt: Timestamp.now(),
-    };
-
-    // Add document to Firestore
-    const tradesRef = collection(db, "pulses", firestoreId, "trades");
-    const tradeDoc = await addDoc(tradesRef, tradeWithTimestamp);
-
-    // Update daily loss tracking if it's a losing trade
-    if (tradeData.performance.profitLoss < 0) {
-      const dailyLossUpdate = {
-        [`dailyLoss.${today}`]:
-          (dailyLosses || 0) + Math.abs(tradeData.performance.profitLoss),
-      };
-      await updateDoc(doc(db, "pulses", firestoreId), dailyLossUpdate);
-    }
-
-    // Update total drawdown if applicable
-    const totalDrawdown = pulseData.totalDrawdown || 0;
-    if (tradeData.performance.profitLoss < 0) {
-      const newTotalDrawdown =
-        totalDrawdown + Math.abs(tradeData.performance.profitLoss);
-      const totalDrawdownPercentage =
-        (newTotalDrawdown / pulseData.accountSize) * 100;
-
-      if (totalDrawdownPercentage > pulseData.maxTotalDrawdown) {
-        // Just warn, don't block the trade
-        console.warn(
-          `Trade exceeds maximum total drawdown of ${pulseData.maxTotalDrawdown}%`,
-        );
-      }
-
-      await updateDoc(doc(db, "pulses", firestoreId), {
-        totalDrawdown: newTotalDrawdown,
-      });
-    }
-
-    // Recalculate stats for the pulse
-    await calculatePulseStats(firestoreId);
-
-    return createSuccessResponse({
-      id: tradeDoc.id,
-      ...tradeWithTimestamp,
-    } as Trade);
-  } catch (error) {
-    console.error("Error creating trade:", error);
-    return createErrorResponse(
-      ErrorCode.SERVER_ERROR,
-      "Failed to create trade",
-      { originalError: error instanceof Error ? error.message : String(error) },
-    );
-  }
+  void _firestoreId;
+  void _tradeData;
+  
+  return createErrorResponse(
+    ErrorCode.SERVER_ERROR,
+    "createTrade is deprecated. Use POST /api/discipline/evaluate instead.",
+  );
 }
+
+
+
 
 /**
  * Update an existing trade
@@ -681,6 +561,7 @@ export async function updatePulse(
       maxDailyDrawdown: updateData.maxDailyDrawdown,
       maxTotalDrawdown: updateData.maxTotalDrawdown,
       instruments: updateData.instruments,
+      instrumentPointValues: updateData.instrumentPointValues ?? {},
       tradingRules: updateData.tradingRules,
       hasBeenUpdated: true,
       lastUpdate: {

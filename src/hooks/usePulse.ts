@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Pulse, Trade, PulseStatus } from "@/types/pulse";
+import { useState, useCallback } from "react";
+import { Pulse, Trade, PulseStatus, TradeEvaluationResult } from "@/types/pulse";
 import * as pulseApiService from "@/services/api/pulseApi";
 import type {
   PulseCreateData,
@@ -20,7 +20,7 @@ export function usePulse(props?: UsePulseProps) {
   const [error, setError] = useState<string | null>(null);
 
   // Get user's pulses
-  const getUserPulses = async (
+  const getUserPulses = useCallback(async (
     userId: string,
     status?: string,
   ): Promise<Pulse[] | null> => {
@@ -52,10 +52,10 @@ export function usePulse(props?: UsePulseProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [onSuccess, onError]);
 
   // Get a single pulse by ID
-  const getPulseById = async (
+  const getPulseById = useCallback(async (
     pulseId: string,
     userId: string,
     limit?: number,
@@ -96,10 +96,10 @@ export function usePulse(props?: UsePulseProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [onSuccess, onError]);
 
   // Load more trades for pagination
-  const getMoreTrades = async (
+  const getMoreTrades = useCallback(async (
     firestoreId: string,
     lastDate: string,
     limit?: number,
@@ -140,10 +140,10 @@ export function usePulse(props?: UsePulseProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [onError]);
 
   // Create a new pulse
-  const createPulse = async (
+  const createPulse = useCallback(async (
     pulseData: PulseCreateData,
   ): Promise<Pulse | null> => {
     setLoading(true);
@@ -171,28 +171,50 @@ export function usePulse(props?: UsePulseProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [onSuccess, onError]);
 
-  // Create a new trade
-  const createTrade = async (
+  // Create a new trade — calls server-side /api/discipline/evaluate
+  // All violation detection, score mutation, and persistence happen server-side.
+  const createTrade = useCallback(async (
     firestoreId: string,
     tradeData: TradeCreateData,
-  ): Promise<Trade | null> => {
+  ): Promise<TradeEvaluationResult | null> => {
     setLoading(true);
     setError(null);
 
     try {
-      const response = await pulseApiService.createTrade(
-        firestoreId,
-        tradeData,
-      );
+      // Get Firebase auth token for server-side verification
+      const { getFirebaseToken } = await import("@/services/auth");
+      const token = await getFirebaseToken();
+      if (!token) {
+        throw new Error("Not authenticated");
+      }
 
-      if (response.success && response.data) {
-        onSuccess?.(response.data);
-        return response.data;
+      const response = await fetch("/api/discipline/evaluate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          pulseId: tradeData.pulseId,
+          userId: tradeData.userId,
+          tradeData,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.json().catch(() => ({}));
+        throw new Error(errorBody.error || `Server error (${response.status})`);
+      }
+
+      const result = await response.json();
+
+      if (result.success && result.data?.trade) {
+        onSuccess?.(result.data.trade);
+        return result.data; // Return the full payload
       } else {
-        const errorMessage =
-          response.error?.message || "Failed to create trade";
+        const errorMessage = result.error || "Failed to create trade";
         setError(errorMessage);
         onError?.(errorMessage);
         return null;
@@ -206,10 +228,10 @@ export function usePulse(props?: UsePulseProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [onSuccess, onError]);
 
   // Update a trade
-  const updateTrade = async (
+  const updateTrade = useCallback(async (
     firestoreId: string,
     tradeId: string,
     tradeData: TradeCreateData,
@@ -233,10 +255,10 @@ export function usePulse(props?: UsePulseProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [onError]);
 
   // Update a pulse
-  const updatePulse = async (
+  const updatePulse = useCallback(async (
     pulseId: string,
     userId: string,
     updateData: PulseUpdateData,
@@ -260,10 +282,10 @@ export function usePulse(props?: UsePulseProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [onError]);
 
   // Archive a pulse
-  const archivePulse = async (
+  const archivePulse = useCallback(async (
     pulseId: string,
     userId: string,
   ): Promise<boolean> => {
@@ -282,10 +304,10 @@ export function usePulse(props?: UsePulseProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [onError]);
 
   // Unarchive a pulse
-  const unarchivePulse = async (
+  const unarchivePulse = useCallback(async (
     pulseId: string,
     userId: string,
   ): Promise<boolean> => {
@@ -304,10 +326,10 @@ export function usePulse(props?: UsePulseProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [onError]);
 
   // Delete a pulse
-  const deletePulse = async (
+  const deletePulse = useCallback(async (
     pulseId: string,
     userId: string,
     confirmationName: string,
@@ -331,7 +353,7 @@ export function usePulse(props?: UsePulseProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [onError]);
 
   return {
     getUserPulses,

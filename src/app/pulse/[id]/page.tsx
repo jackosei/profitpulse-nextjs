@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { usePulse } from "@/hooks/usePulse";
@@ -16,6 +16,11 @@ import TradeHistory from "@/components/pulse/TradeHistory";
 import TradeCalendar from "@/components/pulse/TradeCalendar";
 import { toast } from "sonner";
 import ArchivePulseModal from "@/components/modals/ArchivePulseModal";
+import { getZone, computeSessionRuleScore } from "@/lib/disciplineEngine";
+import type { DisciplineZone, ActiveConstraints, DisciplineState } from "@/lib/disciplineTypes";
+import SessionGate from "@/components/discipline/SessionGate";
+import ReflectionGate from "@/components/discipline/ReflectionGate";
+import LimitsTracker from "@/components/discipline/LimitsTracker";
 
 type TimeRange = "7D" | "30D" | "90D" | "1Y" | "ALL";
 type ComparisonType = "PERIOD" | "START";
@@ -61,6 +66,11 @@ export default function PulseDetailsPage() {
   });
   const [showArchiveModal, setShowArchiveModal] = useState(false);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
+
+  // Phase 2: Enforcement local state
+  const [reflectionPending, setReflectionPending] = useState(false);
+  const [sessionGateAcked, setSessionGateAcked] = useState(false);
+  const prevConstraintsRef = useRef<string | null>(null);
 
   const fetchPulse = useCallback(async () => {
     if (!user || !id) return;
@@ -164,7 +174,7 @@ export default function PulseDetailsPage() {
       // Get initial trades (first period's worth of trades)
       const initialPeriodEnd = new Date(
         new Date(sortedTrades[0]?.date || now).getTime() +
-          daysToSubtract * 24 * 60 * 60 * 1000,
+        daysToSubtract * 24 * 60 * 60 * 1000,
       );
       const initialTrades = sortedTrades.filter(
         (trade) => new Date(trade.date) <= initialPeriodEnd,
@@ -257,10 +267,71 @@ export default function PulseDetailsPage() {
     fetchPulse();
   }, [fetchPulse]);
 
+  // Sync reflection pending state when pulse data changes
+  useEffect(() => {
+    if (pulse?.discipline?.reflectionGatePending !== undefined) {
+      setReflectionPending(pulse.discipline.reflectionGatePending);
+    }
+
+    // Check if active constraints escalated to re-trigger Session Gate
+    if (pulse?.discipline?.activeConstraints) {
+      const currentConstraintsStr = JSON.stringify(pulse.discipline.activeConstraints);
+      if (prevConstraintsRef.current !== null && prevConstraintsRef.current !== currentConstraintsStr) {
+        // Constraints changed! If there are any active constraints, force a re-ack.
+        const c = pulse.discipline.activeConstraints;
+        if (c.riskCapPct !== null || c.tradeCapCount !== null || c.lockoutUntil !== null || c.noTradeDays > 0) {
+          setSessionGateAcked(false);
+        }
+      }
+      prevConstraintsRef.current = currentConstraintsStr;
+    }
+  }, [pulse?.discipline?.reflectionGatePending, pulse?.discipline?.activeConstraints]);
+
   if (loading || apiLoading) return <Loader />;
   if (error || apiError)
     return <div className="p-6 text-red-500">{error || apiError}</div>;
   if (!pulse) return <div className="p-6">Pulse not found</div>;
+
+  // ---------------------------------------------------------------------------
+  // Discipline data — computed from pulse state + today's trades
+  // ---------------------------------------------------------------------------
+  const discipline = pulse.discipline;
+  const disciplineScore = discipline?.disciplineScore;
+  const disciplineZone: DisciplineZone | undefined =
+    disciplineScore !== undefined ? getZone(disciplineScore) : undefined;
+
+  // Compute today's Session Rule Score from loaded trades
+  const todayStr = new Date().toISOString().split("T")[0];
+  const todayTrades = (pulse.trades ?? []).filter(
+    (t) => t.date === todayStr,
+  );
+  const pulseRules = (pulse.tradingRules ?? []).map((r) => ({
+    id: r.id,
+    description: r.description,
+    isRequired: r.isRequired,
+  }));
+  const sessionScore =
+    pulseRules.length > 0
+      ? computeSessionRuleScore(todayTrades, pulseRules, todayStr)
+      : null;
+  const sessionRuleScore = sessionScore?.score;
+
+  // Recovery hint — simple, no recovery if clean
+  const recoveryHint =
+    disciplineZone === "RED"
+      ? "Log a clean session with all required rules followed to begin recovery"
+      : disciplineZone === "YELLOW"
+        ? "Continue following your rules — clean sessions recover +8 pts"
+        : "";
+
+  // Phase 2: enforcement constraints
+  const activeConstraints: ActiveConstraints = discipline?.activeConstraints ?? {
+    riskCapPct: null,
+    tradeCapCount: null,
+    lockoutUntil: null,
+    noTradeDays: 0,
+  };
+  const disciplineState: DisciplineState = discipline?.disciplineState ?? "NORMAL";
 
   return (
     <div className="min-h-screen p-0 md:p-6 space-y-4 md:space-y-6">
@@ -283,7 +354,16 @@ export default function PulseDetailsPage() {
         maxTotalDrawdown={pulse.maxTotalDrawdown}
         status={pulse.status}
         ruleViolations={pulse.ruleViolations}
+        disciplineScore={disciplineScore}
+        disciplineZone={disciplineZone}
+        sessionRuleScore={sessionRuleScore}
+        recoveryHint={recoveryHint}
+        activeConstraints={activeConstraints}
+        disciplineState={disciplineState}
+        pulse={pulse}
       />
+
+      <LimitsTracker pulse={pulse} />
 
       <PulseStats stats={periodStats} comparisonType={comparisonType} />
 
@@ -355,6 +435,30 @@ export default function PulseDetailsPage() {
         onConfirm={handleArchive}
         pulseName={pulse.name}
       />
+
+      {/* Phase 2: Session Gate — constraint acknowledgement */}
+      {!sessionGateAcked && disciplineState !== "NORMAL" && (
+        <SessionGate
+          pulseId={pulse.id}
+          constraints={activeConstraints}
+          disciplineState={disciplineState}
+          whyStatement={discipline?.whyStatement ?? ""}
+          onAcknowledge={() => setSessionGateAcked(true)}
+        />
+      )}
+
+      {/* Phase 2: Reflection Gate — blocks until reflection completed */}
+      {reflectionPending && user && (
+        <ReflectionGate
+          pulseId={pulse.id}
+          userId={user.uid}
+          onComplete={(newScore) => {
+            setReflectionPending(false);
+            toast.success(`Reflection submitted! +5 recovery → Score: ${newScore}`);
+            fetchPulse(); // Refresh pulse data
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -24,7 +24,7 @@ import { NextResponse } from "next/server";
 import { adminDb } from "@/services/admin";
 import * as admin from "firebase-admin";
 import type { Pulse, Trade, TradeRule } from "@/types/pulse";
-import { PULSE_STATUS, isPulseLocked } from "@/types/pulse";
+import { PULSE_STATUS, isPulseLocked, PULSE_MESSAGES } from "@/types/pulse";
 import type { TradeCreateData } from "@/services/api/pulseApi";
 import {
   evaluateViolations,
@@ -116,7 +116,7 @@ export async function POST(request: Request) {
       }
 
       return NextResponse.json(
-        { error: "Account is permanently locked due to excessive drawdown." },
+        { error: PULSE_MESSAGES.LOCKED_ERROR_MESSAGE },
         { status: 403 },
       );
     }

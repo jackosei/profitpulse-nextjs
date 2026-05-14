@@ -8,8 +8,7 @@ import {
   eachDayOfInterval,
   isToday,
 } from "date-fns";
-import { Trade, Pulse } from "@/types/pulse";
-import { isPulseLocked } from "@/types/pulse";
+import { Trade, Pulse, isPulseLocked, PULSE_MESSAGES } from "@/types/pulse";
 import TradeDetailsModal from "@/components/modals/TradeDetailsModal";
 import {
   ChevronLeft,
@@ -146,7 +145,7 @@ export default function TradeCalendar({
               }`}
             onClick={onAddTrade}
             disabled={pulse && isPulseLocked(pulse)}
-            title={pulse && isPulseLocked(pulse) && 'Locked - Total Drawdown Exceeded' || ''}
+            title={pulse && isPulseLocked(pulse) ? PULSE_MESSAGES.LOCKED_STATUS_TITLE : ''}
           >
             Add Trade
           </button>

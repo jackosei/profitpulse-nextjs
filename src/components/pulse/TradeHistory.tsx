@@ -1,5 +1,4 @@
-import { Trade, Pulse } from "@/types/pulse";
-import { isPulseLocked } from "@/types/pulse";
+import { Trade, Pulse, isPulseLocked, PULSE_MESSAGES } from "@/types/pulse";
 import { useRef, useEffect, useState, useCallback } from "react";
 import TradeDetailsModal from "@/components/modals/TradeDetailsModal";
 import { TableIcon, CalendarIcon } from "lucide-react";
@@ -97,7 +96,7 @@ export default function TradeHistory({
               }`}
             onClick={onAddTrade}
             disabled={pulse && isPulseLocked(pulse)}
-            title={pulse && isPulseLocked(pulse) && 'Locked - Total Drawdown Exceeded' || ''}
+            title={pulse && isPulseLocked(pulse) ? PULSE_MESSAGES.LOCKED_STATUS_TITLE : ''}
           >
             Add Trade
           </button>

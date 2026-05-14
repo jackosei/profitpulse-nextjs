@@ -13,6 +13,11 @@ export const PULSE_STATUS = {
 
 export type PulseStatus = (typeof PULSE_STATUS)[keyof typeof PULSE_STATUS];
 
+export const PULSE_MESSAGES = {
+  LOCKED_STATUS_TITLE: "Locked - Total Drawdown Exceeded",
+  LOCKED_ERROR_MESSAGE: "Trade submission failed - This pulse is permanently locked due to excessive drawdown.",
+} as const;
+
 export function isPulseLocked(pulse: Pulse): boolean {
   if (pulse.status === PULSE_STATUS.LOCKED) return true;
   if (pulse.maxTotalDrawdown > 0) {
@@ -87,32 +92,32 @@ export interface TradePerformance {
 
 export interface TradePsychology {
   emotionalState?:
-    | "Calm"
-    | "Excited"
-    | "Fearful"
-    | "Greedy"
-    | "Anxious"
-    | "Confident"
-    | "Other";
+  | "Calm"
+  | "Excited"
+  | "Fearful"
+  | "Greedy"
+  | "Anxious"
+  | "Confident"
+  | "Other";
   emotionalIntensity?: number; // 1-10 scale
   mentalState?:
-    | "Clear"
-    | "Distracted"
-    | "Tired"
-    | "Focused"
-    | "Rushed"
-    | "Other";
+  | "Clear"
+  | "Distracted"
+  | "Tired"
+  | "Focused"
+  | "Rushed"
+  | "Other";
   planAdherence?: "Fully" | "Partially" | "Deviated";
   impulsiveEntry?: boolean;
 }
 
 export interface TradeContext {
   marketCondition?:
-    | "Trending"
-    | "Ranging"
-    | "Volatile"
-    | "Calm"
-    | "News-driven";
+  | "Trending"
+  | "Ranging"
+  | "Volatile"
+  | "Calm"
+  | "News-driven";
   timeOfDay?: string;
   tradingEnvironment?: "Home" | "Office" | "Mobile" | "Other";
 }

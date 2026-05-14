@@ -1,6 +1,6 @@
 import { memo, useCallback, useState } from "react"
 import { useRouter } from "next/navigation"
-import { type Pulse, isPulseLocked } from "@/types/pulse"
+import { type Pulse, isPulseLocked, PULSE_MESSAGES } from "@/types/pulse"
 import { formatCurrency, formatRatio } from "@/utils/format"
 import PulseDetailsModal from "@/components/modals/PulseDetailsModal"
 import { Lock, AlertCircle, AlertTriangle } from "lucide-react"
@@ -43,7 +43,7 @@ function PulseTableRow({ pulse }: { pulse: Pulse }) {
 			return {
 				color: 'text-red-500',
 				icon: <Lock className="w-3.5 h-3.5" />,
-				text: 'Locked - Total Drawdown Exceeded'
+				text: PULSE_MESSAGES.LOCKED_STATUS_TITLE
 			}
 		}
 		if (pulse.maxDailyDrawdown > 0 && todayLossPercentage >= pulse.maxDailyDrawdown) {

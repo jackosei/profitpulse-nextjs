@@ -301,6 +301,9 @@ export async function createTrade(
   _firestoreId: string,
   _tradeData: TradeCreateData,
 ): Promise<ApiResponse<Trade>> {
+  void _firestoreId;
+  void _tradeData;
+  
   return createErrorResponse(
     ErrorCode.SERVER_ERROR,
     "createTrade is deprecated. Use POST /api/discipline/evaluate instead.",

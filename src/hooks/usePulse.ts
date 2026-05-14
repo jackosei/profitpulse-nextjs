@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { Pulse, Trade, PulseStatus } from "@/types/pulse";
+import { Pulse, Trade, PulseStatus, TradeEvaluationResult } from "@/types/pulse";
 import * as pulseApiService from "@/services/api/pulseApi";
 import type {
   PulseCreateData,
@@ -178,7 +178,7 @@ export function usePulse(props?: UsePulseProps) {
   const createTrade = useCallback(async (
     firestoreId: string,
     tradeData: TradeCreateData,
-  ): Promise<any | null> => {
+  ): Promise<TradeEvaluationResult | null> => {
     setLoading(true);
     setError(null);
 

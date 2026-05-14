@@ -273,7 +273,8 @@ export async function POST(request: Request) {
           100,
           (discipline.disciplineScore ?? 100) + recoveryPts,
         );
-        const recoveredZone = getZone(recoveredScore);
+        // TODO
+        // const recoveredZone = getZone(recoveredScore);
         const recoveredState = computeStateTransition(
           discipline.disciplineState ?? "NORMAL",
           recoveredScore,

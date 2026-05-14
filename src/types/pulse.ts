@@ -1,5 +1,15 @@
 import { Timestamp } from "firebase/firestore";
-import type { TradeEngineMetrics, PulseDisciplineFields } from "@/lib/disciplineTypes";
+import type { TradeEngineMetrics, PulseDisciplineFields, ActiveConstraints } from "@/lib/disciplineTypes";
+
+export interface TradeEvaluationResult {
+  trade: Trade;
+  violations: { category: string; type: string; severity: number; details: string }[];
+  newScore: number;
+  newZone: string;
+  isViolationTrade: boolean;
+  activeConstraints: ActiveConstraints;
+  disciplineState: string;
+}
 
 export const MAX_RISK_PERCENTAGE = 3;
 export const MAX_DAILY_DRAWDOWN = 100; // Default maximum daily loss as percentage of account

@@ -1,5 +1,5 @@
 import {  PulseDetailsModalProps } from '@/types/pulse';
-import { isPulseLocked, PULSE_STATUS } from '@/types/pulse';
+import { isPulseLocked } from '@/types/pulse';
 import { formatCurrency, formatRatio } from '@/utils/format';
 import { Lock } from 'lucide-react';
 

@@ -122,7 +122,7 @@ export default function DisciplineMeter({
         <div className="flex flex-col items-end gap-0.5 mt-1">
           <div className="flex items-center gap-1">
             <span className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold">
-              Today's Execution
+              Today&apos;s Execution
             </span>
             <div title="The percentage of your qualitative trading rules you successfully followed across all trades logged today.">
               <Info className="w-3 h-3 text-gray-500 cursor-help" />

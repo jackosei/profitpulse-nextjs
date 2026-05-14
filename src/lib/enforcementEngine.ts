@@ -263,8 +263,9 @@ export function computeWeeklyReset(
 
   // Check if we've crossed a Monday boundary
   // getDay(): 0=Sun, 1=Mon, ..., 6=Sat
-  const todayDay = today.getDay();
-  const lastDay = lastSession.getDay();
+  // TODO: 
+  // const todayDay = today.getDay();
+  // const lastDay = lastSession.getDay();
 
   // We crossed a Monday if:
   // 1. Today is Monday or later, AND

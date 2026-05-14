@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import type { Pulse, Trade } from "@/types/pulse";
+import type { Pulse, Trade, TradeEvaluationResult } from "@/types/pulse";
 import { toast } from "sonner";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
 import { usePulse } from "@/hooks/usePulse";
@@ -17,7 +17,6 @@ import type {
 } from "./types";
 import {
   ViolationCategory,
-  ViolationType,
 } from "@/lib/disciplineTypes";
 import type { ActiveConstraints } from "@/lib/disciplineTypes";
 import { AlertTriangle, X } from "lucide-react";
@@ -438,7 +437,7 @@ export default function TradeFormModal({
         tradeData.reflection = reflectionData;
       }
 
-      let response: any = null;
+      let response: TradeEvaluationResult | null = null;
       let tradeResult;
       if (mode === "create") {
         response = await createTrade(firestoreId, tradeData);

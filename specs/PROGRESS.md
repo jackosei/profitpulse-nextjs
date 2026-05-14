@@ -7,7 +7,7 @@
 
 ## Current phase
 **Phase 1 — Foundation (Score + Meter) ✅ COMPLETE** (v3.0.0)
-**Phase 2 — Enforcement (State machine + Constraints) — IN PROGRESS**
+**Phase 2 — Enforcement (State machine + Constraints) ✅ COMPLETE** (v3.1.0)
 
 ## Phase 1 checklist
 
@@ -100,6 +100,31 @@
 ---
 
 ## Session log
+
+### Session 7 — 2026-05-14
+**What was built:**
+
+*Phase 2 hardening & Terminal Lockout (v3.1.0):*
+- Created permanent terminal lockouts in `enforcementEngine.ts` for ultimate drawdown breaches.
+- Extended server evaluation API to write `status: 'locked'` atomically to Firestore upon total drawdown breaches.
+- Developed server-side Lazy Migration Gate inside `evaluate/route.ts` to automatically modernize legacy pulse states to Firestore `locked` status during execution.
+- Upgraded API edge security to enforce `403 Forbidden` rejections on all lockbound trade submissions.
+
+*UX Polish & Quality Guards:*
+- Disengaged duplicate client-side toast triggers by unifying `usePulse` asynchronous error catching directly within the `TradeFormModal` state.
+- Interposed twin-layer future-date prevention gates across browser components (`max` attribute) and React rendering loops (`validateForm`).
+- Standardized "Add Trade" button lock behaviors and customized user-facing tooltips across standard History and Calendar views.
+- Cleaned and DRYed codebase system strings via a central global `PULSE_MESSAGES` constant lookup within `src/types/pulse.ts`.
+
+**Verification:**
+- Native browser blocks future-dated inputs natively.
+- 403 server-side rejections safely update Firestore structures and are readable by the frontend.
+- Redundant toast overlays removed.
+
+**Next session should start with:**
+Phase 3: Notification engines (Tier 1/2), accountability partner settings, and historical data plotting for discipline score rolling charts.
+
+---
 
 ### Session 5 — 2026-05-09
 **What was built:**

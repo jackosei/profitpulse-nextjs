@@ -1,5 +1,25 @@
 # Changelog
 
+## [3.1.0] - 2026-05-14
+
+### Terminal Lockout (Prop-Firm Hardening)
+
+Complete enforcement of the permanent "Locked" account state for ultimate drawdown breaches, bringing full consistency across the API and Firestore database layers.
+
+- **Permanent Constraints**: Replaced temporary daily penalties with an absolute terminal lockout (`isLockedPermanently`) in `enforcementEngine.ts` when Total Drawdown limit is breached.
+- **Server-Side Firestore Sync**: Updated evaluation API to trigger an atomic Firestore `status: 'locked'` write upon terminal violation detection.
+- **Lazy Status Migration**: Implemented proactive legacy migration gate inside the `evaluate` API. Legacy pulses pre-dating the "Locked" status are auto-updated in Firestore to `locked` upon the next trade evaluate call.
+- **Enforcement Rejection (403)**: Evaluator API strictly rejects trade attempts on locked pulses with `403 Forbidden`.
+
+### UX Polish & Input Verification
+
+- **Dynamic Error UI**: Refactored `TradeFormModal` parsing logic to extract specialized `apiError` state from `usePulse` hooks, preventing duplicate toasts and feeding detailed backend error strings (e.g., "This pulse is permanently locked") into the form UI.
+- **Future-Date Guard**: Blocked future-dated trade logging via both:
+  - Native browser calendar restriction (`max` attribute on date inputs).
+  - State-level Javascript logic inside the main `validateForm()` hook.
+- **Unified UI Styling**: Ensured consistent "Add Trade" button lockout logic across both `TradeHistory` and `TradeCalendar` views, using reduced-opacity states and precise user-facing tooltip explanations.
+- **Constant Localization**: Centralized hardcoded titles and error responses inside `src/types/pulse.ts` under a single, reusable `PULSE_MESSAGES` object for enhanced codebase DRYness.
+
 ## [3.0.0] - 2026-05-09
 
 ### Major Features

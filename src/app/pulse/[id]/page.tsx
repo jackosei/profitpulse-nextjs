@@ -360,6 +360,7 @@ export default function PulseDetailsPage() {
         recoveryHint={recoveryHint}
         activeConstraints={activeConstraints}
         disciplineState={disciplineState}
+        pulse={pulse}
       />
 
       <LimitsTracker pulse={pulse} />

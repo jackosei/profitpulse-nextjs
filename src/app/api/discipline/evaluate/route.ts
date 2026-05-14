@@ -24,6 +24,7 @@ import { NextResponse } from "next/server";
 import { adminDb } from "@/services/admin";
 import * as admin from "firebase-admin";
 import type { Pulse, Trade, TradeRule } from "@/types/pulse";
+import { PULSE_STATUS, isPulseLocked } from "@/types/pulse";
 import type { TradeCreateData } from "@/services/api/pulseApi";
 import {
   evaluateViolations,
@@ -105,6 +106,20 @@ export async function POST(request: Request) {
     const pulseDoc = pulsesSnap.docs[0];
     const pulseData = pulseDoc.data() as Pulse;
     const firestoreId = pulseDoc.id;
+
+    if (isPulseLocked(pulseData)) {
+      if (pulseData.status !== PULSE_STATUS.LOCKED) {
+        // Lazy migration: Update status in Firestore for legacy pulses that breached before the new logic
+        await adminDb.collection("pulses").doc(firestoreId).update({
+          status: PULSE_STATUS.LOCKED,
+        });
+      }
+
+      return NextResponse.json(
+        { error: "Account is permanently locked due to excessive drawdown." },
+        { status: 403 },
+      );
+    }
 
     // ── Validate trade data ────────────────────────────────────────────
     if (
@@ -319,10 +334,10 @@ export async function POST(request: Request) {
     const riskPctFromSL =
       plannedSL && entryPrice && lotSize
         ? (Math.abs(entryPrice - plannedSL) *
-            pointValue *
-            lotSize /
-            pulseData.accountSize) *
-          100
+          pointValue *
+          lotSize /
+          pulseData.accountSize) *
+        100
         : 0;
 
     const tradeForEval: TradeForEvaluation = {
@@ -356,7 +371,7 @@ export async function POST(request: Request) {
       const exitQuality =
         plannedTP && slDistance > 0
           ? (tradeData.performance.profitLoss / riskAmountFromSL) /
-            (Math.abs(plannedTP - entryPrice) / slDistance)
+          (Math.abs(plannedTP - entryPrice) / slDistance)
           : null;
 
       engineMetrics = {
@@ -480,7 +495,7 @@ export async function POST(request: Request) {
       }
 
       // ── Compute enforcement constraints ────────────────────────────
-      const { constraints: incomingConstraints, reflectionGatePending } =
+      const { constraints: incomingConstraints, reflectionGatePending, isLockedPermanently } =
         computeConstraints(
           violations,
           updatedCounts,
@@ -505,6 +520,12 @@ export async function POST(request: Request) {
           "discipline.lastSessionDate": today,
           "discipline.weeklyBreachCounts": updatedCounts,
         });
+
+      if (isLockedPermanently) {
+        await adminDb.collection("pulses").doc(firestoreId).update({
+          status: PULSE_STATUS.LOCKED,
+        });
+      }
     } else if (discipline) {
       // Clean trade — update last session date, compute state
       newState = computeStateTransition(

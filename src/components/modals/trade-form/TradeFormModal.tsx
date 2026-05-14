@@ -67,6 +67,7 @@ export default function TradeFormModal({
     createTrade,
     updateTrade,
     loading: apiLoading,
+    error: apiError,
   } = usePulse({
     onError: (message) => toast.error(message),
   });
@@ -436,7 +437,8 @@ export default function TradeFormModal({
       }
 
       if (!tradeResult) {
-        throw new Error(`Failed to ${mode} trade`);
+        // Stop submission. error state and toast are handled automatically by usePulse
+        return;
       }
 
       toast.success(
@@ -766,9 +768,9 @@ export default function TradeFormModal({
               />
             )}
 
-            {error && (
+            {(error || apiError) && (
               <div className="mt-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
-                <p className="text-sm text-red-400">{error}</p>
+                <p className="text-sm text-red-400">{error || apiError}</p>
               </div>
             )}
 

@@ -413,7 +413,7 @@ export default function CreatePulseModal({ isOpen, onClose, onSuccess }: CreateP
                         type="number"
                         required
                         min="0"
-                        max="30"
+                        max={MAX_DAILY_DRAWDOWN}
                         step="0.1"
                         disabled={loading}
                         className="input-dark w-full disabled:opacity-50 disabled:cursor-not-allowed"
@@ -428,7 +428,7 @@ export default function CreatePulseModal({ isOpen, onClose, onSuccess }: CreateP
                         type="number"
                         required
                         min="0"
-                        max="50"
+                        max={MAX_TOTAL_DRAWDOWN}
                         step="0.1"
                         disabled={loading}
                         className="input-dark w-full disabled:opacity-50 disabled:cursor-not-allowed"

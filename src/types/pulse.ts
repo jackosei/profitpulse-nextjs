@@ -2,8 +2,8 @@ import { Timestamp } from "firebase/firestore";
 import type { TradeEngineMetrics, PulseDisciplineFields } from "@/lib/disciplineTypes";
 
 export const MAX_RISK_PERCENTAGE = 3;
-export const MAX_DAILY_DRAWDOWN = 5; // Default maximum daily loss as percentage of account
-export const MAX_TOTAL_DRAWDOWN = 10; // Default maximum total loss as percentage of account
+export const MAX_DAILY_DRAWDOWN = 100; // Default maximum daily loss as percentage of account
+export const MAX_TOTAL_DRAWDOWN = 100; // Default maximum total loss as percentage of account
 
 export const PULSE_STATUS = {
   ACTIVE: "active",
@@ -12,6 +12,15 @@ export const PULSE_STATUS = {
 } as const;
 
 export type PulseStatus = (typeof PULSE_STATUS)[keyof typeof PULSE_STATUS];
+
+export function isPulseLocked(pulse: Pulse): boolean {
+  if (pulse.status === PULSE_STATUS.LOCKED) return true;
+  if (pulse.maxTotalDrawdown > 0) {
+    const totalDrawdownPercentage = ((pulse.totalDrawdown || 0) / pulse.accountSize) * 100;
+    return totalDrawdownPercentage >= pulse.maxTotalDrawdown;
+  }
+  return false;
+}
 
 export interface TradeRule {
   id: string;

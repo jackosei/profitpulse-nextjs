@@ -1,4 +1,5 @@
 import { Trade, Pulse } from "@/types/pulse";
+import { isPulseLocked } from "@/types/pulse";
 import { useRef, useEffect, useState, useCallback } from "react";
 import TradeDetailsModal from "@/components/modals/TradeDetailsModal";
 import { TableIcon, CalendarIcon } from "lucide-react";
@@ -71,22 +72,20 @@ export default function TradeHistory({
             <div className="bg-gray-800/80 rounded-md p-0.5 flex">
               <button
                 onClick={() => onViewTypeChange("table")}
-                className={`p-1.5 rounded-md ${
-                  viewType === "table"
-                    ? "bg-blue-600 text-white"
-                    : "text-gray-400 hover:text-white"
-                } transition-colors flex items-center`}
+                className={`p-1.5 rounded-md ${viewType === "table"
+                  ? "bg-blue-600 text-white"
+                  : "text-gray-400 hover:text-white"
+                  } transition-colors flex items-center`}
                 title="Table View"
               >
                 <TableIcon className="h-4 w-4" />
               </button>
               <button
                 onClick={() => onViewTypeChange("calendar")}
-                className={`p-1.5 rounded-md ${
-                  viewType === "calendar"
-                    ? "bg-blue-600 text-white"
-                    : "text-gray-400 hover:text-white"
-                } transition-colors flex items-center`}
+                className={`p-1.5 rounded-md ${viewType === "calendar"
+                  ? "bg-blue-600 text-white"
+                  : "text-gray-400 hover:text-white"
+                  } transition-colors flex items-center`}
                 title="Calendar View"
               >
                 <CalendarIcon className="h-4 w-4" />
@@ -94,8 +93,11 @@ export default function TradeHistory({
             </div>
           </div>
           <button
-            className="btn-primary text-sm md:text-base px-3 py-1.5 md:px-4 md:py-2"
+            className={`btn-primary text-sm md:text-base px-3 py-1.5 md:px-4 md:py-2 ${pulse && isPulseLocked(pulse) ? 'opacity-50 cursor-not-allowed' : ''
+              }`}
             onClick={onAddTrade}
+            disabled={pulse && isPulseLocked(pulse)}
+            title={pulse && isPulseLocked(pulse) && 'Locked - Total Drawdown Exceeded' || ''}
           >
             Add Trade
           </button>

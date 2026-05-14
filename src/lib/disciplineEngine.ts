@@ -33,7 +33,6 @@ const RISK_PENALTY = {
 } as const;
 
 const DAILY_DRAWDOWN_PENALTY = 15;
-const TOTAL_DRAWDOWN_PENALTY = 25;
 const MAX_TRADES_PENALTY = 8;
 const REQUIRED_RULE_PENALTY = 4; // per rule
 const OPTIONAL_RULE_PENALTY = 1; // per rule
@@ -116,7 +115,7 @@ export function evaluateViolations(
   // --- Quantitative: Daily drawdown ---
   // Only fires on the trade that pushes cumulative daily loss past the limit.
   // If already exceeded before this trade, a previous trade already got flagged.
-  if (trade.profitLoss < 0) {
+  if (ctx.maxDailyDrawdown > 0 && trade.profitLoss < 0) {
     const dailyLossLimit = (ctx.maxDailyDrawdown / 100) * ctx.accountSize;
     const lossAmount = Math.abs(trade.profitLoss);
     const wasAlreadyExceeded = ctx.dailyLossSoFar >= dailyLossLimit;
@@ -138,7 +137,7 @@ export function evaluateViolations(
 
   // --- Quantitative: Total drawdown ---
   // Same once-per-breach logic as daily drawdown.
-  if (trade.profitLoss < 0) {
+  if (ctx.maxTotalDrawdown > 0 && trade.profitLoss < 0) {
     const totalLossLimit = (ctx.maxTotalDrawdown / 100) * ctx.accountSize;
     const lossAmount = Math.abs(trade.profitLoss);
     const wasAlreadyExceeded = ctx.totalDrawdown >= totalLossLimit;
@@ -150,7 +149,7 @@ export function evaluateViolations(
       violations.push({
         type: ViolationType.TOTAL_DRAWDOWN,
         category: ViolationCategory.QUANTITATIVE,
-        severity: TOTAL_DRAWDOWN_PENALTY,
+        severity: 0, // Terminal breach, no score penalty needed
         details: `Total drawdown ${actualPct.toFixed(2)}% hit limit of ${ctx.maxTotalDrawdown}%`,
         threshold: ctx.maxTotalDrawdown,
         actual: actualPct,
@@ -460,7 +459,6 @@ export function buildMultiMissViolation(): TradeViolation {
 export const PENALTY_WEIGHTS = {
   RISK_PENALTY,
   DAILY_DRAWDOWN_PENALTY,
-  TOTAL_DRAWDOWN_PENALTY,
   MAX_TRADES_PENALTY,
   REQUIRED_RULE_PENALTY,
   OPTIONAL_RULE_PENALTY,

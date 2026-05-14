@@ -45,11 +45,12 @@ export function computeConstraints(
   violations: TradeViolation[],
   weeklyBreachCounts: WeeklyBreachCounts,
   maxTradesPerDay: number | null,
-): { constraints: ActiveConstraints; reflectionGatePending: boolean } {
+): { constraints: ActiveConstraints; reflectionGatePending: boolean; isLockedPermanently: boolean } {
   let riskCapPct: number | null = null;
   let tradeCapCount: number | null = null;
   let noTradeDays = 0;
   let reflectionGatePending = false;
+  let isLockedPermanently = false;
 
   for (const v of violations) {
     switch (v.type) {
@@ -83,19 +84,7 @@ export function computeConstraints(
       }
 
       case ViolationType.TOTAL_DRAWDOWN: {
-        const totalDrawdownCount = weeklyBreachCounts.drawdownTotal;
-
-        if (totalDrawdownCount >= 2) {
-          // Repeat: 2-day no-trade lockout
-          noTradeDays = Math.max(noTradeDays, 2);
-        } else {
-          // First ever: full lockout + 50% cap for 3 sessions
-          riskCapPct = pickMoreRestrictive(riskCapPct, 0.5);
-          // Note: "× 3 sessions" tracking is managed by the API route via
-          // a constraint duration counter (future enhancement). For now
-          // the cap persists until lifted by shouldLiftConstraints.
-        }
-        reflectionGatePending = true;
+        isLockedPermanently = true;
         break;
       }
 
@@ -130,6 +119,7 @@ export function computeConstraints(
       noTradeDays,
     },
     reflectionGatePending,
+    isLockedPermanently,
   };
 }
 

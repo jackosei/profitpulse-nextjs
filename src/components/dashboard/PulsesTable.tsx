@@ -1,6 +1,6 @@
 import { memo, useCallback, useState } from "react"
 import { useRouter } from "next/navigation"
-import type { Pulse } from "@/types/pulse"
+import { type Pulse, isPulseLocked } from "@/types/pulse"
 import { formatCurrency, formatRatio } from "@/utils/format"
 import PulseDetailsModal from "@/components/modals/PulseDetailsModal"
 import { Lock, AlertCircle, AlertTriangle } from "lucide-react"
@@ -39,11 +39,11 @@ function PulseTableRow({ pulse }: { pulse: Pulse }) {
 	const totalDrawdownPercentage = ((pulse.totalDrawdown || 0) / pulse.accountSize) * 100
 
 	const getRiskIndicator = () => {
-		if (pulse.status === 'locked') {
+		if (isPulseLocked(pulse)) {
 			return {
 				color: 'text-red-500',
 				icon: <Lock className="w-3.5 h-3.5" />,
-				text: 'Locked - Risk Limits Exceeded'
+				text: 'Locked - Total Drawdown Exceeded'
 			}
 		}
 		if (pulse.maxDailyDrawdown > 0 && todayLossPercentage >= pulse.maxDailyDrawdown) {
@@ -53,13 +53,7 @@ function PulseTableRow({ pulse }: { pulse: Pulse }) {
 				text: 'Daily Drawdown Exceeded'
 			}
 		}
-		if (pulse.maxTotalDrawdown > 0 && totalDrawdownPercentage >= pulse.maxTotalDrawdown) {
-			return {
-				color: 'text-red-500',
-				icon: <AlertCircle className="w-3.5 h-3.5" />,
-				text: 'Total Drawdown Exceeded'
-			}
-		}
+		// (Removed redundant Total Drawdown check since isPulseLocked covers it)
 		if (pulse.maxDailyDrawdown > 0 && todayLossPercentage > pulse.maxDailyDrawdown * 0.8) {
 			return {
 				color: 'text-yellow-500',
@@ -83,7 +77,7 @@ function PulseTableRow({ pulse }: { pulse: Pulse }) {
 		<>
 			<tr
 				key={pulse.id}
-				className={`group hover:bg-gray-800/50 cursor-pointer ${pulse.status === 'locked' ? 'bg-red-900/10' : ''}`}
+				className={`group hover:bg-gray-800/50 cursor-pointer ${isPulseLocked(pulse) ? 'bg-red-900/10' : ''}`}
 				onClick={handleRowClick}
 			>
 				<td className="p-4 font-medium text-sm">

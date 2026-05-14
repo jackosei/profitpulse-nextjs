@@ -1,5 +1,7 @@
 import {  PulseDetailsModalProps } from '@/types/pulse';
+import { isPulseLocked, PULSE_STATUS } from '@/types/pulse';
 import { formatCurrency, formatRatio } from '@/utils/format';
+import { Lock } from 'lucide-react';
 
 
 
@@ -44,9 +46,9 @@ export default function PulseDetailsModal({ isOpen, onClose, pulse }: PulseDetai
               </div>
               <div>
                 <p className="text-sm text-gray-400">Status</p>
-                <p className={`text-base ${pulse.status === 'locked' ? 'text-red-500' : 'text-foreground'}`}>
-                  {pulse.status.charAt(0).toUpperCase() + pulse.status.slice(1)}
-                  {pulse.status === 'locked' && ' 🔒'}
+                <p className={`text-base flex items-center ${isPulseLocked(pulse) ? 'text-red-500' : 'text-foreground'}`}>
+                  {isPulseLocked(pulse) ? 'Locked' : pulse.status.charAt(0).toUpperCase() + pulse.status.slice(1)}
+                  {isPulseLocked(pulse) && <Lock className="w-4 h-4 ml-1.5" />}
                 </p>
               </div>
               <div>

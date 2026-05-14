@@ -40,6 +40,8 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+package-lock.json
+
 
 analysis_report.md
 /notes

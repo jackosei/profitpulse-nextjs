@@ -194,13 +194,42 @@ export default function UpdatePulseModal({ isOpen, onClose, onSuccess, pulse }: 
 
   if (!isOpen) return null;
 
+  const handleBackdropClick = () => {
+    if (!isSubmitting) onClose();
+  };
+
   return (
-    <div className="fixed inset-0 bg-black/50 z-50">
-      <div className="fixed inset-0 overflow-y-auto">
-        <div className="flex min-h-full items-center justify-center p-4">
-          <div className="w-full max-w-md">
-            <div className="bg-dark p-6 rounded-lg border border-gray-800 max-h-[90vh] overflow-y-auto">
-              <h2 className="text-xl font-bold text-foreground mb-4">Update Pulse Settings</h2>
+    <div
+      className="fixed inset-0 z-50 bg-black/50"
+      onClick={handleBackdropClick}
+      role="presentation"
+    >
+      <div className="fixed inset-0 overflow-y-auto" onClick={handleBackdropClick}>
+        <div className="flex min-h-full items-center justify-center p-4" onClick={handleBackdropClick}>
+          <div
+            className="w-full max-w-md"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="update-pulse-title"
+          >
+            <div className="flex max-h-[90vh] flex-col overflow-hidden rounded-lg border border-gray-800 bg-dark">
+              <div className="flex shrink-0 items-center justify-between border-b border-gray-800 px-5 py-3 sm:px-6 sm:py-3.5">
+                <h2 id="update-pulse-title" className="text-xl font-bold text-foreground">
+                  Update Pulse Settings
+                </h2>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  disabled={isSubmitting}
+                  className="text-2xl text-gray-400 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                  aria-label="Close"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="max-h-[calc(90vh-3.5rem)] overflow-y-auto p-5 sm:p-6">
               {pulse.hasBeenUpdated ? (
                 <div>
                   <div className="p-4 bg-yellow-900/50 border border-yellow-800 rounded-lg mb-4">
@@ -216,6 +245,7 @@ export default function UpdatePulseModal({ isOpen, onClose, onSuccess, pulse }: 
                   </div>
                   <div className="flex justify-end">
                     <button
+                      type="button"
                       onClick={onClose}
                       className="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors"
                     >
@@ -435,6 +465,7 @@ export default function UpdatePulseModal({ isOpen, onClose, onSuccess, pulse }: 
                   </div>
                 </form>
               )}
+              </div>
             </div>
           </div>
         </div>

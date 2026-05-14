@@ -641,7 +641,7 @@ export default function TradeFormModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-3 sm:p-4">
-      <div className="relative my-2 flex min-h-0 w-full max-w-4xl max-h-[min(95vh,calc(100dvh-1rem))] flex-col overflow-hidden rounded-lg border border-gray-800 bg-dark shadow-xl sm:my-4">
+      <div className="relative my-2 flex w-full max-w-4xl flex-col overflow-hidden rounded-lg border border-gray-800 bg-dark shadow-xl sm:my-4 max-h-[min(95vh,calc(100dvh-1rem))]">
         <div className="flex shrink-0 items-center justify-between border-b border-gray-800 px-5 py-3 sm:px-6 sm:py-3.5">
           <h2 className="text-2xl font-bold text-foreground">
             {mode === "create" ? "Add Trade" : "Edit Trade"}
@@ -658,12 +658,12 @@ export default function TradeFormModal({
         </div>
 
         {loadingPulse ? (
-          <div className="flex flex-1 items-center justify-center py-16">
+          <div className="flex items-center justify-center py-16">
             <LoadingSpinner />
           </div>
         ) : (
           <form
-            className="flex min-h-0 flex-1 flex-col overflow-hidden"
+            className="flex flex-col overflow-hidden"
             onSubmit={handleSubmit}
           >
             {/* Tab navigation — fixed below header; only tab content scrolls */}
@@ -743,7 +743,7 @@ export default function TradeFormModal({
               </button>
             </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4 sm:px-6">
+            <div className="overflow-y-auto px-5 py-4 sm:px-6 max-h-[calc(100dvh-12rem)] sm:max-h-[calc(100dvh-11.5rem)]">
             {activeTab === "trade" && (
               <>
                 <TradeDataForm

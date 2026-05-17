@@ -145,6 +145,7 @@ export async function updatePassword(user: User, newPassword: string): Promise<A
 export async function logout(): Promise<ApiResponse<void>> {
   try {
     await signOut(auth);
+    await clearSessionCookie();
     return createSuccessResponse(undefined);
   } catch {
     return createErrorResponse(ErrorCode.UNKNOWN, "Failed to log out.");
@@ -183,5 +184,16 @@ export async function setSessionCookie(): Promise<boolean> {
   } catch (error) {
     console.error("Failed to set session cookie:", error);
     return false;
+  }
+}
+
+/**
+ * Clear the server-side session cookie
+ */
+export async function clearSessionCookie(): Promise<void> {
+  try {
+    await fetch('/api/auth/session', { method: 'DELETE' });
+  } catch (error) {
+    console.error("Failed to clear session cookie:", error);
   }
 } 

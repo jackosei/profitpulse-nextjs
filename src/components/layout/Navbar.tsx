@@ -1,7 +1,6 @@
 "use client";
 
 import { useAuth } from "@/context/AuthContext";
-import { auth } from "@/services/firebase/firestoreConfig";
 import Link from "next/link";
 import Image from "next/image";
 import { useState } from "react";
@@ -13,7 +12,7 @@ import { usePulse } from "@/hooks/usePulse";
 import type { Pulse } from "@/types/pulse";
 
 export default function Navbar() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const params = useParams();
   const [showDropdown, setShowDropdown] = useState(false);
   const [isCalculatorOpen, setIsCalculatorOpen] = useState(false);
@@ -122,9 +121,9 @@ export default function Navbar() {
 
                       {/* Logout Button */}
                       <button
-                        onClick={() => {
-                          auth.signOut();
+                        onClick={async () => {
                           setShowDropdown(false);
+                          await logout();
                         }}
                         className="w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-gray-800"
                       >

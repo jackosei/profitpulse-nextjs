@@ -4,8 +4,7 @@ export interface UserProfile {
   id: string;
   email: string;
   displayName: string | null;
-  role?: UserRole;
-  isAdmin?: boolean;
+  role: UserRole; // single source of truth for authorization
   createdAt: string; // ISO date string
   updatedAt?: string; // ISO date string
 }

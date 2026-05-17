@@ -1,6 +1,21 @@
 import { NextResponse } from 'next/server';
-import { adminDb } from '@/services/admin';
+import { adminDb, adminAuth } from '@/services/admin';
 import * as admin from 'firebase-admin';
+
+export const runtime = 'nodejs';
+
+/** Verify the caller's Firebase ID token; returns the authenticated uid. */
+async function verifyAuth(request: Request): Promise<string | null> {
+  const authHeader = request.headers.get('Authorization');
+  if (!authHeader?.startsWith('Bearer ')) return null;
+  const token = authHeader.slice(7);
+  try {
+    const decoded = await adminAuth.verifyIdToken(token, true);
+    return decoded.uid;
+  } catch {
+    return null;
+  }
+}
 
 // Rate limiting
 const MAX_ATTEMPTS = 5;
@@ -44,10 +59,18 @@ export async function POST(request: Request) {
       );
     }
 
-    const { uid, secretKey } = await request.json();
+    // Identity comes from the verified token, NOT the request body — a caller
+    // can only promote themselves (and only if the secret + single-admin
+    // guard below also pass).
+    const uid = await verifyAuth(request);
+    if (!uid) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
-    if (!uid || !secretKey) {
-      console.error('Missing required fields:', { uid: !!uid, secretKey: !!secretKey });
+    const { secretKey } = await request.json();
+
+    if (!secretKey) {
+      console.error('Missing required fields: secretKey');
       return NextResponse.json(
         { error: 'Missing required fields' },
         { status: 400 }

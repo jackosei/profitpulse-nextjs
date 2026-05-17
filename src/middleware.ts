@@ -1,25 +1,19 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { publicRoutes, authRoutes } from '@/config/routes'
-// import { cookies } from 'next/headers'
-// import { auth as adminAuth } from '@/services/admin'
+import { authRoutes } from '@/config/routes'
 
 export function middleware(request: NextRequest) {
   const session = request.cookies.get('session')?.value
   const path = request.nextUrl.pathname
+  const isAuthRoute = authRoutes.includes(path)
 
-  // Allow public routes
-  if (publicRoutes.includes(path)) {
-    return NextResponse.next()
-  }
-
-  // If user is logged in and tries to access auth pages (login/signup), redirect to home
-  if (session && authRoutes.includes(path)) {
+  // Logged-in users shouldn't see the auth pages
+  if (session && isAuthRoute) {
     return NextResponse.redirect(new URL('/', request.url))
   }
 
-  // If user is not logged in and tries to access protected routes, redirect to login
-  if (!session && !authRoutes.includes(path)) {
+  // Unauthenticated users can only reach the auth pages
+  if (!session && !isAuthRoute) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
@@ -30,17 +24,12 @@ export const config = {
   matcher: [
     /*
      * Match all request paths except:
-     * - api (API routes)
+     * - api (API routes — the session route must stay reachable while logged out)
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
-     * - *.svg (SVG files)
-     * - *.png (PNG files)
-     * - *.jpg (JPEG files)
-     * - *.jpeg (JPEG files)
-     * - *.gif (GIF files)
-     * - other static files
+     * - *.svg / *.png / *.jpg / *.jpeg / *.gif (static assets)
      */
     '/((?!api|_next/static|_next/image|favicon.ico|.*\\.svg$|.*\\.png$|.*\\.jpg$|.*\\.jpeg$|.*\\.gif$).*)',
   ],
-} 
+}

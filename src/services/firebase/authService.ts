@@ -46,7 +46,8 @@ export async function handleRedirectResult(): Promise<ApiResponse<User>> {
     if (result) {
       return createSuccessResponse(result.user);
     }
-    return createErrorResponse(ErrorCode.NOT_FOUND, 'No redirect result');
+    // No redirect in progress — not an error, just the normal direct-load case.
+    return { success: false };
   } catch (error) {
     console.error("Redirect Result Error:", error);
     return createErrorResponse(

@@ -42,6 +42,14 @@ service cloud.firestore {
 
       // Only admins can delete user profiles
       allow delete: if isAdmin();
+
+      // Daily journal entries (one doc per UTC day). Written server-side via
+      // the Admin SDK (which bypasses these rules); these rules keep any
+      // direct client access scoped to the owner.
+      match /journal/{day} {
+        allow read: if isOwner(userId) || isAdmin();
+        allow write: if isOwner(userId);
+      }
     }
 
     // Quotes collection rules

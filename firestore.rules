@@ -21,17 +21,25 @@ service cloud.firestore {
     match /users/{userId} {
       // Allow users to read their own profile, admins can read any
       allow read: if isOwner(userId) || isAdmin();
-      
+
       // Allow listing users only for admins
       allow list: if isAdmin();
-      
-      // Allow users to create their own profile explicitly
-      // This is now supplemented by Admin SDK for admin setup
-      allow create: if isOwner(userId);
-      
-      // Allow users to update their own profile, admins can update any profile
-      allow update: if isOwner(userId) || isAdmin();
-      
+
+      // A user may create only their own profile, and may NOT self-assign a
+      // privileged role. Role/admin provisioning happens server-side via the
+      // Admin SDK (which bypasses these rules), so any client-originated
+      // create must be a plain 'user'. .get(key, default) tolerates docs
+      // that omit the role field.
+      allow create: if isOwner(userId) &&
+                       request.resource.data.get('role', 'user') == 'user';
+
+      // A user may update their own profile but may NOT change their role
+      // (no self-escalation). Admins may update any profile including role.
+      allow update: if (isOwner(userId) &&
+                        request.resource.data.get('role', 'user') ==
+                          resource.data.get('role', 'user')) ||
+                       isAdmin();
+
       // Only admins can delete user profiles
       allow delete: if isAdmin();
     }

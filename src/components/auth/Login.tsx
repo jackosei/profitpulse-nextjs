@@ -1,19 +1,16 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import {
-	signInWithGoogle,
-	signInWithEmail,
-	handleRedirectResult,
-} from "@/services/auth"
+import { useAuth } from "@/context/AuthContext"
+import { setSessionCookie } from "@/services/api/authApi"
 import { auth } from "@/services/firebase/firestoreConfig"
 import Image from "next/image"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { setSessionCookie } from "@/services/auth"
 
 export default function Login() {
 	const router = useRouter()
+	const { signInWithGoogle, signInWithEmail, handleRedirectResult } = useAuth()
 	const [email, setEmail] = useState("")
 	const [password, setPassword] = useState("")
 	const [loading, setLoading] = useState(true)
@@ -23,11 +20,11 @@ export default function Login() {
 		const checkRedirectResult = async () => {
 			try {
 				const result = await handleRedirectResult()
-				if (result.success && result.user) {
+				if (result.success && result.data) {
 					await setSessionCookie()
 					router.push("/")
 				} else if (result.error) {
-					setError(result.message || "Sign in failed")
+					setError(result.error.message || "Sign in failed")
 				}
 			} catch (err) {
 				console.error("Redirect error:", err)
@@ -48,17 +45,21 @@ export default function Login() {
 		})
 
 		return () => unsubscribe()
-	}, [router])
+	}, [router, handleRedirectResult])
 
 	const handleGoogleSignIn = async () => {
 		setLoading(true)
 		setError("")
 
 		try {
-			const userData = await signInWithGoogle()
-			// For mobile, the redirect will happen here and the result will be handled by useEffect
-			if (!userData.success && userData.message) {
-				setError(userData.message)
+			const res = await signInWithGoogle()
+			if (res.success && res.data) {
+				// Ensure the server session cookie exists before navigating so
+				// middleware doesn't bounce us straight back to /login.
+				await setSessionCookie()
+				router.push("/")
+			} else if (!res.success) {
+				setError(res.error?.message || "Failed to sign in")
 			}
 		} catch (err) {
 			setError(typeof err === "string" ? err : "Failed to sign in")
@@ -73,12 +74,12 @@ export default function Login() {
 		setError("")
 
 		try {
-			const userData = await signInWithEmail(email, password)
-			if (userData.success && userData.user) {
+			const res = await signInWithEmail(email, password)
+			if (res.success && res.data) {
 				await setSessionCookie()
 				router.push("/")
 			} else {
-				setError(userData.message || "Sign in failed")
+				setError(res.error?.message || "Sign in failed")
 			}
 		} catch (err) {
 			setError(typeof err === "string" ? err : "Failed to sign in")

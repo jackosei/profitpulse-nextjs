@@ -1,89 +1,111 @@
 import { UserProfile } from "@/types/user";
 import {
   ApiResponse,
+  createSuccessResponse,
   createErrorResponse,
   ErrorCode,
 } from "../types/apiResponses";
-import * as userService from "../firebase/userService";
+import { getFirebaseToken } from "../firebase/authService";
 
 /**
- * Get a user profile by ID
- * @param userId The user ID
- * @returns API response with user profile data
+ * Client wrapper around the server-side /api/users route.
+ *
+ * All profile reads/writes are token-verified server-side and the user's
+ * role is enforced by the server (never client-settable). The `userId`
+ * arguments are kept for call-site compatibility but the server always
+ * derives identity from the verified Firebase ID token.
  */
+async function authedFetch(
+  method: "GET" | "POST" | "PATCH",
+  body?: unknown,
+): Promise<Response | null> {
+  const token = await getFirebaseToken();
+  if (!token) return null;
+  return fetch("/api/users", {
+    method,
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+  });
+}
+
 export async function getUserProfile(
-  userId: string,
+  _userId: string,
 ): Promise<ApiResponse<UserProfile>> {
+  void _userId;
   try {
-    return await userService.getUserProfile(userId);
+    const res = await authedFetch("GET");
+    if (!res) {
+      return createErrorResponse(ErrorCode.UNAUTHORIZED, "Not authenticated");
+    }
+    if (res.status === 404) {
+      return createErrorResponse(ErrorCode.NOT_FOUND, "User profile not found");
+    }
+    if (!res.ok) {
+      return createErrorResponse(ErrorCode.SERVER_ERROR, "Failed to get user profile");
+    }
+    const { profile } = await res.json();
+    return createSuccessResponse(profile as UserProfile);
   } catch (error) {
-    return createErrorResponse(
-      ErrorCode.SERVER_ERROR,
-      "Failed to get user profile",
-      { originalError: error instanceof Error ? error.message : String(error) },
-    );
+    return createErrorResponse(ErrorCode.SERVER_ERROR, "Failed to get user profile", {
+      originalError: error instanceof Error ? error.message : String(error),
+    });
   }
 }
 
-/**
- * Create a new user profile
- * @param userId The user ID
- * @param email The user's email
- * @param displayName The user's display name
- * @returns API response with created user profile
- */
 export async function createUserProfile(
-  userId: string,
+  _userId: string,
   email: string,
   displayName: string | null,
 ): Promise<ApiResponse<UserProfile>> {
+  void _userId;
   try {
-    return await userService.createUserProfile(userId, email, displayName);
+    const res = await authedFetch("POST", { email, displayName });
+    if (!res) {
+      return createErrorResponse(ErrorCode.UNAUTHORIZED, "Not authenticated");
+    }
+    if (!res.ok) {
+      return createErrorResponse(ErrorCode.SERVER_ERROR, "Failed to create user profile");
+    }
+    const { profile } = await res.json();
+    return createSuccessResponse(profile as UserProfile);
   } catch (error) {
-    return createErrorResponse(
-      ErrorCode.SERVER_ERROR,
-      "Failed to create user profile",
-      { originalError: error instanceof Error ? error.message : String(error) },
-    );
+    return createErrorResponse(ErrorCode.SERVER_ERROR, "Failed to create user profile", {
+      originalError: error instanceof Error ? error.message : String(error),
+    });
   }
 }
 
-/**
- * Update a user profile
- * @param userId The user ID
- * @param data The update data
- * @returns API response indicating success/failure
- */
 export async function updateUserProfile(
-  userId: string,
-  data: Partial<UserProfile>,
-): Promise<ApiResponse<void>> {
+  _userId: string,
+  data: Partial<Pick<UserProfile, "displayName">>,
+): Promise<ApiResponse<UserProfile>> {
+  void _userId;
   try {
-    return await userService.updateUserProfile(userId, data);
+    const res = await authedFetch("PATCH", { displayName: data.displayName });
+    if (!res) {
+      return createErrorResponse(ErrorCode.UNAUTHORIZED, "Not authenticated");
+    }
+    if (!res.ok) {
+      return createErrorResponse(ErrorCode.SERVER_ERROR, "Failed to update user profile");
+    }
+    const { profile } = await res.json();
+    return createSuccessResponse(profile as UserProfile);
   } catch (error) {
-    return createErrorResponse(
-      ErrorCode.SERVER_ERROR,
-      "Failed to update user profile",
-      { originalError: error instanceof Error ? error.message : String(error) },
-    );
+    return createErrorResponse(ErrorCode.SERVER_ERROR, "Failed to update user profile", {
+      originalError: error instanceof Error ? error.message : String(error),
+    });
   }
 }
 
-/**
- * Check if a user is an admin
- * @param userId The user ID
- * @returns API response with admin status
- */
 export async function isUserAdmin(
   userId: string,
 ): Promise<ApiResponse<boolean>> {
-  try {
-    return await userService.isUserAdmin(userId);
-  } catch (error) {
-    return createErrorResponse(
-      ErrorCode.SERVER_ERROR,
-      "Failed to check admin status",
-      { originalError: error instanceof Error ? error.message : String(error) },
-    );
+  const profile = await getUserProfile(userId);
+  if (!profile.success || !profile.data) {
+    return createErrorResponse(ErrorCode.NOT_FOUND, "User profile not found");
   }
+  return createSuccessResponse(profile.data.role === "admin");
 }

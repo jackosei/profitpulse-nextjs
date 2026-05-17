@@ -32,7 +32,7 @@ async function verifyAuth(request: Request): Promise<string | null> {
   if (!authHeader?.startsWith("Bearer ")) return null;
   const token = authHeader.slice(7);
   try {
-    const decoded = await admin.auth().verifyIdToken(token);
+    const decoded = await admin.auth().verifyIdToken(token, true);
     return decoded.uid;
   } catch {
     return null;

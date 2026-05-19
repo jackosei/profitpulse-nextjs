@@ -16,6 +16,7 @@ import { auth } from "./firestoreConfig";
 import { ApiResponse, createSuccessResponse, createErrorResponse, ErrorCode } from "../types/apiResponses";
 
 const provider = new GoogleAuthProvider();
+provider.setCustomParameters({ prompt: 'select_account' });
 
 /**
  * Sign in with Google

@@ -48,8 +48,10 @@ src/
 - Mandatory daily journal gate (`/journal`) before app access
 - Trade tracking and analysis
 - Performance metrics and visualization
-- Dashboard with key statistics
-- Discipline engine with violation scoring and enforcement
+- Dashboard with key statistics and premium empty states
+- Discipline engine with violation scoring, dynamic zone transitions, and enforcement
+- Automated multi-session risk caps and lockouts for poor behaviour
+- Streak tracking and Discipline Score history visualization
 
 ## Authentication Model
 

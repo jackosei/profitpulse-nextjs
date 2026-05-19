@@ -1,5 +1,35 @@
 # Changelog
 
+## [4.2.0] - 2026-05-19
+
+Phase 3 - Sprint 2: Multi-session Risk Cap Countdown, DisciplineMeter UX Overhaul, Streak Badge, and Premium Empty States.
+
+### New Features
+
+#### Multi-Session Risk Cap Countdown (Option B)
+- Updated `enforcementEngine.ts` to require multiple consecutive clean sessions before lifting lockouts or risk caps.
+- Caps triggered by Daily Drawdown breaches require 3 clean sessions to lift.
+- Caps triggered by Total Drawdown breaches (prior to permanent lockout) require 5 clean sessions to lift.
+- `ActiveConstraints` model expanded to track `cleanSessionsToLift`.
+- `LimitsTracker` UI now displays a dynamic countdown warning banner when constraints are active and waiting to be lifted.
+
+#### Discipline Meter UX Redesign
+- Extracted `DisciplineMeter` from `PulseHeader` to clearly separate behavioural metrics from general Pulse configuration.
+- Solved cognitive dissonance by giving "Today's Execution" its own visual circular progress ring, distinctly separated from the lifetime "Discipline Score" horizontal gradient bar.
+- Constraint badges inside the meter auto-hide during clean trading, reappearing only when restrictions are triggered.
+
+#### Streak Badge
+- Created `StreakBadge.tsx` alongside the DisciplineMeter.
+- Automatically tracks `consecutiveCleanDays` and prominently displays a "Hot Streak" flame animation when a streak hits ≥3 days.
+
+#### Premium Empty States
+- Designed premium empty states for `PulsesTable.tsx` (Dashboard) and `TradeHistory.tsx` (Pulse Detail) with custom illustrations, welcoming copy, and primary CTA buttons to guide new users into the core loop.
+
+### Fixes
+- Added missing `cleanSessionsToLift` default property in `evaluate/route.ts` and `disciplineTypes.ts`.
+- Removed unused props from `PulseHeader` and fixed strict TypeScript lint errors.
+- Corrected Firestore index `queryScope` for `violationLog` queries from `COLLECTION_GROUP` to `COLLECTION`.
+
 ## [4.1.0] - 2026-05-19
 
 Phase 3: Streak tracking, notification engine (email + SMS-ready), discipline score

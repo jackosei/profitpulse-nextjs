@@ -102,4 +102,11 @@ export async function getAuthToken(): Promise<string | null> {
  */
 export async function setSessionCookie(): Promise<boolean> {
   return authService.setSessionCookie();
-} 
+}
+
+/**
+ * Clear the server-side session cookie
+ */
+export async function clearSessionCookie(): Promise<void> {
+  return authService.clearSessionCookie();
+}

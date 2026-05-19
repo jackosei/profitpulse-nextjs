@@ -92,86 +92,111 @@ export default function DisciplineMeter({
   const markerLeftPct = clamp(safeScore, 0, 99); // keep visible at edges
 
   return (
-    <div className="flex flex-col gap-2 py-2 px-3 bg-dark/40 rounded-lg border border-gray-800/60 min-w-[220px]">
-      {/* ── Header row: score + zone label + session badge ── */}
-      <div className="flex items-center justify-between gap-3 mb-1">
-        {/* Score + zone label */}
-        <div className="flex flex-col gap-0.5">
-          <div className="flex items-center gap-1">
-            <span className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold">
-              Discipline Score
-            </span>
-            <div title="Your lifetime Discipline Score (0-100). It determines your Zone (Stable, At Risk, Enforcement) and dictates which trading constraints are active.">
-              <Info className="w-3 h-3 text-gray-500 cursor-help" />
+    <div className="flex flex-col gap-3 py-3 px-4 bg-dark/40 rounded-lg border border-gray-800/60 min-w-[280px]">
+      
+      <div className="flex items-start justify-between gap-6">
+        
+        {/* ── Left: Discipline Score & Bar ── */}
+        <div className="flex flex-col gap-2 flex-1">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1">
+              <span className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold">
+                Discipline Score
+              </span>
+              <div title="Your lifetime Discipline Score (0-100). It determines your Zone (Stable, At Risk, Enforcement) and dictates which trading constraints are active.">
+                <Info className="w-3 h-3 text-gray-500 cursor-help" />
+              </div>
             </div>
-          </div>
-          <div className="flex items-baseline gap-1.5">
-            <span className={`text-2xl font-bold tabular-nums ${colors.text}`}>
-              {safeScore}
-            </span>
-            <span className="text-xs text-gray-500">/100</span>
             <span
-              className={`ml-1.5 text-xs font-medium px-1.5 py-0.5 rounded border ${colors.text} ${colors.bg} ${colors.border}`}
+              className={`text-[10px] font-bold px-1.5 py-0.5 rounded border uppercase tracking-wide ${colors.text} ${colors.bg} ${colors.border}`}
             >
               {ZONE_LABEL[zone]}
             </span>
           </div>
+
+          <div className="flex items-baseline gap-1">
+            <span className={`text-3xl font-bold tabular-nums leading-none ${colors.text}`}>
+              {safeScore}
+            </span>
+            <span className="text-sm text-gray-500 font-medium leading-none">/100</span>
+          </div>
+
+          <div className="flex flex-col mt-1">
+            {/* Gradient bar + marker */}
+            <div className="relative">
+              {/* Track */}
+              <div
+                className="h-2 w-full rounded-full overflow-hidden"
+                style={{
+                  background:
+                    "linear-gradient(to right, #ef4444 0%, #f59e0b 40%, #10b981 75%, #10b981 100%)",
+                }}
+                role="meter"
+                aria-valuenow={safeScore}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-label={`Discipline score: ${safeScore} out of 100`}
+              />
+
+              {/* Marker */}
+              <div
+                className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2"
+                style={{ left: `${markerLeftPct}%` }}
+                aria-hidden="true"
+              >
+                {/* Outer ring */}
+                <div className="w-3.5 h-3.5 rounded-full bg-dark/90 border-2 border-gray-700 flex items-center justify-center shadow-lg">
+                  {/* Inner dot in zone colour */}
+                  <div className={`w-1.5 h-1.5 rounded-full ${colors.ring}`} />
+                </div>
+              </div>
+            </div>
+
+            {/* Zone tick labels */}
+            <div className="flex justify-between text-[10px] text-gray-600 mt-1 select-none font-medium">
+              <span>0</span>
+              <span>40</span>
+              <span>75</span>
+              <span>100</span>
+            </div>
+          </div>
         </div>
 
-        {/* Session Rule Score badge */}
-        <div className="flex flex-col items-end gap-0.5 mt-1">
+        {/* ── Right: Today's Execution (Circular Progress) ── */}
+        <div className="flex flex-col items-center gap-2 pl-6 border-l border-gray-800/60">
           <div className="flex items-center gap-1">
-            <span className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold">
-              Today&apos;s Execution
+            <span className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold text-center leading-tight max-w-[60px]">
+              Today's Exec.
             </span>
             <div title="The percentage of your qualitative trading rules you successfully followed across all trades logged today.">
               <Info className="w-3 h-3 text-gray-500 cursor-help" />
             </div>
           </div>
-          <span
-            className={`text-sm font-semibold tabular-nums ${ruleScoreColor(sessionRuleScore)}`}
-          >
-            {Math.round(sessionRuleScore)}%
-          </span>
-        </div>
-      </div>
 
-      {/* ── Gradient bar + marker ── */}
-      <div className="relative">
-        {/* Track */}
-        <div
-          className="h-2 w-full rounded-full overflow-hidden"
-          style={{
-            background:
-              "linear-gradient(to right, #ef4444 0%, #f59e0b 40%, #10b981 75%, #10b981 100%)",
-          }}
-          role="meter"
-          aria-valuenow={safeScore}
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-label={`Discipline score: ${safeScore} out of 100`}
-        />
-
-        {/* Marker */}
-        <div
-          className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2"
-          style={{ left: `${markerLeftPct}%` }}
-          aria-hidden="true"
-        >
-          {/* Outer ring */}
-          <div className="w-4 h-4 rounded-full bg-dark/90 border-2 border-gray-700 flex items-center justify-center shadow-lg">
-            {/* Inner dot in zone colour */}
-            <div className={`w-1.5 h-1.5 rounded-full ${colors.ring}`} />
+          <div className="relative w-12 h-12 flex items-center justify-center">
+             <svg className="w-full h-full transform -rotate-90">
+                <circle cx="24" cy="24" r="20" stroke="currentColor" strokeWidth="4" fill="none" className="text-gray-800/80" />
+                <circle 
+                  cx="24" 
+                  cy="24" 
+                  r="20" 
+                  stroke="currentColor" 
+                  strokeWidth="4" 
+                  fill="none" 
+                  className={ruleScoreColor(sessionRuleScore)} 
+                  strokeDasharray="125.66" 
+                  strokeDashoffset={125.66 - (125.66 * sessionRuleScore / 100)} 
+                  strokeLinecap="round" 
+                />
+             </svg>
+             <div className="absolute inset-0 flex items-center justify-center">
+               <span className={`text-xs font-bold tabular-nums ${ruleScoreColor(sessionRuleScore)}`}>
+                 {Math.round(sessionRuleScore)}%
+               </span>
+             </div>
           </div>
         </div>
-      </div>
 
-      {/* ── Zone tick labels ── */}
-      <div className="flex justify-between text-[10px] text-gray-600 -mt-0.5 select-none">
-        <span>0</span>
-        <span>40</span>
-        <span>75</span>
-        <span>100</span>
       </div>
 
       {/* ── Recovery hint — only when not GREEN ── */}

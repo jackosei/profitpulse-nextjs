@@ -195,9 +195,22 @@ function PulsesTable({ pulses, onCreatePulse }: PulsesTableProps) {
 					</tbody>
 				</table>
 				{pulses.length === 0 && (
-					<div className="p-4 text-center text-gray-400 text-sm">
-						No pulses created yet. Create your first pulse to start tracking
-						trades.
+					<div className="p-12 flex flex-col items-center justify-center text-center">
+						<div className="w-16 h-16 bg-gray-800/50 rounded-full flex items-center justify-center mb-4">
+							<svg className="w-8 h-8 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+								<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
+							</svg>
+						</div>
+						<h3 className="text-lg font-medium text-gray-200 mb-2">No pulses created yet</h3>
+						<p className="text-gray-400 text-sm max-w-sm mb-6">
+							A pulse represents a trading account or strategy. Create your first pulse to start tracking your trades and discipline.
+						</p>
+						<button
+							onClick={onCreatePulse}
+							className="btn-primary"
+						>
+							Create Pulse
+						</button>
 					</div>
 				)}
 			</div>

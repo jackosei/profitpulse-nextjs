@@ -23,6 +23,8 @@ import ReflectionGate from "@/components/discipline/ReflectionGate";
 import LimitsTracker from "@/components/discipline/LimitsTracker";
 import DisciplineChart from "@/components/discipline/DisciplineChart";
 import WHYReminderBanner from "@/components/discipline/WHYReminderBanner";
+import DisciplineMeter from "@/components/discipline/DisciplineMeter";
+import StreakBadge from "@/components/discipline/StreakBadge";
 
 type TimeRange = "7D" | "30D" | "90D" | "1Y" | "ALL";
 type ComparisonType = "PERIOD" | "START";
@@ -332,6 +334,7 @@ export default function PulseDetailsPage() {
     tradeCapCount: null,
     lockoutUntil: null,
     noTradeDays: 0,
+    cleanSessionsToLift: 0,
   };
   const disciplineState: DisciplineState = discipline?.disciplineState ?? "NORMAL";
 
@@ -356,12 +359,6 @@ export default function PulseDetailsPage() {
         maxTotalDrawdown={pulse.maxTotalDrawdown}
         status={pulse.status}
         ruleViolations={pulse.ruleViolations}
-        disciplineScore={disciplineScore}
-        disciplineZone={disciplineZone}
-        sessionRuleScore={sessionRuleScore}
-        recoveryHint={recoveryHint}
-        activeConstraints={activeConstraints}
-        disciplineState={disciplineState}
         pulse={pulse}
       />
 
@@ -371,6 +368,25 @@ export default function PulseDetailsPage() {
         whyDiscipline={discipline?.whyDiscipline ?? ""}
         zone={disciplineZone ?? "GREEN"}
       />
+
+      {/* Discipline & Behaviour Metrics */}
+      <div className="grid grid-cols-1 md:flex md:flex-row md:items-start gap-4">
+        {disciplineScore !== undefined && disciplineZone !== undefined && sessionRuleScore !== undefined && (
+          <div className="flex-1 max-w-sm">
+            <DisciplineMeter
+              score={disciplineScore}
+              zone={disciplineZone}
+              sessionRuleScore={sessionRuleScore}
+              recoveryHint={recoveryHint}
+              activeConstraints={activeConstraints}
+              disciplineState={disciplineState}
+            />
+          </div>
+        )}
+        <div className="flex-shrink-0">
+          <StreakBadge consecutiveCleanDays={discipline?.consecutiveCleanDays ?? 0} />
+        </div>
+      </div>
 
       <LimitsTracker pulse={pulse} />
 

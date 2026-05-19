@@ -59,7 +59,13 @@ export default function JournalGate() {
     }
   };
 
-  if (authLoading) {
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.replace('/login');
+    }
+  }, [authLoading, user, router]);
+
+  if (authLoading || !user) {
     return (
       <div className="flex items-center justify-center h-full">
         <Loader />

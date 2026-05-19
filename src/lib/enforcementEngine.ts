@@ -49,6 +49,7 @@ export function computeConstraints(
   let riskCapPct: number | null = null;
   let tradeCapCount: number | null = null;
   let noTradeDays = 0;
+  let cleanSessionsToLift = 0;
   let reflectionGatePending = false;
   let isLockedPermanently = false;
 
@@ -78,13 +79,17 @@ export function computeConstraints(
           // Repeat in same week: no-trade day next day
           noTradeDays = Math.max(noTradeDays, 1);
         }
-        // Day locked + reflection gate
+        // Day locked + reflection gate + 3-session recovery cap
         reflectionGatePending = true;
+        cleanSessionsToLift = Math.max(cleanSessionsToLift, 3);
         break;
       }
 
       case ViolationType.TOTAL_DRAWDOWN: {
         isLockedPermanently = true;
+        // Spec: Total DD sets a 5-session clean recovery countdown if not permanently locked.
+        // We set it here anyway; permanent lock overrides caps in UI/middleware.
+        cleanSessionsToLift = Math.max(cleanSessionsToLift, 5);
         break;
       }
 
@@ -117,6 +122,7 @@ export function computeConstraints(
       tradeCapCount,
       lockoutUntil: null, // Managed by API route for timestamp-based lockouts
       noTradeDays,
+      cleanSessionsToLift,
     },
     reflectionGatePending,
     isLockedPermanently,
@@ -207,16 +213,24 @@ export function shouldLiftConstraints(
   let recoveryBonus = 0;
   const lifted = { ...currentConstraints };
 
-  // Lift risk cap
-  if (lifted.riskCapPct !== null) {
-    lifted.riskCapPct = null;
-    recoveryBonus += 5;
+  // Decrement the clean session requirement
+  if (lifted.cleanSessionsToLift > 0) {
+    lifted.cleanSessionsToLift -= 1;
   }
 
-  // Lift trade cap
-  if (lifted.tradeCapCount !== null) {
-    lifted.tradeCapCount = null;
-    recoveryBonus += 5;
+  // Only lift caps if we've completed the required clean sessions
+  if (lifted.cleanSessionsToLift === 0) {
+    // Lift risk cap
+    if (lifted.riskCapPct !== null) {
+      lifted.riskCapPct = null;
+      recoveryBonus += 5;
+    }
+
+    // Lift trade cap
+    if (lifted.tradeCapCount !== null) {
+      lifted.tradeCapCount = null;
+      recoveryBonus += 5;
+    }
   }
 
   // Decrement no-trade days
@@ -339,6 +353,7 @@ export function mergeConstraints(
     ),
     lockoutUntil: existing.lockoutUntil ?? incoming.lockoutUntil,
     noTradeDays: Math.max(existing.noTradeDays, incoming.noTradeDays),
+    cleanSessionsToLift: Math.max(existing.cleanSessionsToLift, incoming.cleanSessionsToLift),
   };
 }
 

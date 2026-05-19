@@ -131,7 +131,7 @@ export async function GET(request: NextRequest) {
     const startDate = getStartDate(range) ?? "2020-01-01"; // ALL: from beginning
 
     // ── Query violation log ──────────────────────────────────────────────
-    let query = adminDb
+    const query = adminDb
       .collection("pulses")
       .doc(firestoreId)
       .collection("violationLog")

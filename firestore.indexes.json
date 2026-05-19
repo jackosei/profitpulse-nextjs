@@ -7,6 +7,14 @@
         { "fieldPath": "id", "order": "ASCENDING" },
         { "fieldPath": "userId", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "violationLog",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "sessionDate", "order": "ASCENDING" },
+        { "fieldPath": "timestamp", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

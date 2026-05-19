@@ -222,7 +222,7 @@ export async function POST(request: Request) {
 
       // Lift constraints if previous capped session was clean
       const existingConstraints = discipline.activeConstraints ?? {
-        riskCapPct: null, tradeCapCount: null, lockoutUntil: null, noTradeDays: 0,
+        riskCapPct: null, tradeCapCount: null, lockoutUntil: null, noTradeDays: 0, cleanSessionsToLift: 0,
       };
       const { liftedConstraints, recoveryBonus: liftBonus } =
         shouldLiftConstraints(existingConstraints, sessionWasClean);
@@ -299,7 +299,7 @@ export async function POST(request: Request) {
           discipline.disciplineState ?? "NORMAL",
           recoveredScore,
           discipline.activeConstraints ?? {
-            riskCapPct: null, tradeCapCount: null, lockoutUntil: null, noTradeDays: 0,
+            riskCapPct: null, tradeCapCount: null, lockoutUntil: null, noTradeDays: 0, cleanSessionsToLift: 0,
           },
         );
         await adminDb.collection("pulses").doc(firestoreId).update({
@@ -328,6 +328,7 @@ export async function POST(request: Request) {
       tradeCapCount: null,
       lockoutUntil: null,
       noTradeDays: 0,
+      cleanSessionsToLift: 0,
     };
     const currentConstraints = discipline?.activeConstraints ?? defaultConstraints;
 

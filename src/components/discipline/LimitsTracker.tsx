@@ -56,9 +56,21 @@ export default function LimitsTracker({ pulse }: LimitsTrackerProps) {
 
   return (
     <div className="bg-dark/40 border border-gray-800/60 rounded-lg p-4">
-      <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-4 flex items-center gap-1.5">
-        Real-Time Risk Limits
-      </h3>
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400 flex items-center gap-1.5 m-0">
+          Real-Time Risk Limits
+        </h3>
+        
+        {pulse.discipline?.activeConstraints?.cleanSessionsToLift ? (
+          <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-amber-500/10 border border-amber-500/20 text-amber-500 text-xs font-medium">
+            <AlertCircle className="w-3.5 h-3.5" />
+            <span>
+              {pulse.discipline.activeConstraints.cleanSessionsToLift} clean{" "}
+              {pulse.discipline.activeConstraints.cleanSessionsToLift === 1 ? "session" : "sessions"} required to lift caps
+            </span>
+          </div>
+        ) : null}
+      </div>
       
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <ProgressBarMetric 

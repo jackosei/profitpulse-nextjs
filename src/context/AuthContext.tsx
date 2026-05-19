@@ -57,6 +57,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       } else {
         setUserProfile(null);
+        // Clear the server-side session cookie whenever Firebase reports no
+        // authenticated user — this prevents a stale cookie from trapping
+        // signed-out users in the journal-gate redirect loop.
+        await authApi.clearSessionCookie();
       }
 
       setLoading(false);

@@ -117,8 +117,10 @@ export interface ActiveConstraints {
   tradeCapCount: number | null;
   /** Lockout until this timestamp. null = no lockout */
   lockoutUntil: unknown | null; // Firestore Timestamp at runtime
-  /** Remaining no-trade days */
+  /** Days remaining where trading is locked entirely */
   noTradeDays: number;
+  /** Number of consecutive clean sessions required to lift the current caps */
+  cleanSessionsToLift: number;
 }
 
 /** Breach counts for penalty escalation */
@@ -162,6 +164,7 @@ export function createDefaultDisciplineFields(
       tradeCapCount: null,
       lockoutUntil: null,
       noTradeDays: 0,
+      cleanSessionsToLift: 0,
     },
     lastSessionDate: null,
     reflectionGatePending: false,

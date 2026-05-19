@@ -1,6 +1,6 @@
 {
   "name": "profitpulse-nextjs",
-  "version": "4.0.0",
+  "version": "4.2.0",
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack -p 9000",

@@ -174,6 +174,92 @@
 
 ---
 
+### Session 9 — 2026-05-19
+**What was built (v4.2.0 — Friction Ladder Enforcement closes + Transparency layer):**
+
+*Discipline engine architecture context:*
+- Clarified post-execution logging model: trades are executed externally (MT4/broker/TV), enforcement operates on the logging layer only. Friction ladder replaces hard blocking for caps.
+- Updated `specs/CLAUDE.md` with full friction ladder table and updated enforcement model notes.
+
+*Friction ladder enforcement closes (Sprint 1):*
+
+**`src/lib/disciplineTypes.ts`**
+- Added `NO_TRADE_DAY_VIOLATED = "NO_TRADE_DAY_VIOLATED"` to `ViolationType` enum (severity: 20)
+- Added `sessionGateAckDate: string | null` to `PulseDisciplineFields`
+- Added `sessionGateAckDate: null` to `createDefaultDisciplineFields()`
+- Added `EscalationPreviewItem` interface for DisciplineMeter escalation display
+
+**`src/app/api/discipline/evaluate/route.ts`**
+- Request body now includes `noTradeDayAck?: boolean` and `capAck?: boolean`
+- After lock check: session gate check (403 `SESSION_GATE_NOT_ACKNOWLEDGED` if caps active and not acked today)
+- After session gate: no-trade day gate (409 `NO_TRADE_DAY_ACK_REQUIRED` if `noTradeDays > 0` and no ack)
+- After risk computation: risk cap enforcement (422 `RISK_CAP_EXCEEDED` if cap active and not acked)
+- After risk computation: trade cap enforcement (422 `TRADE_CAP_EXCEEDED` if count at limit and not acked)
+- `NO_TRADE_DAY_VIOLATED` violation injected when `noTradeDayAck: true`
+- Fixed duplicate `const discipline` declaration from earlier lazy recovery block
+
+**`src/app/api/discipline/acknowledge-session/route.ts`** (NEW)
+- POST endpoint: verifies Firebase ID token, writes `discipline.sessionGateAckDate = calendarToday` to pulse document
+
+**`src/components/discipline/SessionGate.tsx`**
+- Added `userId: string` prop
+- `handleAcknowledge` now async: calls `POST /api/discipline/acknowledge-session` for server-side persistence
+- `sessionStorage` kept as local read-cache to avoid flicker; truth lives in Firestore
+
+**`src/components/modals/trade-form/TradeFormModal.tsx`**
+- Replaced `createTrade(firestoreId, tradeData)` with direct `fetch` to handle gate responses (422/409/403)
+- Gate states: `capGate`, `ntdGate`, `ntdAck`, `sessionGateError`, `acksRef`, `formRef`
+- 422 → amber `capGate` banner + "Submit with Acknowledged Cap" button; re-submits with `capAck: true`
+- 409 → NTD gate overlay (typed "I acknowledge" required); re-submits with `noTradeDayAck: true`
+- 403 SESSION_GATE_NOT_ACKNOWLEDGED → amber error message directing to SessionGate
+- `ConstraintBanner` at top of Trade Data tab showing active caps (risk, trade, no-trade day)
+- Live risk % (`liveRiskPct`) computed client-side from entry/SL/lotSize using `getDefaultPointValue`; shown as colour-coded badge next to SL field
+
+**`src/components/modals/trade-form/forms/TradeDataForm.tsx`**
+- Added `liveRiskPct?: number | null` prop
+- Displays colour-coded risk badge (green <2%, amber 2–5%, red >5%) below SL/TP fields
+
+*Transparency layer (Sprint 1 + Sprint 2 partials):*
+
+**`src/app/api/discipline/violations/route.ts`** (NEW)
+- GET endpoint: queries `pulses/{pulseId}/violationLog` subcollection ordered by timestamp desc
+- Params: `pulseId` (required), `sessionDate` (optional filter), `limit` (default 50, max 200)
+- Auth: Firebase ID token
+
+**`src/components/discipline/ViolationHistoryPanel.tsx`** (NEW)
+- Fetches from `/api/discipline/violations`
+- Groups entries by `sessionDate` (collapsible day sections, most recent auto-expanded)
+- Each entry: category badge (Risk/Rules), violation type label, details, score delta
+- Load-more pagination
+
+**`src/app/pulse/[id]/page.tsx`**
+- Added `ViolationHistoryPanel` below `DisciplineChart`
+- Passes `weeklyBreachCounts` and `maxTradesPerDay` to `DisciplineMeter`
+
+**`src/lib/enforcementEngine.ts`**
+- Added `computeEscalationPreview(weeklyBreachCounts, maxTradesPerDay): EscalationPreviewItem[]`
+- Returns per-violation-type escalation items showing current breaches and next consequence
+
+**`src/components/discipline/DisciplineMeter.tsx`**
+- Added `weeklyBreachCounts` and `maxTradesPerDay` props
+- Collapsible "Next breach consequences" section using `computeEscalationPreview`
+
+**`src/components/discipline/LimitsTracker.tsx`**
+- Added "This Week's Breaches" section showing `riskPerTrade`, `drawdownDaily`, `overtrading` counts
+- Colour-coded `BreachBadge` components (normal/warn/danger thresholds)
+- "Resets Monday" indicator
+
+**Verification:**
+- `npx tsc --noEmit` → 0 errors.
+- All gate paths (422/409/403) return early from `handleSubmit` without closing the modal.
+- `acksRef` accumulates acks across multi-gate flows (e.g. NTD ack + cap ack on same trade).
+
+**Next session should start with:**
+- Phase 3 remaining: SMS activation (Twilio env vars), CSV import pipeline (`/api/import/csv`, `/api/import/confirm`, `TradeImport.tsx` wizard, `importMappers.ts`).
+- Add `RESEND_API_KEY` and `RESEND_FROM_EMAIL` env vars for live email (carry-over from session 8).
+
+---
+
 ### Session 7 — 2026-05-14
 **What was built:**
 

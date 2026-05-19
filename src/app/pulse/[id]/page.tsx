@@ -25,6 +25,7 @@ import DisciplineChart from "@/components/discipline/DisciplineChart";
 import WHYReminderBanner from "@/components/discipline/WHYReminderBanner";
 import DisciplineMeter from "@/components/discipline/DisciplineMeter";
 import StreakBadge from "@/components/discipline/StreakBadge";
+import ViolationHistoryPanel from "@/components/discipline/ViolationHistoryPanel";
 
 type TimeRange = "7D" | "30D" | "90D" | "1Y" | "ALL";
 type ComparisonType = "PERIOD" | "START";
@@ -380,6 +381,8 @@ export default function PulseDetailsPage() {
               recoveryHint={recoveryHint}
               activeConstraints={activeConstraints}
               disciplineState={disciplineState}
+              weeklyBreachCounts={discipline?.weeklyBreachCounts}
+              maxTradesPerDay={discipline?.maxTradesPerDay}
             />
           </div>
         )}
@@ -391,6 +394,12 @@ export default function PulseDetailsPage() {
       <LimitsTracker pulse={pulse} />
 
       <DisciplineChart pulseId={pulse.id} />
+
+      {/* Violation History */}
+      <div className="bg-dark rounded-lg border border-gray-800 p-4">
+        <h3 className="text-sm font-semibold text-gray-300 mb-3">Violation History</h3>
+        <ViolationHistoryPanel pulseId={pulse.id} />
+      </div>
 
       <PulseStats stats={periodStats} comparisonType={comparisonType} />
 
@@ -464,9 +473,10 @@ export default function PulseDetailsPage() {
       />
 
       {/* Phase 2: Session Gate — constraint acknowledgement */}
-      {!sessionGateAcked && disciplineState !== "NORMAL" && (
+      {!sessionGateAcked && disciplineState !== "NORMAL" && user && (
         <SessionGate
           pulseId={pulse.id}
+          userId={user.uid}
           constraints={activeConstraints}
           disciplineState={disciplineState}
           whyStatement={discipline?.whyStatement ?? ""}

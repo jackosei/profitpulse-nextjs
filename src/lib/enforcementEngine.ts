@@ -15,6 +15,7 @@
 
 import type {
   ActiveConstraints,
+  EscalationPreviewItem,
   WeeklyBreachCounts,
   DisciplineState,
   DisciplineZone,
@@ -398,4 +399,58 @@ function getMondayOfWeek(date: Date): Date {
   d.setDate(d.getDate() + diff);
   d.setHours(0, 0, 0, 0);
   return d;
+}
+
+// ---------------------------------------------------------------------------
+// 7. computeEscalationPreview
+// ---------------------------------------------------------------------------
+
+/**
+ * Returns a list of escalation preview items for DisciplineMeter display.
+ * Each item shows how close the trader is to the next enforcement consequence.
+ * Pure function — does not modify any state.
+ */
+export function computeEscalationPreview(
+  weeklyBreachCounts: WeeklyBreachCounts,
+  maxTradesPerDay: number | null,
+): EscalationPreviewItem[] {
+  const items: EscalationPreviewItem[] = [];
+
+  // Risk per trade escalation (weekly resets)
+  const riskBreaches = weeklyBreachCounts.riskPerTrade;
+  if (riskBreaches === 0) {
+    items.push({ label: "Risk Breach", currentBreaches: 0, nextThreshold: 2, nextConsequence: "75% risk cap next session" });
+  } else if (riskBreaches === 1) {
+    items.push({ label: "Risk Breach", currentBreaches: 1, nextThreshold: 2, nextConsequence: "75% risk cap next session" });
+  } else if (riskBreaches === 2) {
+    items.push({ label: "Risk Breach", currentBreaches: 2, nextThreshold: 3, nextConsequence: "50% risk cap next session" });
+  } else if (riskBreaches === 3) {
+    items.push({ label: "Risk Breach", currentBreaches: 3, nextThreshold: 4, nextConsequence: "No-trade day applied" });
+  } else {
+    items.push({ label: "Risk Breach", currentBreaches: riskBreaches, nextThreshold: riskBreaches + 1, nextConsequence: "Additional no-trade day" });
+  }
+
+  // Daily drawdown escalation
+  const ddBreaches = weeklyBreachCounts.drawdownDaily;
+  if (ddBreaches === 0) {
+    items.push({ label: "Daily Drawdown", currentBreaches: 0, nextThreshold: 1, nextConsequence: "Reflection gate + 3-session recovery" });
+  } else if (ddBreaches === 1) {
+    items.push({ label: "Daily Drawdown", currentBreaches: 1, nextThreshold: 2, nextConsequence: "No-trade day + reflection gate" });
+  } else {
+    items.push({ label: "Daily Drawdown", currentBreaches: ddBreaches, nextThreshold: ddBreaches + 1, nextConsequence: "Additional no-trade day" });
+  }
+
+  // Overtrading escalation
+  if (maxTradesPerDay !== null) {
+    const otBreaches = weeklyBreachCounts.overtrading;
+    if (otBreaches === 0) {
+      items.push({ label: "Overtrading", currentBreaches: 0, nextThreshold: 1, nextConsequence: `Trade cap reduced to ${maxTradesPerDay - 1}` });
+    } else if (otBreaches === 1) {
+      items.push({ label: "Overtrading", currentBreaches: 1, nextThreshold: 2, nextConsequence: "No-trade day applied" });
+    } else {
+      items.push({ label: "Overtrading", currentBreaches: otBreaches, nextThreshold: otBreaches + 1, nextConsequence: "Additional no-trade day" });
+    }
+  }
+
+  return items;
 }

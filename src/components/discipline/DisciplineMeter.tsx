@@ -1,7 +1,9 @@
 "use client";
 
-import type { DisciplineZone, ActiveConstraints, DisciplineState } from "@/lib/disciplineTypes";
-import { TrendingDown, Hash, Ban, Info } from "lucide-react";
+import { useState } from "react";
+import type { DisciplineZone, ActiveConstraints, DisciplineState, WeeklyBreachCounts, EscalationPreviewItem } from "@/lib/disciplineTypes";
+import { computeEscalationPreview } from "@/lib/enforcementEngine";
+import { TrendingDown, Hash, Ban, Info, ChevronDown, ChevronRight } from "lucide-react";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -23,6 +25,10 @@ interface DisciplineMeterProps {
   activeConstraints?: ActiveConstraints;
   /** Phase 2: discipline state machine state */
   disciplineState?: DisciplineState;
+  /** Phase 2: weekly breach counts for escalation preview */
+  weeklyBreachCounts?: WeeklyBreachCounts;
+  /** Max trades per day from pulse config (for overtrading escalation preview) */
+  maxTradesPerDay?: number | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -84,9 +90,16 @@ export default function DisciplineMeter({
   recoveryHint,
   activeConstraints,
   disciplineState,
+  weeklyBreachCounts,
+  maxTradesPerDay,
 }: DisciplineMeterProps) {
   const safeScore = clamp(Math.round(score), 0, 100);
   const colors = ZONE_COLOR[zone];
+  const [showEscalation, setShowEscalation] = useState(false);
+
+  const escalationItems: EscalationPreviewItem[] = weeklyBreachCounts
+    ? computeEscalationPreview(weeklyBreachCounts, maxTradesPerDay ?? null)
+    : [];
 
   // Marker position as a % of the bar width (left edge of marker)
   const markerLeftPct = clamp(safeScore, 0, 99); // keep visible at edges
@@ -230,6 +243,40 @@ export default function DisciplineMeter({
               <Ban className="w-3 h-3" />
               {activeConstraints.noTradeDays}d no-trade
             </span>
+          )}
+        </div>
+      )}
+
+      {/* ── Escalation preview (collapsible) ── */}
+      {escalationItems.length > 0 && (
+        <div className="border-t border-gray-800/60 pt-2 mt-0.5">
+          <button
+            type="button"
+            onClick={() => setShowEscalation((v) => !v)}
+            className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-gray-500 hover:text-gray-400 transition-colors font-semibold"
+          >
+            {showEscalation
+              ? <ChevronDown className="w-3 h-3" />
+              : <ChevronRight className="w-3 h-3" />
+            }
+            Next breach consequences
+          </button>
+          {showEscalation && (
+            <div className="mt-2 space-y-1.5">
+              {escalationItems.map((item) => (
+                <div key={item.label} className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <span className="text-[10px] text-gray-400 shrink-0">{item.label}</span>
+                    <span className="text-[10px] text-gray-600">
+                      {item.currentBreaches}/{item.nextThreshold}
+                    </span>
+                  </div>
+                  <span className="text-[10px] text-amber-400/80 text-right leading-tight max-w-[140px]">
+                    {item.nextConsequence}
+                  </span>
+                </div>
+              ))}
+            </div>
           )}
         </div>
       )}

@@ -11,6 +11,14 @@ export async function signInWithGoogle(): Promise<ApiResponse<User>> {
 }
 
 /**
+ * Handle the OAuth redirect result (mobile/redirect sign-in flow)
+ * @returns ApiResponse with Firebase User or error details
+ */
+export async function handleRedirectResult(): Promise<ApiResponse<User>> {
+  return authService.handleRedirectResult();
+}
+
+/**
  * Sign in with email and password
  * @param email User's email address
  * @param password User's password

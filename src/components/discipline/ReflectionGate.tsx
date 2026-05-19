@@ -47,7 +47,7 @@ export default function ReflectionGate({
     setError(null);
 
     try {
-      const { getFirebaseToken } = await import("@/services/auth");
+      const { getFirebaseToken } = await import("@/services/firebase/authService");
       const token = await getFirebaseToken();
       if (!token) throw new Error("Not authenticated");
 

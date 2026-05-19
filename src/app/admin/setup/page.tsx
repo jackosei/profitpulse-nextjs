@@ -1,36 +1,17 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { getFirebaseToken } from "@/services/firebase/authService";
 import { toast } from "sonner";
-import { getUserProfile } from "@/services/users";
 
 export default function AdminSetup() {
-  const { user } = useAuth();
+  const { user, userProfile, loading: authLoading } = useAuth();
   const [secretKey, setSecretKey] = useState("");
   const [loading, setLoading] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [checkingAdminStatus, setCheckingAdminStatus] = useState(true);
 
-  useEffect(() => {
-    async function checkAdminStatus() {
-      if (!user) return;
-      
-      try {
-        setCheckingAdminStatus(true);
-        const profile = await getUserProfile(user.uid);
-        if (profile && profile.role === 'admin') {
-          setIsAdmin(true);
-        }
-      } catch (error) {
-        console.error("Error checking admin status:", error);
-      } finally {
-        setCheckingAdminStatus(false);
-      }
-    }
-    
-    checkAdminStatus();
-  }, [user]);
+  const isAdmin = userProfile?.role === "admin";
+  const checkingAdminStatus = authLoading;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,13 +19,16 @@ export default function AdminSetup() {
 
     setLoading(true);
     try {
+      const token = await getFirebaseToken();
+      if (!token) throw new Error("Not authenticated");
+
       const response = await fetch("/api/admin/setup", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          uid: user.uid,
-          secretKey,
-        }),
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ secretKey }),
       });
 
       const data = await response.json();

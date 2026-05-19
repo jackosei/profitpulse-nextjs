@@ -6,6 +6,8 @@ import { auth } from "@/services/firebase/firestoreConfig";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import { APP_HOME } from "@/config/routes";
+import { setSessionCookie } from "@/services/api/authApi";
 
 export default function Signup() {
   const router = useRouter();
@@ -27,7 +29,10 @@ export default function Signup() {
 
     try {
       await createUserWithEmailAndPassword(auth, email, password);
-      router.push('/');
+      // Ensure the server session cookie exists before navigating so
+      // middleware doesn't bounce us back to /login.
+      await setSessionCookie();
+      router.push(APP_HOME);
     } catch (err: Error | unknown) {
       setError(err instanceof Error ? err.message : 'Failed to create account');
     } finally {

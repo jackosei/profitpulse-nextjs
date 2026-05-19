@@ -192,7 +192,7 @@ export function usePulse(props?: UsePulseProps) {
 
     try {
       // Get Firebase auth token for server-side verification
-      const { getFirebaseToken } = await import("@/services/auth");
+      const { getFirebaseToken } = await import("@/services/firebase/authService");
       const token = await getFirebaseToken();
       if (!token) {
         throw new Error("Not authenticated");

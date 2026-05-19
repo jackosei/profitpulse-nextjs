@@ -1,5 +1,64 @@
 # Changelog
 
+## [4.0.0] - 2026-05-17
+
+A security and architecture release: real server-side authentication enforcement,
+a new public landing page, and a mandatory daily journal gate. Core app flow has
+changed — see **Breaking Changes**.
+
+### Breaking Changes
+
+- **App home moved**: `/` is now a public marketing/landing page. The authenticated
+  app home is `/dashboard`. All post-auth redirects now target `/dashboard`.
+- **Mandatory daily journal gate**: Signed-in users must complete a once-per-day
+  journal entry at `/journal` before any app route is reachable. Enforced in
+  middleware via an httpOnly cookie keyed to the UTC day.
+- **Removed modules**: Deleted duplicate/legacy auth and profile modules
+  (`src/services/auth.ts`, `src/hooks/useAuth.ts`,
+  `src/services/firebase/userService.ts`, `src/services/users.ts`,
+  `src/utils/adminSetup.ts`, dead `src/utils/middleware.ts`, and the
+  localStorage-based `GratitudeJournal` component). Consumers migrated to the
+  unified `useAuth()` and the server-side `/api/users` route.
+
+### Authentication & Session Enforcement
+
+- **Real middleware gate**: Added `src/middleware.ts` (Edge) performing a
+  cookie-presence check — replaces the dead, never-executed `src/utils/middleware.ts`.
+- **Session cookie API**: New `POST/DELETE /api/auth/session` (Node runtime) mints
+  and clears an httpOnly Firebase session cookie via the Admin SDK.
+- **Centralized session minting**: `AuthContext.onAuthStateChanged` now establishes
+  the session cookie for both login and signup (fixes signup never receiving one).
+- **Unified auth surface**: Single `useAuth()` hook exposing state + actions;
+  consolidated three divergent `setSessionCookie` implementations into one.
+- **Logout hardening**: All logout paths now clear the server session cookie.
+
+### Security Hardening
+
+- **Privilege-escalation fix**: Firestore rules now reject client-side `role`
+  writes on user profile create/update; role provisioning is server-only.
+- **Server-side profile path**: New `/api/users` route (Node) performs profile
+  CRUD with the role forced to `user`; client can no longer self-assign roles.
+- **Token verification**: All API routes derive the uid from a verified Bearer
+  token with `checkRevoked=true`; uid is never trusted from the request body.
+- **Admin setup**: `/api/admin/setup` now verifies a Bearer token and derives the
+  caller's uid server-side instead of trusting the request body.
+- **Security headers**: Added HSTS, `X-Frame-Options: DENY`,
+  `X-Content-Type-Options`, `Referrer-Policy`, and `Permissions-Policy`.
+
+### Features
+
+- **Public landing page**: `/` is now a marketing page with conditional CTAs
+  (signed-in → dashboard, signed-out → get started / sign in).
+- **Daily journal gate**: New `/journal` page and `POST/GET /api/journal` route.
+  Entries persist to Firestore under `users/{uid}/journal/{UTC-day}`; a shared
+  UTC day-key keeps the middleware check and API write timezone-consistent.
+
+### Fixes
+
+- **Login error flash**: `handleRedirectResult()` no longer returns an error for
+  the normal "no Google redirect in progress" case, removing the spurious
+  "No redirect result" red text on `/login` load.
+
 ## [3.1.0] - 2026-05-14
 
 ### Terminal Lockout (Prop-Firm Hardening)

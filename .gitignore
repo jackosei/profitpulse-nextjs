@@ -46,3 +46,5 @@ package-lock.json
 analysis_report.md
 /notes
 # /specs
+
+/.claude/

@@ -145,6 +145,8 @@ export interface PulseDisciplineFields {
   whyDiscipline: string; // from onboarding
   accountabilityPartnerEmail: string | null;
   maxTradesPerDay: number | null; // null = no limit
+  /** Number of consecutive calendar days with zero violations. Resets to 0 on first violation. */
+  consecutiveCleanDays: number;
 }
 
 /** Default discipline fields for new Pulse creation */
@@ -173,6 +175,7 @@ export function createDefaultDisciplineFields(
     whyDiscipline,
     accountabilityPartnerEmail: null,
     maxTradesPerDay: null,
+    consecutiveCleanDays: 0,
   };
 }
 

@@ -36,6 +36,8 @@ export interface PulseUpdateData {
   instrumentPointValues?: Record<string, number>;
   tradingRules?: TradeRule[];
   updateReason: string;
+  /** Accountability partner email for Tier 2 notifications — null clears it */
+  accountabilityPartnerEmail?: string | null;
 }
 
 // Types for createTrade - matches nested Trade structure

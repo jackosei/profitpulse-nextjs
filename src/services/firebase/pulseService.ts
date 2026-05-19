@@ -555,7 +555,7 @@ export async function updatePulse(
     const pulseData = pulseDoc.data() as Pulse;
 
     // Create update with previous values recorded
-    const update = {
+    const coreUpdate = {
       accountSize: updateData.accountSize,
       maxRiskPerTrade: updateData.maxRiskPerTrade,
       maxDailyDrawdown: updateData.maxDailyDrawdown,
@@ -574,10 +574,13 @@ export async function updatePulse(
           maxTotalDrawdown: pulseData.maxTotalDrawdown,
         },
       },
+      ...(updateData.accountabilityPartnerEmail !== undefined && {
+        "discipline.accountabilityPartnerEmail": updateData.accountabilityPartnerEmail,
+      }),
     };
 
     // Update the document
-    await updateDoc(doc(db, "pulses", pulseDoc.id), update);
+    await updateDoc(doc(db, "pulses", pulseDoc.id), coreUpdate);
 
     return createSuccessResponse(undefined);
   } catch (error) {

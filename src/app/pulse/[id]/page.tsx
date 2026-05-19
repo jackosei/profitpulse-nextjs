@@ -21,6 +21,8 @@ import type { DisciplineZone, ActiveConstraints, DisciplineState } from "@/lib/d
 import SessionGate from "@/components/discipline/SessionGate";
 import ReflectionGate from "@/components/discipline/ReflectionGate";
 import LimitsTracker from "@/components/discipline/LimitsTracker";
+import DisciplineChart from "@/components/discipline/DisciplineChart";
+import WHYReminderBanner from "@/components/discipline/WHYReminderBanner";
 
 type TimeRange = "7D" | "30D" | "90D" | "1Y" | "ALL";
 type ComparisonType = "PERIOD" | "START";
@@ -363,7 +365,16 @@ export default function PulseDetailsPage() {
         pulse={pulse}
       />
 
+      <WHYReminderBanner
+        pulseId={pulse.id}
+        whyStatement={discipline?.whyStatement ?? ""}
+        whyDiscipline={discipline?.whyDiscipline ?? ""}
+        zone={disciplineZone ?? "GREEN"}
+      />
+
       <LimitsTracker pulse={pulse} />
+
+      <DisciplineChart pulseId={pulse.id} />
 
       <PulseStats stats={periodStats} comparisonType={comparisonType} />
 

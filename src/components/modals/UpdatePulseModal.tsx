@@ -43,6 +43,9 @@ export default function UpdatePulseModal({ isOpen, onClose, onSuccess, pulse }: 
   const [tradingRules, setTradingRules] = useState<TradeRule[]>(pulse?.tradingRules || []);
   const [ruleInput, setRuleInput] = useState('');
   const [isRuleRequired, setIsRuleRequired] = useState(false);
+  const [partnerEmail, setPartnerEmail] = useState(
+    pulse?.discipline?.accountabilityPartnerEmail ?? ''
+  );
   const [error, setError] = useState('');
 
   const handleAddRule = () => {
@@ -138,6 +141,11 @@ export default function UpdatePulseModal({ isOpen, onClose, onSuccess, pulse }: 
       return false;
     }
 
+    if (partnerEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(partnerEmail)) {
+      setError('Please enter a valid accountability partner email address');
+      return false;
+    }
+
     return true;
   };
 
@@ -164,7 +172,8 @@ export default function UpdatePulseModal({ isOpen, onClose, onSuccess, pulse }: 
         instruments,
         instrumentPointValues: instrumentPointVals,
         tradingRules: tradingRules,
-        updateReason: formData.updateReason
+        updateReason: formData.updateReason,
+        accountabilityPartnerEmail: partnerEmail.trim() || null,
       };
 
       const success = await updatePulse(pulse.id, user.uid, updateData);
@@ -438,6 +447,27 @@ export default function UpdatePulseModal({ isOpen, onClose, onSuccess, pulse }: 
                         onChange={(e) => setFormData(prev => ({ ...prev, updateReason: e.target.value }))}
                         placeholder="Please provide a detailed reason for updating the pulse settings..."
                       />
+                    </div>
+
+                    {/* Accountability Partner */}
+                    <div>
+                      <label htmlFor="update-partner-email" className="block text-sm text-gray-400 mb-1">
+                        Accountability Partner Email
+                        <span className="ml-1.5 text-xs text-gray-500">(optional)</span>
+                      </label>
+                      <input
+                        id="update-partner-email"
+                        type="email"
+                        disabled={isSubmitting}
+                        className="input-dark w-full disabled:opacity-50 disabled:cursor-not-allowed"
+                        value={partnerEmail}
+                        onChange={(e) => setPartnerEmail(e.target.value)}
+                        placeholder="partner@email.com"
+                        autoComplete="email"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        They will receive an email alert when you hit a drawdown limit or get locked out.
+                      </p>
                     </div>
 
                     {error && (

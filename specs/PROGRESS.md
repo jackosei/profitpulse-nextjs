@@ -101,6 +101,79 @@
 
 ## Session log
 
+### Session 8 — 2026-05-19
+**What was built (v4.1.0):**
+
+*Branch management:*
+- Merged `ui-ux-updates` (v4.0.0) into `main` via fast-forward. Zero conflicts.
+- Merged `main` into `feat-discipline-engine` (absorbed all v4.0.0 changes). Zero conflicts.
+- `tsc --noEmit` passes with 0 errors on the merged codebase.
+
+*Streak Tracking:*
+- Added `consecutiveCleanDays: number` field to `PulseDisciplineFields` in `disciplineTypes.ts`.
+- Updated `createDefaultDisciplineFields()` to initialize `consecutiveCleanDays: 0`.
+- Note: `computeRecovery()` already supported the streak +10 bonus (it was written but never activated). The constants `STREAK_BONUS: 10` and `STREAK_THRESHOLD: 3` were already in place.
+- Wired streak counter into `evaluate/route.ts` lazy recovery block:
+  - On new day + previous session clean (≥1 trade, 0 violations): increment `consecutiveCleanDays`.
+  - On new day + previous session had violations: reset `consecutiveCleanDays` to 0.
+  - No-trade days are neutral (counter unchanged).
+  - Streak is also reset to 0 when the current trade has violations (written to Firestore in same update).
+- `consecutiveCleanDays` exposed in API response.
+
+*Notification Engine (Resend + Twilio stubs):*
+- Created `src/services/notifications/emailService.ts`:
+  - `sendWHYReminder()` — Tier 1, triggers when zone degrades from GREEN→YELLOW or GREEN/YELLOW→RED.
+  - `sendPartnerAlert()` — Tier 2, triggers on daily drawdown breach or terminal lockout.
+  - Uses Resend SDK (`RESEND_API_KEY` env var required to activate).
+- Created `src/services/notifications/smsService.ts`:
+  - `sendSMS()`, `sendWHYReminderSMS()`, `sendPartnerAlertSMS()` — Twilio-structured stubs.
+  - In mock mode (no env vars): logs the message to stdout.
+  - Activation: add `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER` and uncomment 5 lines.
+- Wired notification triggers into `evaluate/route.ts`:
+  - Terminal lockout → partner email + SMS stub.
+  - Daily drawdown breach → partner email + SMS stub.
+  - Zone worsening → WHY reminder email + SMS stub (fire-and-forget, non-blocking).
+
+*Discipline Score History Chart:*
+- Created `GET /api/discipline/history?pulseId=&range=` route:
+  - Accepts `range` = 7D | 30D | 90D | 1Y | ALL.
+  - Queries `violationLog` subcollection, groups by `sessionDate`, takes final `scoreAfter` per day.
+  - Fills empty days by carrying forward the last known score.
+  - Auth: Firebase ID token.
+- Created `DisciplineChart.tsx` component (Chart.js line chart):
+  - Coloured background zone bands: Green (75–100), Yellow (40–74), Red (0–39).
+  - Segment-coloured line: each segment inherits the colour of the score it enters.
+  - Range selector: 7D / 30D / 90D / 1Y / ALL.
+  - Shows score delta for the selected period.
+  - Loading, empty, and error states handled.
+- Wired `DisciplineChart` into `pulse/[id]/page.tsx` below `LimitsTracker`.
+
+*WHY Reminder Banner:*
+- Created `WHYReminderBanner.tsx` component:
+  - Renders when `zone !== GREEN` and `whyStatement` is non-empty.
+  - Dismissible per browser session + calendar day (sessionStorage key per pulseId).
+  - Shows both `whyStatement` and `whyDiscipline` fields.
+- Wired into `pulse/[id]/page.tsx` above `LimitsTracker`.
+
+*Accountability Partner Settings:*
+- Added `partnerEmail` state and form field to `UpdatePulseModal.tsx`:
+  - Email validation (regex + HTML type="email").
+  - Saves to `discipline.accountabilityPartnerEmail` on Pulse document.
+  - Pre-populated from existing pulse data.
+- Added `accountabilityPartnerEmail?: string | null` to `PulseUpdateData` in `pulseApi.ts`.
+- Updated `pulseService.updatePulse()` to persist the field via Firestore dotted path notation.
+
+**Verification:**
+- `npx tsc --noEmit` → 0 errors.
+- All notification functions are fire-and-forget (non-blocking to the API response).
+- SMS mock mode logs to stdout without any payment credentials.
+
+**Next session should start with:**
+- Add `RESEND_API_KEY` and `RESEND_FROM_EMAIL` env vars for live email.
+- Phase 3 remaining: Multi-session risk cap countdown gates; 30-day rolling chart edge cases.
+
+---
+
 ### Session 7 — 2026-05-14
 **What was built:**
 

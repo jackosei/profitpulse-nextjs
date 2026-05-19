@@ -1,5 +1,56 @@
 # Changelog
 
+## [4.1.0] - 2026-05-19
+
+Phase 3: Streak tracking, notification engine (email + SMS-ready), discipline score
+history chart, in-app WHY reminder banner, and accountability partner settings.
+
+### New Features
+
+#### Streak Tracking
+- Added `consecutiveCleanDays` counter to `PulseDisciplineFields`.
+- Counter increments when the previous trading session was clean (≥1 trade, 0 violations).
+  Resets to 0 on any violation. No-trade days are neutral.
+- +10 streak bonus applied after 3+ consecutive clean days (via `computeRecovery`).
+- Counter persisted to Firestore on every trade evaluation and exposed in the API response.
+
+#### Notification Engine
+- **Resend (email)**: New `src/services/notifications/emailService.ts`.
+  - `sendWHYReminder()` — Tier 1 reminder email sent to the trader when zone degrades.
+  - `sendPartnerAlert()` — Tier 2 alert email sent to the accountability partner on daily
+    drawdown breach or terminal lockout.
+  - Requires `RESEND_API_KEY` and `RESEND_FROM_EMAIL` env vars to activate.
+- **Twilio (SMS stubs)**: New `src/services/notifications/smsService.ts`.
+  - Fully structured with matching templates (`sendWHYReminderSMS`, `sendPartnerAlertSMS`).
+  - Runs in mock/log mode until Twilio env vars are configured — zero payments required.
+  - Activation: add `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER`
+    and uncomment the client block.
+- Notifications wired into `POST /api/discipline/evaluate` — all fire-and-forget (non-blocking).
+
+#### Discipline Score History Chart
+- New `GET /api/discipline/history?pulseId=&range=` endpoint.
+  - Supports ranges: 7D | 30D | 90D | 1Y | ALL.
+  - Queries `violationLog` subcollection, groups by date, carries forward score on empty days.
+- New `DisciplineChart.tsx` component (Chart.js / react-chartjs-2).
+  - Multi-coloured line (green/yellow/red per score).
+  - Background zone bands at GREEN (75+), YELLOW (40–74), RED (<40) thresholds.
+  - Interactive range selector matching dashboard time-range style.
+  - Period delta ("±N pts") summary.
+- Rendered on Pulse detail page below `LimitsTracker`.
+
+#### WHY Reminder Banner
+- New `WHYReminderBanner.tsx` component.
+  - Shown on the Pulse detail page when discipline zone is YELLOW or RED.
+  - Displays the trader's `whyStatement` and `whyDiscipline`.
+  - Dismissible per browser session per calendar day (sessionStorage key).
+
+#### Accountability Partner Settings
+- `UpdatePulseModal` now includes an "Accountability Partner Email" input.
+  - Optional field with email format validation.
+  - Saved to `discipline.accountabilityPartnerEmail` on the Pulse document.
+  - Pre-populated from existing pulse data.
+- Partner email is used by the notification engine for Tier 2 breach alerts.
+
 ## [4.0.0] - 2026-05-17
 
 A security and architecture release: real server-side authentication enforcement,

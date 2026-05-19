@@ -50,6 +50,8 @@ import {
   amplifyPenalty,
   mergeConstraints,
 } from "@/lib/enforcementEngine";
+import { sendWHYReminder, sendPartnerAlert } from "@/services/notifications/emailService";
+import { sendWHYReminderSMS, sendPartnerAlertSMS } from "@/services/notifications/smsService";
 
 // ---------------------------------------------------------------------------
 // Auth helper
@@ -232,6 +234,22 @@ export async function POST(request: Request) {
         discipline.activeConstraints = liftedConstraints;
       }
 
+      // ── Streak tracking ────────────────────────────────────────────
+      // Increment consecutiveCleanDays if previous session was clean (≥1 trade,
+      // no violations). No-trade days are neutral — skip the counter entirely.
+      // On violation, reset to 0.
+      const currentStreak = discipline.consecutiveCleanDays ?? 0;
+      let newStreak = currentStreak;
+      if (prevTrades.length > 0) {
+        newStreak = sessionWasClean ? currentStreak + 1 : 0;
+      }
+      if (newStreak !== currentStreak) {
+        await adminDb.collection("pulses").doc(firestoreId).update({
+          "discipline.consecutiveCleanDays": newStreak,
+        });
+        discipline.consecutiveCleanDays = newStreak;
+      }
+
       // ── Recovery points ────────────────────────────────────────────
       const pulseRules: TradeRule[] = pulseData.tradingRules ?? [];
       const requiredRuleIds = pulseRules
@@ -257,7 +275,9 @@ export async function POST(request: Request) {
         allRequiredRulesFollowed: allRequiredFollowed,
         hasFullJournal,
         reflectionGateCompleted: false,
-        consecutiveCleanDays: 0,
+        // Pass the NEW streak (after today's increment) so computeRecovery
+        // can apply the +10 bonus if we've just completed day 3+
+        consecutiveCleanDays: newStreak,
         requiredRulesMissedCount: 0,
         sessionRuleScore: 100,
       };
@@ -520,13 +540,88 @@ export async function POST(request: Request) {
             reflectionGatePending || (discipline.reflectionGatePending ?? false),
           "discipline.lastSessionDate": today,
           "discipline.weeklyBreachCounts": updatedCounts,
+          // Reset streak — any violation day breaks the consecutive clean chain
+          "discipline.consecutiveCleanDays": 0,
         });
+      // Mirror in memory so streak is consistent for the rest of this request
+      discipline.consecutiveCleanDays = 0;
 
       if (isLockedPermanently) {
         await adminDb.collection("pulses").doc(firestoreId).update({
           status: PULSE_STATUS.LOCKED,
         });
+
+        // ── Tier 2 notifications: terminal lockout ─────────────────────
+        const partnerEmail = discipline.accountabilityPartnerEmail;
+        const traderEmail = pulseData.userId; // resolved to email below (best-effort)
+        if (partnerEmail) {
+          void sendPartnerAlert({
+            partnerEmail,
+            traderName: traderEmail,
+            pulseName: pulseData.name,
+            breachType: "TOTAL_DRAWDOWN_LOCKED",
+            disciplineScore: newScore,
+            details: "Total drawdown limit breached — pulse permanently locked.",
+          });
+          void sendPartnerAlertSMS({
+            to: "", // populated when trader's phone is stored on their profile
+            traderName: traderEmail,
+            pulseName: pulseData.name,
+            breachType: "TOTAL_DRAWDOWN_LOCKED",
+          });
+        }
       }
+
+      // ── Tier 2: Daily drawdown alert ────────────────────────────────
+      const hasDailyDrawdownBreach = violations.some(
+        (v) => v.type === "DAILY_DRAWDOWN",
+      );
+      if (hasDailyDrawdownBreach && discipline.accountabilityPartnerEmail) {
+        void sendPartnerAlert({
+          partnerEmail: discipline.accountabilityPartnerEmail,
+          traderName: pulseData.userId,
+          pulseName: pulseData.name,
+          breachType: "DAILY_DRAWDOWN",
+          disciplineScore: newScore,
+          details: "Daily drawdown limit hit.",
+        });
+        void sendPartnerAlertSMS({
+          to: "",
+          traderName: pulseData.userId,
+          pulseName: pulseData.name,
+          breachType: "DAILY_DRAWDOWN",
+        });
+      }
+
+      // ── Tier 1: WHY reminder on zone degradation ─────────────────────
+      const prevZone = getZone(discipline.disciplineScore ?? 100);
+      const zoneWorsened =
+        (prevZone === "GREEN" && (newZone === "YELLOW" || newZone === "RED")) ||
+        (prevZone === "YELLOW" && newZone === "RED");
+      if (zoneWorsened && pulseData.userId) {
+        // Fire-and-forget — fetch trader email from Admin Auth
+        void admin.auth().getUser(pulseData.userId).then((userRecord) => {
+          if (userRecord.email && newZone !== "GREEN") {
+            void sendWHYReminder({
+              traderEmail: userRecord.email,
+              traderName: userRecord.displayName ?? userRecord.email,
+              pulseName: pulseData.name,
+              whyStatement: discipline.whyStatement ?? "",
+              whyDiscipline: discipline.whyDiscipline ?? "",
+              disciplineZone: newZone,
+              disciplineScore: newScore,
+            });
+            void sendWHYReminderSMS({
+              to: userRecord.phoneNumber ?? "",
+              traderName: userRecord.displayName ?? userRecord.email,
+              pulseName: pulseData.name,
+              zone: newZone === "RED" ? "RED" : "YELLOW",
+              score: newScore,
+            });
+          }
+        }).catch(() => {/* silent — notifications are non-critical */});
+      }
+
     } else if (discipline) {
       // Clean trade — update last session date, compute state
       newState = computeStateTransition(
@@ -560,6 +655,7 @@ export async function POST(request: Request) {
         activeConstraints: newConstraints,
         isViolationTrade,
         reflectionGatePending: discipline?.reflectionGatePending ?? false,
+        consecutiveCleanDays: discipline?.consecutiveCleanDays ?? 0,
       },
     });
   } catch (error) {

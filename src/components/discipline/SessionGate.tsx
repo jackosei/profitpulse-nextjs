@@ -9,8 +9,10 @@ import { TrendingDown, Hash, Ban, Lock, RefreshCw, AlertTriangle } from "lucide-
 // ---------------------------------------------------------------------------
 
 interface SessionGateProps {
-  /** Pulse Firestore document ID */
+  /** Pulse logical ID */
   pulseId: string;
+  /** Firebase user ID — needed for server-side ack */
+  userId: string;
   /** Current active constraints */
   constraints: ActiveConstraints;
   /** Current discipline state */
@@ -30,30 +32,50 @@ interface SessionGateProps {
  *
  * Displays active constraints and the trader's WHY statement.
  * The trader must explicitly acknowledge before trading.
- * Shown only once per session (tracked via sessionStorage).
+ *
+ * On acknowledge: fires POST /api/discipline/acknowledge-session to persist
+ * the ack date server-side (so evaluate route can verify it). sessionStorage
+ * is kept as a local read-cache to avoid flicker on page load.
  */
 export default function SessionGate({
   pulseId,
+  userId,
   constraints,
   disciplineState,
   whyStatement,
   onAcknowledge,
 }: SessionGateProps) {
   const [visible, setVisible] = useState(false);
+  const [acknowledging, setAcknowledging] = useState(false);
   const storageKey = `sessionGate_${pulseId}_${new Date().toISOString().split("T")[0]}`;
 
   useEffect(() => {
-    // Only show if not already acknowledged today
     const alreadyAcked = sessionStorage.getItem(storageKey);
     if (!alreadyAcked && hasActiveConstraints(constraints)) {
       setVisible(true);
     }
   }, [storageKey, constraints]);
 
-  const handleAcknowledge = () => {
-    sessionStorage.setItem(storageKey, "true");
-    setVisible(false);
-    onAcknowledge();
+  const handleAcknowledge = async () => {
+    setAcknowledging(true);
+    try {
+      const { getFirebaseToken } = await import("@/services/firebase/authService");
+      const token = await getFirebaseToken();
+      if (token) {
+        await fetch("/api/discipline/acknowledge-session", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ pulseId, userId }),
+        });
+      }
+    } catch {
+      // Non-critical — sessionStorage still caches the ack locally
+    } finally {
+      sessionStorage.setItem(storageKey, "true");
+      setVisible(false);
+      setAcknowledging(false);
+      onAcknowledge();
+    }
   };
 
   if (!visible) return null;
@@ -115,7 +137,7 @@ export default function SessionGate({
             <ConstraintBadge
               icon={<Ban className="w-4 h-4" />}
               label="No-Trade Day"
-              value={`${constraints.noTradeDays} day${constraints.noTradeDays > 1 ? "s" : ""} remaining`}
+              value={`${constraints.noTradeDays} day${constraints.noTradeDays > 1 ? "s" : ""} remaining — logging a trade will apply a −20 pt penalty`}
               color="text-red-400"
             />
           )}
@@ -137,11 +159,12 @@ export default function SessionGate({
         <div className="px-6 py-4 border-t border-gray-800/60">
           <button
             onClick={handleAcknowledge}
+            disabled={acknowledging}
             className={`w-full py-2.5 rounded-lg font-medium text-sm transition-all
               ${colors.bg} ${colors.border} border ${colors.text}
-              hover:brightness-125 active:scale-[0.98]`}
+              hover:brightness-125 active:scale-[0.98] disabled:opacity-60`}
           >
-            I acknowledge these constraints
+            {acknowledging ? "Confirming..." : "I acknowledge these constraints"}
           </button>
         </div>
       </div>

@@ -29,6 +29,8 @@ export enum ViolationType {
   OPTIONAL_RULE_MISSED = "OPTIONAL_RULE_MISSED",
   /** Additional −5 when 2+ required rules missed in a single session */
   MULTI_REQUIRED_RULE_MISS = "MULTI_REQUIRED_RULE_MISS",
+  /** Logged during an active no-trade day after explicit trader acknowledgement (−20 pts) */
+  NO_TRADE_DAY_VIOLATED = "NO_TRADE_DAY_VIOLATED",
 }
 
 // ---------------------------------------------------------------------------
@@ -117,8 +119,10 @@ export interface ActiveConstraints {
   tradeCapCount: number | null;
   /** Lockout until this timestamp. null = no lockout */
   lockoutUntil: unknown | null; // Firestore Timestamp at runtime
-  /** Remaining no-trade days */
+  /** Days remaining where trading is locked entirely */
   noTradeDays: number;
+  /** Number of consecutive clean sessions required to lift the current caps */
+  cleanSessionsToLift: number;
 }
 
 /** Breach counts for penalty escalation */
@@ -147,6 +151,12 @@ export interface PulseDisciplineFields {
   maxTradesPerDay: number | null; // null = no limit
   /** Number of consecutive calendar days with zero violations. Resets to 0 on first violation. */
   consecutiveCleanDays: number;
+  /**
+   * Calendar date (YYYY-MM-DD) the trader last acknowledged active constraints
+   * via the SessionGate UI. Server checks this === calendarToday before allowing
+   * trade submission when constraints are active.
+   */
+  sessionGateAckDate: string | null;
 }
 
 /** Default discipline fields for new Pulse creation */
@@ -162,6 +172,7 @@ export function createDefaultDisciplineFields(
       tradeCapCount: null,
       lockoutUntil: null,
       noTradeDays: 0,
+      cleanSessionsToLift: 0,
     },
     lastSessionDate: null,
     reflectionGatePending: false,
@@ -176,6 +187,7 @@ export function createDefaultDisciplineFields(
     accountabilityPartnerEmail: null,
     maxTradesPerDay: null,
     consecutiveCleanDays: 0,
+    sessionGateAckDate: null,
   };
 }
 
@@ -279,6 +291,25 @@ export interface SessionRuleScore {
   requiredMissedCount: number;
   /** Whether the additional −5 multi-miss penalty was triggered (≥2 required missed) */
   multiMissPenaltyApplied: boolean;
+}
+
+// ---------------------------------------------------------------------------
+// Escalation preview (for DisciplineMeter display)
+// ---------------------------------------------------------------------------
+
+/**
+ * A single row in the escalation preview table shown in DisciplineMeter.
+ * Describes how close the trader is to the next enforcement consequence.
+ */
+export interface EscalationPreviewItem {
+  /** Short human label, e.g. "Risk Breaches" */
+  label: string;
+  /** Breach count so far this week (or lifetime for total drawdown) */
+  currentBreaches: number;
+  /** Breach count at which the next consequence kicks in */
+  nextThreshold: number;
+  /** Human description of what happens at nextThreshold, e.g. "75% risk cap" */
+  nextConsequence: string;
 }
 
 // ---------------------------------------------------------------------------

@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import type { Pulse } from "@/types/pulse";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, RefreshCw } from "lucide-react";
 
 interface LimitsTrackerProps {
   pulse: Pulse;
@@ -56,9 +56,21 @@ export default function LimitsTracker({ pulse }: LimitsTrackerProps) {
 
   return (
     <div className="bg-dark/40 border border-gray-800/60 rounded-lg p-4">
-      <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-4 flex items-center gap-1.5">
-        Real-Time Risk Limits
-      </h3>
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400 flex items-center gap-1.5 m-0">
+          Real-Time Risk Limits
+        </h3>
+        
+        {pulse.discipline?.activeConstraints?.cleanSessionsToLift ? (
+          <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-amber-500/10 border border-amber-500/20 text-amber-500 text-xs font-medium">
+            <AlertCircle className="w-3.5 h-3.5" />
+            <span>
+              {pulse.discipline.activeConstraints.cleanSessionsToLift} clean{" "}
+              {pulse.discipline.activeConstraints.cleanSessionsToLift === 1 ? "session" : "sessions"} required to lift caps
+            </span>
+          </div>
+        ) : null}
+      </div>
       
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <ProgressBarMetric 
@@ -80,7 +92,7 @@ export default function LimitsTracker({ pulse }: LimitsTrackerProps) {
         />
 
         {metrics.trades && (
-          <ProgressBarMetric 
+          <ProgressBarMetric
             label={metrics.trades.label}
             current={metrics.trades.current.toString()}
             limit={metrics.trades.limit.toString()}
@@ -90,7 +102,54 @@ export default function LimitsTracker({ pulse }: LimitsTrackerProps) {
           />
         )}
       </div>
+
+      {/* Weekly breach counts */}
+      {pulse.discipline?.weeklyBreachCounts && (() => {
+        const wbc = pulse.discipline!.weeklyBreachCounts;
+        const hasAny = wbc.riskPerTrade > 0 || wbc.drawdownDaily > 0 || wbc.overtrading > 0;
+        if (!hasAny) return null;
+        return (
+          <div className="mt-4 pt-4 border-t border-gray-800/60">
+            <div className="flex items-center justify-between mb-2.5">
+              <span className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold">
+                This Week&apos;s Breaches
+              </span>
+              <span className="flex items-center gap-1 text-[10px] text-gray-600">
+                <RefreshCw className="w-3 h-3" />
+                Resets Monday
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {wbc.riskPerTrade > 0 && (
+                <BreachBadge label="Risk" count={wbc.riskPerTrade} warnAt={2} dangerAt={4} />
+              )}
+              {wbc.drawdownDaily > 0 && (
+                <BreachBadge label="Daily DD" count={wbc.drawdownDaily} warnAt={1} dangerAt={2} />
+              )}
+              {wbc.overtrading > 0 && (
+                <BreachBadge label="Overtrading" count={wbc.overtrading} warnAt={1} dangerAt={2} />
+              )}
+            </div>
+          </div>
+        );
+      })()}
     </div>
+  );
+}
+
+function BreachBadge({ label, count, warnAt, dangerAt }: { label: string; count: number; warnAt: number; dangerAt: number }) {
+  const isDanger = count >= dangerAt;
+  const isWarn = !isDanger && count >= warnAt;
+  const color = isDanger
+    ? "text-red-400 bg-red-500/10 border-red-500/20"
+    : isWarn
+      ? "text-amber-400 bg-amber-500/10 border-amber-500/20"
+      : "text-gray-400 bg-gray-700/30 border-gray-700/40";
+  return (
+    <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded border ${color}`}>
+      {label}
+      <span className="font-bold">{count}</span>
+    </span>
   );
 }
 

@@ -15,6 +15,7 @@
 
 import type {
   ActiveConstraints,
+  EscalationPreviewItem,
   WeeklyBreachCounts,
   DisciplineState,
   DisciplineZone,
@@ -49,6 +50,7 @@ export function computeConstraints(
   let riskCapPct: number | null = null;
   let tradeCapCount: number | null = null;
   let noTradeDays = 0;
+  let cleanSessionsToLift = 0;
   let reflectionGatePending = false;
   let isLockedPermanently = false;
 
@@ -78,13 +80,17 @@ export function computeConstraints(
           // Repeat in same week: no-trade day next day
           noTradeDays = Math.max(noTradeDays, 1);
         }
-        // Day locked + reflection gate
+        // Day locked + reflection gate + 3-session recovery cap
         reflectionGatePending = true;
+        cleanSessionsToLift = Math.max(cleanSessionsToLift, 3);
         break;
       }
 
       case ViolationType.TOTAL_DRAWDOWN: {
         isLockedPermanently = true;
+        // Spec: Total DD sets a 5-session clean recovery countdown if not permanently locked.
+        // We set it here anyway; permanent lock overrides caps in UI/middleware.
+        cleanSessionsToLift = Math.max(cleanSessionsToLift, 5);
         break;
       }
 
@@ -117,6 +123,7 @@ export function computeConstraints(
       tradeCapCount,
       lockoutUntil: null, // Managed by API route for timestamp-based lockouts
       noTradeDays,
+      cleanSessionsToLift,
     },
     reflectionGatePending,
     isLockedPermanently,
@@ -207,16 +214,24 @@ export function shouldLiftConstraints(
   let recoveryBonus = 0;
   const lifted = { ...currentConstraints };
 
-  // Lift risk cap
-  if (lifted.riskCapPct !== null) {
-    lifted.riskCapPct = null;
-    recoveryBonus += 5;
+  // Decrement the clean session requirement
+  if (lifted.cleanSessionsToLift > 0) {
+    lifted.cleanSessionsToLift -= 1;
   }
 
-  // Lift trade cap
-  if (lifted.tradeCapCount !== null) {
-    lifted.tradeCapCount = null;
-    recoveryBonus += 5;
+  // Only lift caps if we've completed the required clean sessions
+  if (lifted.cleanSessionsToLift === 0) {
+    // Lift risk cap
+    if (lifted.riskCapPct !== null) {
+      lifted.riskCapPct = null;
+      recoveryBonus += 5;
+    }
+
+    // Lift trade cap
+    if (lifted.tradeCapCount !== null) {
+      lifted.tradeCapCount = null;
+      recoveryBonus += 5;
+    }
   }
 
   // Decrement no-trade days
@@ -339,6 +354,7 @@ export function mergeConstraints(
     ),
     lockoutUntil: existing.lockoutUntil ?? incoming.lockoutUntil,
     noTradeDays: Math.max(existing.noTradeDays, incoming.noTradeDays),
+    cleanSessionsToLift: Math.max(existing.cleanSessionsToLift, incoming.cleanSessionsToLift),
   };
 }
 
@@ -383,4 +399,58 @@ function getMondayOfWeek(date: Date): Date {
   d.setDate(d.getDate() + diff);
   d.setHours(0, 0, 0, 0);
   return d;
+}
+
+// ---------------------------------------------------------------------------
+// 7. computeEscalationPreview
+// ---------------------------------------------------------------------------
+
+/**
+ * Returns a list of escalation preview items for DisciplineMeter display.
+ * Each item shows how close the trader is to the next enforcement consequence.
+ * Pure function — does not modify any state.
+ */
+export function computeEscalationPreview(
+  weeklyBreachCounts: WeeklyBreachCounts,
+  maxTradesPerDay: number | null,
+): EscalationPreviewItem[] {
+  const items: EscalationPreviewItem[] = [];
+
+  // Risk per trade escalation (weekly resets)
+  const riskBreaches = weeklyBreachCounts.riskPerTrade;
+  if (riskBreaches === 0) {
+    items.push({ label: "Risk Breach", currentBreaches: 0, nextThreshold: 2, nextConsequence: "75% risk cap next session" });
+  } else if (riskBreaches === 1) {
+    items.push({ label: "Risk Breach", currentBreaches: 1, nextThreshold: 2, nextConsequence: "75% risk cap next session" });
+  } else if (riskBreaches === 2) {
+    items.push({ label: "Risk Breach", currentBreaches: 2, nextThreshold: 3, nextConsequence: "50% risk cap next session" });
+  } else if (riskBreaches === 3) {
+    items.push({ label: "Risk Breach", currentBreaches: 3, nextThreshold: 4, nextConsequence: "No-trade day applied" });
+  } else {
+    items.push({ label: "Risk Breach", currentBreaches: riskBreaches, nextThreshold: riskBreaches + 1, nextConsequence: "Additional no-trade day" });
+  }
+
+  // Daily drawdown escalation
+  const ddBreaches = weeklyBreachCounts.drawdownDaily;
+  if (ddBreaches === 0) {
+    items.push({ label: "Daily Drawdown", currentBreaches: 0, nextThreshold: 1, nextConsequence: "Reflection gate + 3-session recovery" });
+  } else if (ddBreaches === 1) {
+    items.push({ label: "Daily Drawdown", currentBreaches: 1, nextThreshold: 2, nextConsequence: "No-trade day + reflection gate" });
+  } else {
+    items.push({ label: "Daily Drawdown", currentBreaches: ddBreaches, nextThreshold: ddBreaches + 1, nextConsequence: "Additional no-trade day" });
+  }
+
+  // Overtrading escalation
+  if (maxTradesPerDay !== null) {
+    const otBreaches = weeklyBreachCounts.overtrading;
+    if (otBreaches === 0) {
+      items.push({ label: "Overtrading", currentBreaches: 0, nextThreshold: 1, nextConsequence: `Trade cap reduced to ${maxTradesPerDay - 1}` });
+    } else if (otBreaches === 1) {
+      items.push({ label: "Overtrading", currentBreaches: 1, nextThreshold: 2, nextConsequence: "No-trade day applied" });
+    } else {
+      items.push({ label: "Overtrading", currentBreaches: otBreaches, nextThreshold: otBreaches + 1, nextConsequence: "Additional no-trade day" });
+    }
+  }
+
+  return items;
 }

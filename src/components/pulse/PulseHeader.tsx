@@ -13,8 +13,7 @@ import {
 import { formatCurrency } from "@/utils/format"
 import { PULSE_STATUS, isPulseLocked } from "@/types/pulse"
 import type { Pulse } from "@/types/pulse";
-import type { DisciplineZone, ActiveConstraints, DisciplineState } from "@/lib/disciplineTypes";
-import DisciplineMeter from "@/components/discipline/DisciplineMeter";
+
 
 type TimeRange = '7D' | '30D' | '90D' | '1Y' | 'ALL';
 type ComparisonType = 'PERIOD' | 'START';
@@ -44,13 +43,6 @@ interface PulseHeaderProps {
   maxTotalDrawdown: number;
   status: string;
   ruleViolations?: string[];
-  // Discipline engine — optional until Phase 1 data exists
-  disciplineScore?: number;
-  disciplineZone?: DisciplineZone;
-  sessionRuleScore?: number;
-  recoveryHint?: string;
-  activeConstraints?: ActiveConstraints;
-  disciplineState?: DisciplineState;
   pulse?: Pulse;
 }
 
@@ -71,18 +63,9 @@ export default function PulseHeader({
   maxTotalDrawdown,
   status,
   ruleViolations = [],
-  disciplineScore,
-  disciplineZone,
-  sessionRuleScore,
-  recoveryHint = '',
-  activeConstraints,
-  disciplineState,
   pulse,
 }: PulseHeaderProps) {
-  const hasDisciplineData =
-    disciplineScore !== undefined &&
-    disciplineZone !== undefined &&
-    sessionRuleScore !== undefined;
+  // DisciplineMeter extraction means PulseHeader no longer needs hasDisciplineData directly for rendering the meter, but it's kept in case we need it.
 
   const getStatusColor = (status: string) => {
     console.log(pulse)
@@ -224,19 +207,7 @@ export default function PulseHeader({
         </div>
       )}
 
-      {/* Discipline Meter Row */}
-      {hasDisciplineData && (
-        <div className="px-4 py-2.5 border-t border-gray-800/50">
-          <DisciplineMeter
-            score={disciplineScore!}
-            zone={disciplineZone!}
-            sessionRuleScore={sessionRuleScore!}
-            recoveryHint={recoveryHint}
-            activeConstraints={activeConstraints}
-            disciplineState={disciplineState}
-          />
-        </div>
-      )}
+      {/* Discipline Meter Row - REMOVED */}
 
       {/* Time Controls Section */}
       <div className="px-4 py-2 flex flex-wrap items-center gap-2 border-t border-gray-800/50">

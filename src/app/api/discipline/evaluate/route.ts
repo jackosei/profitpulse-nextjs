@@ -39,7 +39,7 @@ import type {
   SessionSummary,
   ViolationLogEntry,
 } from "@/lib/disciplineTypes";
-import { ViolationType } from "@/lib/disciplineTypes";
+import { ViolationType, ViolationCategory } from "@/lib/disciplineTypes";
 import type { ActiveConstraints, DisciplineState } from "@/lib/disciplineTypes";
 import { getDefaultPointValue } from "@/lib/instrumentPointValues";
 import {
@@ -82,10 +82,12 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { pulseId, userId, tradeData } = body as {
+    const { pulseId, userId, tradeData, noTradeDayAck, capAck } = body as {
       pulseId: string;
       userId: string;
       tradeData: TradeCreateData;
+      noTradeDayAck?: boolean;
+      capAck?: boolean;
     };
 
     // Verify the authenticated user matches the request
@@ -121,6 +123,31 @@ export async function POST(request: Request) {
         { error: PULSE_MESSAGES.LOCKED_ERROR_MESSAGE },
         { status: 403 },
       );
+    }
+
+    // ── Friction gate checks ───────────────────────────────────────────
+    // Extract discipline early so gate checks can run before expensive ops.
+    const discipline = pulseData.discipline;
+    const calendarToday = new Date().toISOString().split("T")[0];
+    const earlyConstraints: ActiveConstraints = discipline?.activeConstraints ?? {
+      riskCapPct: null, tradeCapCount: null, lockoutUntil: null, noTradeDays: 0, cleanSessionsToLift: 0,
+    };
+    const hasAnyCaps =
+      earlyConstraints.riskCapPct !== null ||
+      earlyConstraints.tradeCapCount !== null ||
+      earlyConstraints.noTradeDays > 0;
+
+    // Tier 2/3: Session gate must be acknowledged before any trade on a constrained day.
+    if (hasAnyCaps && discipline?.sessionGateAckDate !== calendarToday) {
+      return NextResponse.json({ error: "SESSION_GATE_NOT_ACKNOWLEDGED" }, { status: 403 });
+    }
+
+    // Tier 3: No-trade day — requires explicit per-trade typed acknowledgement.
+    if (earlyConstraints.noTradeDays > 0 && !noTradeDayAck) {
+      return NextResponse.json({
+        error: "NO_TRADE_DAY_ACK_REQUIRED",
+        daysRemaining: earlyConstraints.noTradeDays,
+      }, { status: 409 });
     }
 
     // ── Validate trade data ────────────────────────────────────────────
@@ -182,7 +209,7 @@ export async function POST(request: Request) {
     const dailyTradeCount = todayTradesSnap.size;
 
     // ── Lazy recovery ──────────────────────────────────────────────────
-    const discipline = pulseData.discipline;
+    // (discipline extracted earlier for gate checks)
     const lastSessionDate = discipline?.lastSessionDate ?? null;
     const isNewDay = lastSessionDate !== null && lastSessionDate !== today;
 
@@ -222,7 +249,7 @@ export async function POST(request: Request) {
 
       // Lift constraints if previous capped session was clean
       const existingConstraints = discipline.activeConstraints ?? {
-        riskCapPct: null, tradeCapCount: null, lockoutUntil: null, noTradeDays: 0,
+        riskCapPct: null, tradeCapCount: null, lockoutUntil: null, noTradeDays: 0, cleanSessionsToLift: 0,
       };
       const { liftedConstraints, recoveryBonus: liftBonus } =
         shouldLiftConstraints(existingConstraints, sessionWasClean);
@@ -299,7 +326,7 @@ export async function POST(request: Request) {
           discipline.disciplineState ?? "NORMAL",
           recoveredScore,
           discipline.activeConstraints ?? {
-            riskCapPct: null, tradeCapCount: null, lockoutUntil: null, noTradeDays: 0,
+            riskCapPct: null, tradeCapCount: null, lockoutUntil: null, noTradeDays: 0, cleanSessionsToLift: 0,
           },
         );
         await adminDb.collection("pulses").doc(firestoreId).update({
@@ -328,6 +355,7 @@ export async function POST(request: Request) {
       tradeCapCount: null,
       lockoutUntil: null,
       noTradeDays: 0,
+      cleanSessionsToLift: 0,
     };
     const currentConstraints = discipline?.activeConstraints ?? defaultConstraints;
 
@@ -360,6 +388,29 @@ export async function POST(request: Request) {
           pulseData.accountSize) *
         100
         : 0;
+
+    // ── Tier 2 cap enforcement ─────────────────────────────────────────
+    // Risk cap: if active and trade risk exceeds the cap, require capAck.
+    if (currentConstraints.riskCapPct !== null && !capAck) {
+      const effectiveCap = pulseData.maxRiskPerTrade * currentConstraints.riskCapPct;
+      if (riskPctFromSL > effectiveCap) {
+        return NextResponse.json({
+          error: "RISK_CAP_EXCEEDED",
+          cap: effectiveCap,
+          actual: riskPctFromSL,
+        }, { status: 422 });
+      }
+    }
+    // Trade cap: if active and daily count already at limit, require capAck.
+    if (currentConstraints.tradeCapCount !== null && !capAck) {
+      if (dailyTradeCount >= currentConstraints.tradeCapCount) {
+        return NextResponse.json({
+          error: "TRADE_CAP_EXCEEDED",
+          cap: currentConstraints.tradeCapCount,
+          count: dailyTradeCount,
+        }, { status: 422 });
+      }
+    }
 
     const tradeForEval: TradeForEvaluation = {
       riskPct: riskPctFromSL,
@@ -480,9 +531,18 @@ export async function POST(request: Request) {
     let newState: DisciplineState = discipline?.disciplineState ?? "NORMAL";
     let isViolationTrade = false;
 
-    // Flag if trading under no-trade-day or lockout (trade is allowed per spec but flagged)
-    if (currentConstraints.noTradeDays > 0) {
+    // Flag if trading under no-trade-day (acknowledged via noTradeDayAck)
+    if (currentConstraints.noTradeDays > 0 && noTradeDayAck) {
       isViolationTrade = true;
+      // Inject NO_TRADE_DAY_VIOLATED into violations so the engine scores it
+      violations.push({
+        type: ViolationType.NO_TRADE_DAY_VIOLATED,
+        category: ViolationCategory.QUANTITATIVE,
+        severity: 20,
+        details: `Trade logged on a mandated no-trade day (${currentConstraints.noTradeDays} day${currentConstraints.noTradeDays > 1 ? "s" : ""} remaining).`,
+        threshold: 0,
+        actual: 1,
+      });
     }
 
     if (discipline && violations.length > 0) {

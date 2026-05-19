@@ -7,6 +7,7 @@ interface TradeDataFormProps extends FormComponentProps {
   onTimeChange: (
     name: string,
   ) => (e: React.ChangeEvent<HTMLInputElement>) => void;
+  liveRiskPct?: number | null;
 }
 
 export default function TradeDataForm({
@@ -15,6 +16,7 @@ export default function TradeDataForm({
   isSubmitting,
   availableInstruments,
   onTimeChange,
+  liveRiskPct,
 }: TradeDataFormProps) {
   const entryTimeRef = useRef<HTMLInputElement>(null);
   const exitTimeRef = useRef<HTMLInputElement>(null);
@@ -204,9 +206,22 @@ export default function TradeDataForm({
               onChange={onChange}
             />
           </div>
-          <p className="text-xs text-gray-500 mt-1">
-            Optional — enables risk metrics (intended R:R, exit quality)
-          </p>
+          <div className="flex items-center justify-between mt-1">
+            <p className="text-xs text-gray-500">
+              Optional — enables risk metrics (intended R:R, exit quality)
+            </p>
+            {liveRiskPct !== null && liveRiskPct !== undefined && liveRiskPct > 0 && (
+              <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                liveRiskPct > 5
+                  ? "text-red-400 bg-red-500/15"
+                  : liveRiskPct > 2
+                    ? "text-amber-400 bg-amber-500/15"
+                    : "text-emerald-400 bg-emerald-500/15"
+              }`}>
+                ~{liveRiskPct.toFixed(2)}% risk
+              </span>
+            )}
+          </div>
         </div>
 
         <div>

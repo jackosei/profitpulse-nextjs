@@ -140,10 +140,26 @@ Full ladders in spec doc. Summary:
 
 ---
 
+## Enforcement model — friction ladder
+
+This app is a **post-execution** logging tool. Trades are executed externally (MT4, broker, TradingView) and logged here afterward. Enforcement therefore operates on the logging layer, not the execution layer.
+
+| Tier | Trigger | Server response | UX behaviour |
+|------|---------|-----------------|--------------|
+| 0 — Informational | No caps, GREEN zone | 200 OK | Trade logs normally. Violation toast on breach. |
+| 1 — Soft friction | 1st risk breach, rule misses | 200 OK | WHY reminder email fires. Prominent toast. |
+| 2 — Acknowledged friction | Risk cap or trade cap active | 422 unless `capAck: true` in body | Amber "Submit with Acknowledged Cap" button in form. |
+| 3 — Hard friction | No-trade day active | 409 unless `noTradeDayAck: true` in body | Typed "I acknowledge" overlay before form submits. |
+| 4 — Hard block | `reflectionGatePending` or total drawdown lock | 403 (existing) | No bypass path. |
+
+**Session gate** (once per day): If any constraint is active and `discipline.sessionGateAckDate !== calendarToday`, evaluate returns 403 `SESSION_GATE_NOT_ACKNOWLEDGED`. The trader must click "I acknowledge" in the SessionGate UI (which calls `POST /api/discipline/acknowledge-session`) before the form will submit.
+
+All Tier 2–3 trades still write to Firestore with appropriate violation flags — the friction is an acknowledgement requirement, not a hard block on data capture.
+
 ## What NOT to do
 - Do not put enforcement logic in React components or client hooks
-- Do not block journal entries for cap violations (trade already happened at broker) — detect and escalate instead
-- Do not block journal entries entirely on no-trade days — provide "Log violation trade" fallback path
+- Do not permanently block logging for cap violations — use 422 + `capAck` re-submit instead
+- Do not permanently block logging on no-trade days — use 409 + `noTradeDayAck` re-submit instead
 - Do not compute recovery from empty sessions (user opened app but logged no trades)
 - Do not reset `weeklyBreachCounts.drawdownTotal` — it is a lifetime counter
 

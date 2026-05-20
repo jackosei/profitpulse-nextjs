@@ -41,6 +41,7 @@ export default function PerformanceControls({
             <MenuItem key={range.value}>
               {({ active }) => (
                 <button
+                  type="button"
                   onClick={() => onTimeRangeChange(range.value)}
                   className={`${active ? "bg-white/5" : ""} ${
                     selectedTimeRange === range.value ? "text-blue-400 font-medium" : "text-gray-300"
@@ -57,6 +58,7 @@ export default function PerformanceControls({
 
       {/* Comparison toggle */}
       <button
+        type="button"
         onClick={onComparisonTypeChange}
         className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg border transition-colors ${
           comparisonType === "PERIOD"

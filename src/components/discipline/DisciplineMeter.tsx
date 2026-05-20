@@ -176,37 +176,37 @@ export default function DisciplineMeter({
         </div>
 
         {/* ── Right: Today's Execution (Circular Progress) ── */}
-        <div className="flex flex-col items-center gap-2 pl-6 border-l border-gray-800/60">
-          <div className="flex items-center gap-1">
-            <span className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold text-center leading-tight max-w-[60px]">
-              Today's Exec.
+        <div className="flex flex-col items-center gap-2 pl-5 border-l border-gray-800/60 shrink-0">
+          <div className="flex items-center gap-1 whitespace-nowrap">
+            <span className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold">
+              Rules Today
             </span>
-            <div title="The percentage of your qualitative trading rules you successfully followed across all trades logged today.">
+            <div title="The percentage of your required trading rules followed across all trades logged today.">
               <Info className="w-3 h-3 text-gray-500 cursor-help" />
             </div>
           </div>
 
-          <div className="relative w-12 h-12 flex items-center justify-center">
-             <svg className="w-full h-full transform -rotate-90">
-                <circle cx="24" cy="24" r="20" stroke="currentColor" strokeWidth="4" fill="none" className="text-gray-800/80" />
-                <circle 
-                  cx="24" 
-                  cy="24" 
-                  r="20" 
-                  stroke="currentColor" 
-                  strokeWidth="4" 
-                  fill="none" 
-                  className={ruleScoreColor(sessionRuleScore)} 
-                  strokeDasharray="125.66" 
-                  strokeDashoffset={125.66 - (125.66 * sessionRuleScore / 100)} 
-                  strokeLinecap="round" 
-                />
-             </svg>
-             <div className="absolute inset-0 flex items-center justify-center">
-               <span className={`text-xs font-bold tabular-nums ${ruleScoreColor(sessionRuleScore)}`}>
-                 {Math.round(sessionRuleScore)}%
-               </span>
-             </div>
+          <div className="relative w-16 h-16 flex items-center justify-center">
+            <svg viewBox="0 0 64 64" className="w-full h-full -rotate-90">
+              <circle cx="32" cy="32" r="26" stroke="currentColor" strokeWidth="5" fill="none" className="text-gray-800/80" />
+              <circle
+                cx="32"
+                cy="32"
+                r="26"
+                stroke="currentColor"
+                strokeWidth="5"
+                fill="none"
+                className={ruleScoreColor(sessionRuleScore)}
+                strokeDasharray={2 * Math.PI * 26}
+                strokeDashoffset={(2 * Math.PI * 26) * (1 - sessionRuleScore / 100)}
+                strokeLinecap="round"
+              />
+            </svg>
+            <div className="absolute inset-0 flex items-center justify-center">
+              <span className={`text-sm font-bold tabular-nums ${ruleScoreColor(sessionRuleScore)}`}>
+                {Math.round(sessionRuleScore)}%
+              </span>
+            </div>
           </div>
         </div>
 
@@ -222,24 +222,34 @@ export default function DisciplineMeter({
 
       {/* ── Active constraint badges (Phase 2) ── */}
       {activeConstraints && hasActiveConstraints(activeConstraints) && (
-        <div className="flex flex-wrap gap-1.5 border-t border-gray-800/60 pt-2 mt-0.5">
+        <div className="flex flex-wrap items-center gap-1.5 border-t border-gray-800/60 pt-2 mt-0.5">
+          <span className="text-[9px] uppercase tracking-wider text-gray-600 font-semibold mr-1">Active:</span>
           {disciplineState && disciplineState !== "NORMAL" && (
             <StateBadge state={disciplineState} />
           )}
           {activeConstraints.riskCapPct !== null && (
-            <span className="flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">
+            <span
+              className="flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 cursor-help"
+              title={`Per-trade risk capped at ${Math.round(activeConstraints.riskCapPct * 100)}% of your configured limit. Lifts after ${activeConstraints.cleanSessionsToLift || "a"} clean session${(activeConstraints.cleanSessionsToLift ?? 0) > 1 ? "s" : ""}.`}
+            >
               <TrendingDown className="w-3 h-3" />
               {Math.round(activeConstraints.riskCapPct * 100)}% risk cap
             </span>
           )}
           {activeConstraints.tradeCapCount !== null && (
-            <span className="flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">
+            <span
+              className="flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 cursor-help"
+              title={`Maximum ${activeConstraints.tradeCapCount} trades per session while the cap is active.`}
+            >
               <Hash className="w-3 h-3" />
               {activeConstraints.tradeCapCount} trade cap
             </span>
           )}
           {activeConstraints.noTradeDays > 0 && (
-            <span className="flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded bg-red-500/10 text-red-400 border border-red-500/20">
+            <span
+              className="flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded bg-red-500/10 text-red-400 border border-red-500/20 cursor-help"
+              title={`No-trade day active. Logging a trade today applies a −20 point penalty.`}
+            >
               <Ban className="w-3 h-3" />
               {activeConstraints.noTradeDays}d no-trade
             </span>
@@ -300,9 +310,16 @@ const STATE_BADGE_CONFIG: Record<
 
 function StateBadge({ state }: { state: DisciplineState }) {
   const cfg = STATE_BADGE_CONFIG[state];
+  const stateTooltip: Record<DisciplineState, string> = {
+    NORMAL: "Normal — no active constraints.",
+    LIMITED: "Limited — at least one cap (risk or trade count) is active. Caps lift after the required clean sessions.",
+    RESTRICTED: "Restricted — score below 40 or a lockout/no-trade day is active. Logging requires acknowledgement.",
+    RECOVERY: "Recovery — exiting Restricted via compliance. Constraints are being lifted progressively.",
+  };
   return (
     <span
-      className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${cfg.bg} ${cfg.color} border ${cfg.border}`}
+      className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${cfg.bg} ${cfg.color} border ${cfg.border} cursor-help`}
+      title={stateTooltip[state]}
     >
       {cfg.label}
     </span>

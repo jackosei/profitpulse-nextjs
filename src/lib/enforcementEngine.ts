@@ -46,6 +46,7 @@ export function computeConstraints(
   violations: TradeViolation[],
   weeklyBreachCounts: WeeklyBreachCounts,
   maxTradesPerDay: number | null,
+  existingConstraints?: ActiveConstraints,
 ): { constraints: ActiveConstraints; reflectionGatePending: boolean; isLockedPermanently: boolean } {
   let riskCapPct: number | null = null;
   let tradeCapCount: number | null = null;
@@ -54,23 +55,44 @@ export function computeConstraints(
   let reflectionGatePending = false;
   let isLockedPermanently = false;
 
+  const existingRiskCap = existingConstraints?.riskCapPct ?? null;
+  const existingTradeCap = existingConstraints?.tradeCapCount ?? null;
+
   for (const v of violations) {
     switch (v.type) {
       case ViolationType.RISK_PER_TRADE: {
-        // weeklyBreachCounts already includes this violation's increment
+        // weeklyBreachCounts already includes this violation's increment.
+        // We escalate based on the higher of (weekly breach tier) and
+        // (current active cap tier) so escalation works even after a Monday
+        // reset where the counter zeroed but the cap is still active.
         const totalRiskBreaches = weeklyBreachCounts.riskPerTrade;
 
-        if (totalRiskBreaches >= 4) {
-          // Breach 4+: no-trade day escalation
-          noTradeDays = Math.max(noTradeDays, 1);
-        } else if (totalRiskBreaches === 3) {
-          // Breach 3: 50% risk cap
-          riskCapPct = pickMoreRestrictive(riskCapPct, 0.5);
-        } else if (totalRiskBreaches === 2) {
-          // Breach 2: 75% risk cap next day
-          riskCapPct = pickMoreRestrictive(riskCapPct, 0.75);
+        // Determine "effective tier" from existing cap:
+        //   no cap → tier 1 (next escalation = 75% cap)
+        //   75% cap (0.75) → tier 2 (next escalation = 50% cap)
+        //   50% cap (≤0.5) → tier 3 (next escalation = no-trade day)
+        let existingTier = 1;
+        if (existingRiskCap !== null) {
+          existingTier = existingRiskCap <= 0.5 ? 3 : 2;
         }
-        // Breach 1: WHY prompt only — no constraint
+        const weeklyTier =
+          totalRiskBreaches >= 4 ? 4 :
+          totalRiskBreaches === 3 ? 3 :
+          totalRiskBreaches === 2 ? 2 : 1;
+        // After this breach, escalate by at least one tier from existing.
+        const effectiveTier = Math.max(weeklyTier, existingTier + 1);
+
+        if (effectiveTier >= 4) {
+          noTradeDays = Math.max(noTradeDays, 1);
+          cleanSessionsToLift = Math.max(cleanSessionsToLift, 3);
+        } else if (effectiveTier === 3) {
+          riskCapPct = pickMoreRestrictive(riskCapPct, 0.5);
+          cleanSessionsToLift = Math.max(cleanSessionsToLift, 3);
+        } else if (effectiveTier === 2) {
+          riskCapPct = pickMoreRestrictive(riskCapPct, 0.75);
+          cleanSessionsToLift = Math.max(cleanSessionsToLift, 2);
+        }
+        // Tier 1: WHY prompt only — no constraint
         break;
       }
 
@@ -95,12 +117,15 @@ export function computeConstraints(
       }
 
       case ViolationType.MAX_TRADES_PER_DAY: {
+        // Same escalation logic as risk: escalate from current trade cap if present,
+        // not just from the weekly counter (which resets Mondays).
         const totalOvertradingBreaches = weeklyBreachCounts.overtrading;
-        if (totalOvertradingBreaches >= 2) {
-          // Repeat in same week: no-trade day next day
+        const hasExistingTradeCap = existingTradeCap !== null;
+        if (totalOvertradingBreaches >= 2 || hasExistingTradeCap) {
+          // Repeat in same week OR already capped → no-trade day
           noTradeDays = Math.max(noTradeDays, 1);
         } else if (maxTradesPerDay !== null && maxTradesPerDay > 1) {
-          // Day locked + (limit−1) cap next day
+          // First weekly breach + no existing cap: (limit−1) cap
           tradeCapCount = pickMoreRestrictiveInt(
             tradeCapCount,
             maxTradesPerDay - 1,

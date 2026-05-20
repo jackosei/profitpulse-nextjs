@@ -11,7 +11,9 @@ import DeletePulseModal from "@/components/modals/DeletePulseModal";
 import UpdatePulseModal from "@/components/modals/UpdatePulseModal";
 import PulseHeader from "@/components/pulse/PulseHeader";
 import PulseStats from "@/components/pulse/PulseStats";
-import PulseChart from "@/components/pulse/PulseChart";
+import ChartsCard from "@/components/pulse/ChartsCard";
+import PerformanceControls from "@/components/pulse/PerformanceControls";
+import ViolationHistoryModal from "@/components/modals/ViolationHistoryModal";
 import TradeHistory from "@/components/pulse/TradeHistory";
 import TradeCalendar from "@/components/pulse/TradeCalendar";
 import { toast } from "sonner";
@@ -21,11 +23,9 @@ import type { DisciplineZone, ActiveConstraints, DisciplineState } from "@/lib/d
 import SessionGate from "@/components/discipline/SessionGate";
 import ReflectionGate from "@/components/discipline/ReflectionGate";
 import LimitsTracker from "@/components/discipline/LimitsTracker";
-import DisciplineChart from "@/components/discipline/DisciplineChart";
 import WHYReminderBanner from "@/components/discipline/WHYReminderBanner";
 import DisciplineMeter from "@/components/discipline/DisciplineMeter";
 import StreakBadge from "@/components/discipline/StreakBadge";
-import ViolationHistoryPanel from "@/components/discipline/ViolationHistoryPanel";
 
 type TimeRange = "7D" | "30D" | "90D" | "1Y" | "ALL";
 type ComparisonType = "PERIOD" | "START";
@@ -71,6 +71,7 @@ export default function PulseDetailsPage() {
   });
   const [showArchiveModal, setShowArchiveModal] = useState(false);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
+  const [showViolationsModal, setShowViolationsModal] = useState(false);
 
   // Phase 2: Enforcement local state
   const [reflectionPending, setReflectionPending] = useState(false);
@@ -339,19 +340,26 @@ export default function PulseDetailsPage() {
   };
   const disciplineState: DisciplineState = discipline?.disciplineState ?? "NORMAL";
 
+  function PageSection({ label, action, children }: { label: string; action?: React.ReactNode; children: React.ReactNode }) {
+    return (
+      <div>
+        <div className="flex items-center gap-3 mb-4 px-4 md:px-0">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-gray-600 shrink-0">{label}</span>
+          <div className="flex-1 h-px bg-gradient-to-r from-gray-800 to-transparent" />
+          {action && <div className="shrink-0">{action}</div>}
+        </div>
+        <div className="px-4 md:px-0">{children}</div>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen p-0 md:p-6 space-y-4 md:space-y-6">
+    <div className="min-h-screen p-0 md:p-6 space-y-0">
       <PulseHeader
         name={pulse.name}
         instrument={pulse.instruments?.join(", ") || "N/A"}
         accountSize={pulse.accountSize}
         createdAt={pulse.createdAt}
-        selectedTimeRange={selectedTimeRange}
-        comparisonType={comparisonType}
-        onTimeRangeChange={setSelectedTimeRange}
-        onComparisonTypeChange={() =>
-          setComparisonType((prev) => (prev === "PERIOD" ? "START" : "PERIOD"))
-        }
         onArchive={() => setShowArchiveModal(true)}
         onDelete={() => setShowDeleteModal(true)}
         onUpdate={() => setShowUpdateModal(true)}
@@ -363,79 +371,104 @@ export default function PulseDetailsPage() {
         pulse={pulse}
       />
 
-      <WHYReminderBanner
-        pulseId={pulse.id}
-        whyStatement={discipline?.whyStatement ?? ""}
-        whyDiscipline={discipline?.whyDiscipline ?? ""}
-        zone={disciplineZone ?? "GREEN"}
-      />
+      <div className="space-y-4 md:space-y-6 px-0 md:px-0 pt-4 md:pt-6">
 
-      {/* Discipline & Behaviour Metrics */}
-      <div className="grid grid-cols-1 md:flex md:flex-row md:items-start gap-4">
-        {disciplineScore !== undefined && disciplineZone !== undefined && sessionRuleScore !== undefined && (
-          <div className="flex-1 max-w-sm">
-            <DisciplineMeter
-              score={disciplineScore}
-              zone={disciplineZone}
-              sessionRuleScore={sessionRuleScore}
-              recoveryHint={recoveryHint}
-              activeConstraints={activeConstraints}
-              disciplineState={disciplineState}
-              weeklyBreachCounts={discipline?.weeklyBreachCounts}
-              maxTradesPerDay={discipline?.maxTradesPerDay}
+        {/* WHY reminder — only visible when zone is degraded */}
+        <WHYReminderBanner
+          pulseId={pulse.id}
+          whyStatement={discipline?.whyStatement ?? ""}
+          whyDiscipline={discipline?.whyDiscipline ?? ""}
+          zone={disciplineZone ?? "GREEN"}
+        />
+
+        {/* ── Discipline Engine ─────────────────────────────────────── */}
+        <PageSection label="Discipline Engine">
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-4 items-start">
+              {disciplineScore !== undefined && disciplineZone !== undefined && sessionRuleScore !== undefined && (
+                <DisciplineMeter
+                  score={disciplineScore}
+                  zone={disciplineZone}
+                  sessionRuleScore={sessionRuleScore}
+                  recoveryHint={recoveryHint}
+                  activeConstraints={activeConstraints}
+                  disciplineState={disciplineState}
+                  weeklyBreachCounts={discipline?.weeklyBreachCounts}
+                  maxTradesPerDay={discipline?.maxTradesPerDay}
+                />
+              )}
+              <StreakBadge consecutiveCleanDays={discipline?.consecutiveCleanDays ?? 0} />
+            </div>
+
+            <LimitsTracker pulse={pulse} />
+
+            {/* Compact "View History" trigger — full list lives in a modal */}
+            <button
+              type="button"
+              onClick={() => setShowViolationsModal(true)}
+              className="w-full flex items-center justify-between px-4 py-3 rounded-lg border border-gray-800 bg-dark hover:border-gray-700 hover:bg-dark/80 transition-colors group"
+            >
+              <div className="flex items-center gap-2.5">
+                <span className="w-7 h-7 rounded-full bg-amber-500/10 flex items-center justify-center">
+                  <span className="text-xs">⚠️</span>
+                </span>
+                <div className="text-left">
+                  <p className="text-sm font-medium text-gray-200">Violation History</p>
+                  <p className="text-xs text-gray-500">Review past breaches and score deltas</p>
+                </div>
+              </div>
+              <span className="text-xs text-gray-500 group-hover:text-gray-300">View →</span>
+            </button>
+          </div>
+        </PageSection>
+
+        {/* ── Performance ──────────────────────────────────────────── */}
+        <PageSection
+          label="Performance"
+          action={
+            <PerformanceControls
+              selectedTimeRange={selectedTimeRange}
+              comparisonType={comparisonType}
+              onTimeRangeChange={setSelectedTimeRange}
+              onComparisonTypeChange={() =>
+                setComparisonType((prev) => (prev === "PERIOD" ? "START" : "PERIOD"))
+              }
             />
+          }
+        >
+          <div className="space-y-4">
+            <PulseStats stats={periodStats} comparisonType={comparisonType} />
+            <ChartsCard pulseId={pulse.id} trades={pulse.trades ?? []} timeRange={selectedTimeRange} />
           </div>
-        )}
-        <div className="flex-shrink-0">
-          <StreakBadge consecutiveCleanDays={discipline?.consecutiveCleanDays ?? 0} />
-        </div>
+        </PageSection>
+
+        {/* ── Trade Log ────────────────────────────────────────────── */}
+        <PageSection label="Trade Log">
+          {viewType === "table" ? (
+            <TradeHistory
+              trades={pulse.trades || []}
+              hasMore={hasMore}
+              loadingMore={loadingMore}
+              onLoadMore={loadMoreTrades}
+              onAddTrade={() => setShowAddTradeModal(true)}
+              onRefresh={fetchPulse}
+              pulse={pulse}
+              viewType={viewType}
+              onViewTypeChange={setViewType}
+            />
+          ) : (
+            <TradeCalendar
+              trades={pulse.trades || []}
+              pulse={pulse}
+              onAddTrade={() => setShowAddTradeModal(true)}
+              onRefresh={fetchPulse}
+              viewType={viewType}
+              onViewTypeChange={setViewType}
+            />
+          )}
+        </PageSection>
+
       </div>
-
-      <LimitsTracker pulse={pulse} />
-
-      <DisciplineChart pulseId={pulse.id} />
-
-      {/* Violation History */}
-      <div className="bg-dark rounded-lg border border-gray-800 p-4">
-        <h3 className="text-sm font-semibold text-gray-300 mb-3">Violation History</h3>
-        <ViolationHistoryPanel pulseId={pulse.id} />
-      </div>
-
-      <PulseStats stats={periodStats} comparisonType={comparisonType} />
-
-      {/* Chart section */}
-      <div className="bg-dark p-3 md:p-4 rounded-lg border border-gray-800 h-[250px] md:h-[300px]">
-        {pulse.trades && pulse.trades.length > 0 ? (
-          <PulseChart trades={pulse.trades} timeRange={selectedTimeRange} />
-        ) : (
-          <div className="h-full flex items-center justify-center text-gray-400">
-            No trades recorded yet
-          </div>
-        )}
-      </div>
-
-      {viewType === "table" ? (
-        <TradeHistory
-          trades={pulse.trades || []}
-          hasMore={hasMore}
-          loadingMore={loadingMore}
-          onLoadMore={loadMoreTrades}
-          onAddTrade={() => setShowAddTradeModal(true)}
-          onRefresh={fetchPulse}
-          pulse={pulse}
-          viewType={viewType}
-          onViewTypeChange={setViewType}
-        />
-      ) : (
-        <TradeCalendar
-          trades={pulse.trades || []}
-          pulse={pulse}
-          onAddTrade={() => setShowAddTradeModal(true)}
-          onRefresh={fetchPulse}
-          viewType={viewType}
-          onViewTypeChange={setViewType}
-        />
-      )}
 
       <AddTradeModal
         isOpen={showAddTradeModal}
@@ -470,6 +503,12 @@ export default function PulseDetailsPage() {
         onClose={() => setShowArchiveModal(false)}
         onConfirm={handleArchive}
         pulseName={pulse.name}
+      />
+
+      <ViolationHistoryModal
+        isOpen={showViolationsModal}
+        onClose={() => setShowViolationsModal(false)}
+        pulseId={pulse.id}
       />
 
       {/* Phase 2: Session Gate — constraint acknowledgement */}

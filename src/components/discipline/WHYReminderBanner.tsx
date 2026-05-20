@@ -53,10 +53,13 @@ export default function WHYReminderBanner({
 
   const isRed = zone === "RED";
   const borderColor = isRed ? "border-red-500/40" : "border-yellow-500/40";
-  const bgColor = isRed ? "bg-red-500/8" : "bg-yellow-500/8";
+  const bgColor = isRed ? "bg-red-500/10" : "bg-yellow-500/10";
   const iconColor = isRed ? "text-red-400" : "text-yellow-400";
   const headingColor = isRed ? "text-red-300" : "text-yellow-300";
   const zoneLabel = isRed ? "Enforcement" : "At Risk";
+  const zoneBadge = isRed
+    ? "bg-red-500/20 text-red-300 border-red-500/30"
+    : "bg-yellow-500/20 text-yellow-300 border-yellow-500/30";
 
   return (
     <div
@@ -75,10 +78,13 @@ export default function WHYReminderBanner({
       </button>
 
       {/* Header */}
-      <div className="flex items-center gap-2 mb-3">
-        <Heart className={`w-4 h-4 ${iconColor}`} />
+      <div className="flex items-center gap-2 mb-3 pr-6">
+        <Heart className={`w-4 h-4 ${iconColor} shrink-0`} />
         <span className={`text-xs font-semibold uppercase tracking-wider ${headingColor}`}>
-          Remember Why You Started — Zone: {zoneLabel}
+          Remember why you started
+        </span>
+        <span className={`shrink-0 px-2 py-0.5 text-[10px] font-semibold rounded-full border ${zoneBadge}`}>
+          {zoneLabel}
         </span>
       </div>
 

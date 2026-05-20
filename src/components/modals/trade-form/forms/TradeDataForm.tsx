@@ -8,6 +8,8 @@ interface TradeDataFormProps extends FormComponentProps {
     name: string,
   ) => (e: React.ChangeEvent<HTMLInputElement>) => void;
   liveRiskPct?: number | null;
+  /** Effective per-trade risk cap as a percentage (already factors in active caps). */
+  effectiveRiskLimitPct?: number | null;
 }
 
 export default function TradeDataForm({
@@ -17,6 +19,7 @@ export default function TradeDataForm({
   availableInstruments,
   onTimeChange,
   liveRiskPct,
+  effectiveRiskLimitPct,
 }: TradeDataFormProps) {
   const entryTimeRef = useRef<HTMLInputElement>(null);
   const exitTimeRef = useRef<HTMLInputElement>(null);
@@ -210,17 +213,41 @@ export default function TradeDataForm({
             <p className="text-xs text-gray-500">
               Optional — enables risk metrics (intended R:R, exit quality)
             </p>
-            {liveRiskPct !== null && liveRiskPct !== undefined && liveRiskPct > 0 && (
-              <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
-                liveRiskPct > 5
-                  ? "text-red-400 bg-red-500/15"
-                  : liveRiskPct > 2
-                    ? "text-amber-400 bg-amber-500/15"
-                    : "text-emerald-400 bg-emerald-500/15"
-              }`}>
-                ~{liveRiskPct.toFixed(2)}% risk
-              </span>
-            )}
+            {liveRiskPct !== null && liveRiskPct !== undefined && liveRiskPct > 0 && (() => {
+              // Tone is computed relative to the trader's effective per-trade
+              // risk limit (which factors in any active risk cap). Falls back
+              // to absolute thresholds only if no limit is provided.
+              let tone: "ok" | "warn" | "over";
+              if (effectiveRiskLimitPct && effectiveRiskLimitPct > 0) {
+                if (liveRiskPct > effectiveRiskLimitPct) tone = "over";
+                else if (liveRiskPct > effectiveRiskLimitPct * 0.8) tone = "warn";
+                else tone = "ok";
+              } else {
+                tone = liveRiskPct > 5 ? "over" : liveRiskPct > 2 ? "warn" : "ok";
+              }
+              const colors = {
+                ok: "text-emerald-400 bg-emerald-500/15",
+                warn: "text-amber-400 bg-amber-500/15",
+                over: "text-red-400 bg-red-500/15",
+              }[tone];
+              const suffix = effectiveRiskLimitPct
+                ? ` / ${effectiveRiskLimitPct.toFixed(2)}% cap`
+                : "";
+              return (
+                <span
+                  className={`text-xs font-semibold px-2 py-0.5 rounded-full ${colors}`}
+                  title={
+                    tone === "over"
+                      ? `This trade exceeds your effective ${effectiveRiskLimitPct?.toFixed(2)}% per-trade risk cap`
+                      : tone === "warn"
+                        ? `Approaching your ${effectiveRiskLimitPct?.toFixed(2)}% per-trade risk cap`
+                        : "Within your configured risk limit"
+                  }
+                >
+                  ~{liveRiskPct.toFixed(2)}% risk{suffix}
+                </span>
+              );
+            })()}
           </div>
         </div>
 

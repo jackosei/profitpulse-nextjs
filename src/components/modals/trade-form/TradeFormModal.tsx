@@ -265,6 +265,17 @@ export default function TradeFormModal({
     return (Math.abs(ep - sl) * pointValue * lots / accountSize) * 100;
   }, [formData.entryPrice, formData.plannedSL, formData.lotSize, formData.instrument, accountSize, pulse]);
 
+  // Effective per-trade risk cap factoring in any active risk cap constraint
+  const effectiveRiskLimitPct = useMemo(() => {
+    if (!pulse) return null;
+    const baseLimit = pulse.maxRiskPerTrade;
+    const capFraction = pulse.discipline?.activeConstraints?.riskCapPct;
+    if (capFraction !== null && capFraction !== undefined) {
+      return baseLimit * capFraction;
+    }
+    return baseLimit;
+  }, [pulse]);
+
   const handleCapAckConfirm = () => {
     acksRef.current = { ...acksRef.current, capAck: true };
     setCapGate(null);
@@ -934,6 +945,7 @@ export default function TradeFormModal({
                   availableInstruments={availableInstruments}
                   onTimeChange={handleTimeChange}
                   liveRiskPct={liveRiskPct}
+                  effectiveRiskLimitPct={effectiveRiskLimitPct}
                 />
                 <TradingRulesSection
                   pulse={pulse}

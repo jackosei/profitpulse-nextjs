@@ -576,11 +576,14 @@ export async function POST(request: Request) {
       }
 
       // ── Compute enforcement constraints ────────────────────────────
+      // Pass currentConstraints so escalation can fire when an existing cap
+      // is active even after the weekly counter reset.
       const { constraints: incomingConstraints, reflectionGatePending, isLockedPermanently } =
         computeConstraints(
           violations,
           updatedCounts,
           discipline.maxTradesPerDay ?? null,
+          currentConstraints,
         );
       newConstraints = mergeConstraints(currentConstraints, incomingConstraints);
       newState = computeStateTransition(

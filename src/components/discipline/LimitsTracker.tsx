@@ -1,14 +1,17 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import type { Pulse } from "@/types/pulse";
-import { AlertCircle, RefreshCw } from "lucide-react";
+import { AlertCircle, RefreshCw, ChevronDown, ChevronRight, ShieldCheck } from "lucide-react";
 
 interface LimitsTrackerProps {
   pulse: Pulse;
+  /** Default collapsed state. Defaults to `true` (start collapsed). */
+  defaultExpanded?: boolean;
 }
 
-export default function LimitsTracker({ pulse }: LimitsTrackerProps) {
+export default function LimitsTracker({ pulse, defaultExpanded = false }: LimitsTrackerProps) {
+  const [expanded, setExpanded] = useState(defaultExpanded);
   const { metrics, hasLimits } = useMemo(() => {
     const todayStr = new Date().toISOString().split("T")[0];
     
@@ -54,25 +57,64 @@ export default function LimitsTracker({ pulse }: LimitsTrackerProps) {
 
   if (!hasLimits) return null;
 
+  // Summary signal for collapsed state
+  const worstPct = Math.max(metrics.daily.pct, metrics.total.pct, metrics.trades?.pct ?? 0);
+  const summary = worstPct >= 100
+    ? { tone: "danger" as const, label: "Limit exceeded" }
+    : worstPct >= 75
+      ? { tone: "warn" as const, label: "Approaching limit" }
+      : { tone: "ok" as const, label: "All limits OK" };
+  const summaryColor = summary.tone === "danger" ? "text-red-400" : summary.tone === "warn" ? "text-amber-400" : "text-emerald-400";
+  const summaryBg = summary.tone === "danger" ? "bg-red-500/10" : summary.tone === "warn" ? "bg-amber-500/10" : "bg-emerald-500/10";
+
   return (
-    <div className="bg-dark/40 border border-gray-800/60 rounded-lg p-4">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400 flex items-center gap-1.5 m-0">
-          Real-Time Risk Limits
-        </h3>
-        
-        {pulse.discipline?.activeConstraints?.cleanSessionsToLift ? (
-          <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-amber-500/10 border border-amber-500/20 text-amber-500 text-xs font-medium">
-            <AlertCircle className="w-3.5 h-3.5" />
-            <span>
-              {pulse.discipline.activeConstraints.cleanSessionsToLift} clean{" "}
-              {pulse.discipline.activeConstraints.cleanSessionsToLift === 1 ? "session" : "sessions"} required to lift caps
+    <div className="bg-dark/40 border border-gray-800/60 rounded-lg overflow-hidden">
+      {/* Collapsible header */}
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        className="w-full flex items-center justify-between gap-3 px-4 py-3 hover:bg-white/[0.02] transition-colors text-left"
+      >
+        <div className="flex items-center gap-2.5 min-w-0">
+          {expanded
+            ? <ChevronDown className="w-4 h-4 text-gray-500 shrink-0" />
+            : <ChevronRight className="w-4 h-4 text-gray-500 shrink-0" />
+          }
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400 m-0">
+            Real-Time Risk Limits
+          </h3>
+          {!expanded && (
+            <span className={`flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full ${summaryColor} ${summaryBg}`}>
+              {summary.tone === "ok" ? <ShieldCheck className="w-3 h-3" /> : <AlertCircle className="w-3 h-3" />}
+              {summary.label}
             </span>
-          </div>
-        ) : null}
-      </div>
-      
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          )}
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0">
+          {!expanded && (
+            <span className="hidden sm:inline text-[11px] text-gray-500 tabular-nums">
+              Daily {metrics.daily.pct.toFixed(0)}%
+              <span className="text-gray-700 mx-1.5">·</span>
+              Total {metrics.total.pct.toFixed(0)}%
+              {metrics.trades && <>
+                <span className="text-gray-700 mx-1.5">·</span>
+                Trades {metrics.trades.current}/{metrics.trades.limit}
+              </>}
+            </span>
+          )}
+          {pulse.discipline?.activeConstraints?.cleanSessionsToLift ? (
+            <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 text-[11px] font-medium">
+              <AlertCircle className="w-3 h-3" />
+              {pulse.discipline.activeConstraints.cleanSessionsToLift} clean to lift
+            </span>
+          ) : null}
+        </div>
+      </button>
+
+      {/* Expanded content */}
+      {expanded && <div className="px-4 pb-4 pt-1 border-t border-gray-800/60">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-3">
         <ProgressBarMetric 
           label={metrics.daily.label}
           current={`$${metrics.daily.current.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
@@ -133,6 +175,7 @@ export default function LimitsTracker({ pulse }: LimitsTrackerProps) {
           </div>
         );
       })()}
+      </div>}
     </div>
   );
 }
@@ -146,9 +189,13 @@ function BreachBadge({ label, count, warnAt, dangerAt }: { label: string; count:
       ? "text-amber-400 bg-amber-500/10 border-amber-500/20"
       : "text-gray-400 bg-gray-700/30 border-gray-700/40";
   return (
-    <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded border ${color}`}>
-      {label}
-      <span className="font-bold">{count}</span>
+    <span
+      className={`inline-flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded border ${color}`}
+      title={`${count} ${label.toLowerCase()} breach${count !== 1 ? "es" : ""} this week`}
+    >
+      <span className="text-gray-400">{label}</span>
+      <span className="text-gray-600">·</span>
+      <span className="font-bold tabular-nums">{count}</span>
     </span>
   );
 }

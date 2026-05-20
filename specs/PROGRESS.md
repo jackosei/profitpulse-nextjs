@@ -174,6 +174,44 @@
 
 ---
 
+### Session 10 — 2026-05-20
+**What was built (v4.3.0 — Tabbed pulse detail layout):**
+
+*Pulse detail page UX refactor:*
+
+**Hypothesis:** Traders mentally toggle between two questions — "how did I perform?" (quantitative) and "how well did I execute?" (qualitative). A single scrolling page mixes both, making each harder to consume and burying the discipline engine below performance metrics that every competing tool also shows. Splitting the page into focused tabs surfaces both equally and halves vertical scroll per view.
+
+**New components:**
+- `src/components/pulse/PulseVitals.tsx` — always-visible snapshot strip above the tabs. Shows zone+score, today's P/L (color-coded), today's trade count vs daily cap, streak (when > 0), and an "active constraints" button that jumps to the Discipline tab. Reads entirely from already-loaded pulse data — no new API calls.
+- `src/components/pulse/PulseTabs.tsx` — three-tab navigation (Performance / Discipline / Trade Log) with proper ARIA (`role="tablist"`, `role="tab"`, `aria-selected`). Supports per-tab badges; the Discipline tab shows the active-constraint count.
+
+**Page restructure (`src/app/pulse/[id]/page.tsx`):**
+- Tab state is URL-synced via `?tab=…` query param using `useSearchParams` + `router.replace(href, { scroll: false })`. The `scroll: false` prevents the scroll-jump regression previously debugged.
+- Smart default tab: opens to Discipline when `activeConstraints` is non-empty, zone is not GREEN, or `reflectionGatePending` is true; otherwise defaults to Performance.
+- WHYReminderBanner sits above the tabs so it's visible on every tab when the trader's zone is degraded.
+- Per-tab panels use `role="tabpanel"` / `aria-labelledby` for accessibility.
+
+**PulseHeader updates (`src/components/pulse/PulseHeader.tsx`):**
+- Added `+ Log Trade` primary CTA next to the actions menu so trade logging is reachable from any tab. Disabled when `pulse.status === "locked"`.
+- Removed `overflow-hidden` from the container that was clipping the actions dropdown popup.
+
+**Deleted:**
+- `src/components/pulse/ChartsCard.tsx` — the tabbed-chart wrapper combining Equity Curve and Discipline Score is obsolete. Each chart now lives in its respective tab with a dedicated card header.
+
+**Verification:**
+- `npx tsc --noEmit` → 0 errors.
+- Tab change updates URL, does not scroll to top, supports browser back/forward.
+- Reload preserves the active tab via URL.
+- Pulse opened in GREEN zone with no constraints defaults to Performance; pulse with active risk cap defaults to Discipline.
+- `+ Log Trade` opens AddTradeModal from any tab.
+- Mobile: tabs scroll horizontally if overflow; vitals chips wrap.
+
+**Next session should start with:**
+- Phase 3 carryovers: SMS activation (Twilio env vars), CSV import pipeline (`/api/import/csv`, `TradeImport.tsx` wizard, `importMappers.ts`), `RESEND_API_KEY` configuration for live email.
+- Consider extracting the per-tab card patterns into a reusable `SectionCard` if more sections get added.
+
+---
+
 ### Session 9 — 2026-05-19
 **What was built (v4.2.0 — Friction Ladder Enforcement closes + Transparency layer):**
 

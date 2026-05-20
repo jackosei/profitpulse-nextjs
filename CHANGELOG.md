@@ -1,5 +1,35 @@
 # Changelog
 
+## [4.3.0] - 2026-05-20
+
+Pulse Detail Page UX Refactor: tabbed layout for Performance / Discipline / Trade Log with persistent Vitals strip.
+
+### New Features
+
+#### Tabbed Pulse Detail Layout
+- New top-level navigation on the pulse detail page splits content into three focused tabs: **Performance** (KPIs + equity curve), **Discipline** (score, meter, limits, score-over-time chart, violations), and **Trade Log** (table/calendar).
+- New `PulseTabs.tsx` component — accessible tab navigation with `role="tablist"`/`role="tab"`, optional per-tab badges (used to surface the active-constraint count on the Discipline tab).
+- Tab state is persisted to the URL as `?tab=performance|discipline|trades` via `router.replace(..., { scroll: false })` — survives refresh, supports back/forward navigation, and shareable links.
+- **Smart default tab**: opens to Discipline when active constraints exist, zone ≠ GREEN, or a reflection gate is pending; otherwise defaults to Performance.
+
+#### Persistent Vitals Strip
+- New `PulseVitals.tsx` — always-visible compact strip above the tabs.
+- Shows zone label + score, today's P/L (color-coded), today's trade count (vs daily cap when set), consecutive clean-day streak (when > 0), and a button that jumps to the Discipline tab when constraints are active.
+- Guarantees critical discipline state never gets hidden behind a tab choice.
+
+#### Global Log Trade Button
+- Added a primary `+ Log Trade` CTA to `PulseHeader` so trade logging is reachable from any tab.
+- Disabled state shown when the pulse is locked.
+
+### Removed
+- `ChartsCard.tsx` — the tabbed-chart pattern (Equity Curve | Discipline Score) is obsolete now that each chart lives in its own tab with a dedicated card header.
+
+### Fixes
+- Removed `overflow-hidden` from the `PulseHeader` container that was clipping the actions dropdown menu.
+- Tab change no longer scrolls the page to top (`scroll: false` on `router.replace`).
+
+---
+
 ## [4.2.0] - 2026-05-19
 
 Phase 3 - Sprint 2: Multi-session Risk Cap Countdown, DisciplineMeter UX Overhaul, Streak Badge, and Premium Empty States.

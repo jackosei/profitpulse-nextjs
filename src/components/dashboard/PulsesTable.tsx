@@ -1,8 +1,9 @@
 import { memo, useCallback, useState } from "react"
 import { useRouter } from "next/navigation"
-import type { Pulse } from "@/types/pulse"
+import { type Pulse, isPulseLocked, PULSE_MESSAGES } from "@/types/pulse"
 import { formatCurrency, formatRatio } from "@/utils/format"
 import PulseDetailsModal from "@/components/modals/PulseDetailsModal"
+import { Lock, AlertCircle, AlertTriangle } from "lucide-react"
 
 interface PulsesTableProps {
 	pulses: Pulse[]
@@ -38,24 +39,32 @@ function PulseTableRow({ pulse }: { pulse: Pulse }) {
 	const totalDrawdownPercentage = ((pulse.totalDrawdown || 0) / pulse.accountSize) * 100
 
 	const getRiskIndicator = () => {
-		if (pulse.status === 'locked') {
+		if (isPulseLocked(pulse)) {
 			return {
 				color: 'text-red-500',
-				icon: '🔒',
-				text: 'Locked - Risk Limits Exceeded'
+				icon: <Lock className="w-3.5 h-3.5" />,
+				text: PULSE_MESSAGES.LOCKED_STATUS_TITLE
 			}
 		}
-		if (todayLossPercentage > pulse.maxDailyDrawdown * 0.8) {
+		if (pulse.maxDailyDrawdown > 0 && todayLossPercentage >= pulse.maxDailyDrawdown) {
+			return {
+				color: 'text-red-500',
+				icon: <AlertCircle className="w-3.5 h-3.5" />,
+				text: 'Daily Drawdown Exceeded'
+			}
+		}
+		// (Removed redundant Total Drawdown check since isPulseLocked covers it)
+		if (pulse.maxDailyDrawdown > 0 && todayLossPercentage > pulse.maxDailyDrawdown * 0.8) {
 			return {
 				color: 'text-yellow-500',
-				icon: '⚠️',
+				icon: <AlertTriangle className="w-3.5 h-3.5" />,
 				text: 'Near Daily Drawdown Limit'
 			}
 		}
-		if (totalDrawdownPercentage > pulse.maxTotalDrawdown * 0.8) {
+		if (pulse.maxTotalDrawdown > 0 && totalDrawdownPercentage > pulse.maxTotalDrawdown * 0.8) {
 			return {
 				color: 'text-yellow-500',
-				icon: '⚠️',
+				icon: <AlertTriangle className="w-3.5 h-3.5" />,
 				text: 'Near Total Drawdown Limit'
 			}
 		}
@@ -68,7 +77,7 @@ function PulseTableRow({ pulse }: { pulse: Pulse }) {
 		<>
 			<tr
 				key={pulse.id}
-				className={`group hover:bg-gray-800/50 cursor-pointer ${pulse.status === 'locked' ? 'bg-red-900/10' : ''}`}
+				className={`group hover:bg-gray-800/50 cursor-pointer ${isPulseLocked(pulse) ? 'bg-red-900/10' : ''}`}
 				onClick={handleRowClick}
 			>
 				<td className="p-4 font-medium text-sm">
@@ -127,10 +136,10 @@ function PulseTableRow({ pulse }: { pulse: Pulse }) {
 					</button>
 				</td>
 			</tr>
-			<PulseDetailsModal 
-				isOpen={showDetailsModal} 
-				onClose={() => setShowDetailsModal(false)} 
-				pulse={pulse} 
+			<PulseDetailsModal
+				isOpen={showDetailsModal}
+				onClose={() => setShowDetailsModal(false)}
+				pulse={pulse}
 			/>
 		</>
 	)
@@ -186,9 +195,22 @@ function PulsesTable({ pulses, onCreatePulse }: PulsesTableProps) {
 					</tbody>
 				</table>
 				{pulses.length === 0 && (
-					<div className="p-4 text-center text-gray-400 text-sm">
-						No pulses created yet. Create your first pulse to start tracking
-						trades.
+					<div className="p-12 flex flex-col items-center justify-center text-center">
+						<div className="w-16 h-16 bg-gray-800/50 rounded-full flex items-center justify-center mb-4">
+							<svg className="w-8 h-8 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+								<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
+							</svg>
+						</div>
+						<h3 className="text-lg font-medium text-gray-200 mb-2">No pulses created yet</h3>
+						<p className="text-gray-400 text-sm max-w-sm mb-6">
+							A pulse represents a trading account or strategy. Create your first pulse to start tracking your trades and discipline.
+						</p>
+						<button
+							onClick={onCreatePulse}
+							className="btn-primary"
+						>
+							Create Pulse
+						</button>
 					</div>
 				)}
 			</div>

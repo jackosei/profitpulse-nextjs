@@ -4,8 +4,8 @@ import * as admin from 'firebase-admin';
 function initAdmin() {
   if (!admin.apps.length) {
     try {
-      if (!process.env.FIREBASE_PRIVATE_KEY || 
-          !process.env.FIREBASE_CLIENT_EMAIL || 
+      if (!process.env.FIREBASE_PRIVATE_KEY ||
+          !process.env.FIREBASE_CLIENT_EMAIL ||
           !process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID) {
         throw new Error('Missing Firebase Admin SDK configuration environment variables');
       }
@@ -22,16 +22,17 @@ function initAdmin() {
       admin.initializeApp({
         credential: admin.credential.cert(serviceAccount as admin.ServiceAccount)
       });
-      
+
       console.log('Firebase Admin initialized successfully');
     } catch (error) {
       console.error('Firebase admin initialization error:', error);
       throw error; // Re-throw the error to handle it in the API route
     }
   }
-  
-  return admin.firestore();
 }
 
-// Export the admin Firestore instance
-export const adminDb = initAdmin(); 
+initAdmin();
+
+// Export the admin Firestore and Auth instances
+export const adminDb = admin.firestore();
+export const adminAuth = admin.auth(); 

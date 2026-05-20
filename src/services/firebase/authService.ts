@@ -16,6 +16,7 @@ import { auth } from "./firestoreConfig";
 import { ApiResponse, createSuccessResponse, createErrorResponse, ErrorCode } from "../types/apiResponses";
 
 const provider = new GoogleAuthProvider();
+provider.setCustomParameters({ prompt: 'select_account' });
 
 /**
  * Sign in with Google
@@ -46,7 +47,8 @@ export async function handleRedirectResult(): Promise<ApiResponse<User>> {
     if (result) {
       return createSuccessResponse(result.user);
     }
-    return createErrorResponse(ErrorCode.NOT_FOUND, 'No redirect result');
+    // No redirect in progress — not an error, just the normal direct-load case.
+    return { success: false };
   } catch (error) {
     console.error("Redirect Result Error:", error);
     return createErrorResponse(
@@ -145,6 +147,7 @@ export async function updatePassword(user: User, newPassword: string): Promise<A
 export async function logout(): Promise<ApiResponse<void>> {
   try {
     await signOut(auth);
+    await clearSessionCookie();
     return createSuccessResponse(undefined);
   } catch {
     return createErrorResponse(ErrorCode.UNKNOWN, "Failed to log out.");
@@ -183,5 +186,16 @@ export async function setSessionCookie(): Promise<boolean> {
   } catch (error) {
     console.error("Failed to set session cookie:", error);
     return false;
+  }
+}
+
+/**
+ * Clear the server-side session cookie
+ */
+export async function clearSessionCookie(): Promise<void> {
+  try {
+    await fetch('/api/auth/session', { method: 'DELETE' });
+  } catch (error) {
+    console.error("Failed to clear session cookie:", error);
   }
 } 

@@ -28,7 +28,7 @@ export default function PulsesPage() {
       if (!user) return;
       
       const fetchedPulses = await getUserPulses(user.uid);
-      if (fetchedPulses) {
+      if (fetchedPulses !== null) {
         setPulses(fetchedPulses);
       }
     }

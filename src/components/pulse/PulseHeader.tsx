@@ -1,38 +1,21 @@
 import { Menu, MenuButton, MenuItems, MenuItem } from '@headlessui/react';
-import { 
-  TrashIcon, 
-  ArchiveBoxIcon, 
+import {
+  TrashIcon,
+  ArchiveBoxIcon,
   EllipsisVerticalIcon,
-  CalendarIcon,
-  ChevronDownIcon,
-  ArrowsRightLeftIcon,
   PencilIcon,
   ShieldExclamationIcon,
-  LockClosedIcon
+  LockClosedIcon,
 } from '@heroicons/react/24/outline';
 import { formatCurrency } from "@/utils/format"
-import { PULSE_STATUS } from "@/types/pulse"
-
-type TimeRange = '7D' | '30D' | '90D' | '1Y' | 'ALL';
-type ComparisonType = 'PERIOD' | 'START';
-
-const TIME_RANGES = [
-  { label: 'Last 7 Days', value: '7D' },
-  { label: 'Last 30 Days', value: '30D' },
-  { label: 'Last Quarter', value: '90D' },
-  { label: 'Last Year', value: '1Y' },
-  { label: 'All Time', value: 'ALL' },
-] as const;
+import { PULSE_STATUS, isPulseLocked } from "@/types/pulse"
+import type { Pulse } from "@/types/pulse";
 
 interface PulseHeaderProps {
   name: string;
   instrument?: string;
   accountSize: number;
   createdAt: { seconds: number };
-  selectedTimeRange: TimeRange;
-  comparisonType: ComparisonType;
-  onTimeRangeChange: (range: TimeRange) => void;
-  onComparisonTypeChange: () => void;
   onArchive: () => void;
   onDelete: () => void;
   onUpdate: () => void;
@@ -41,6 +24,7 @@ interface PulseHeaderProps {
   maxTotalDrawdown: number;
   status: string;
   ruleViolations?: string[];
+  pulse?: Pulse;
 }
 
 export default function PulseHeader({
@@ -48,10 +32,6 @@ export default function PulseHeader({
   instrument = 'N/A',
   accountSize,
   createdAt,
-  selectedTimeRange,
-  comparisonType,
-  onTimeRangeChange,
-  onComparisonTypeChange,
   onArchive,
   onDelete,
   onUpdate,
@@ -59,79 +39,73 @@ export default function PulseHeader({
   maxDailyDrawdown,
   maxTotalDrawdown,
   status,
-  ruleViolations = []
+  ruleViolations = [],
+  pulse,
 }: PulseHeaderProps) {
+  const isLocked = pulse ? isPulseLocked(pulse) : false;
 
-  const getStatusColor = (status: string) => {
+  const statusConfig = (() => {
+    if (isLocked) return { label: 'Locked', color: 'text-red-400 bg-red-500/10 border-red-500/25', icon: <LockClosedIcon className="w-3 h-3" /> };
     switch (status) {
-      case PULSE_STATUS.ACTIVE:
-        return 'bg-green-500/20 text-green-500 border-green-500/20';
-      case PULSE_STATUS.LOCKED:
-        return 'bg-red-500/20 text-red-500 border-red-500/20';
-      case PULSE_STATUS.ARCHIVED:
-        return 'bg-yellow-500/20 text-yellow-500 border-yellow-500/20';
-      default:
-        return 'bg-gray-500/20 text-gray-500 border-gray-500/20';
+      case PULSE_STATUS.ACTIVE: return { label: 'Active', color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/25', icon: <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> };
+      case PULSE_STATUS.ARCHIVED: return { label: 'Archived', color: 'text-amber-400 bg-amber-500/10 border-amber-500/25', icon: null };
+      default: return { label: status, color: 'text-gray-400 bg-gray-500/10 border-gray-500/25', icon: null };
     }
-  };
+  })();
 
   return (
-    <div className="bg-dark/50 border-b border-gray-800">
-      {/* Main Header Section */}
-      <div className="px-4 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <h1 className="text-xl font-bold text-foreground">{name}</h1>
-          <span className="px-2 py-1 text-sm bg-white/10 rounded text-gray-300">
-            {instrument}
-          </span>
-          <div className={`px-2 py-1 text-xs rounded border ${getStatusColor(status)} capitalize`}>
-            {status === PULSE_STATUS.LOCKED && <LockClosedIcon className="w-3 h-3 inline-block mr-1" />}
-            {status}
+    <div className="bg-dark border border-gray-800 rounded-lg overflow-hidden">
+      {/* Main identity row */}
+      <div className="px-4 md:px-5 pt-4 pb-3 flex items-start justify-between gap-4">
+        <div className="flex flex-col gap-2 min-w-0">
+          {/* Name + status */}
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <h1 className="text-2xl font-bold text-white tracking-tight truncate">{name}</h1>
+            <span className="shrink-0 px-2 py-0.5 text-xs font-medium rounded-full bg-white/[0.08] text-gray-300 border border-gray-700/60">
+              {instrument}
+            </span>
+            <span className={`shrink-0 flex items-center gap-1.5 px-2 py-0.5 text-xs font-semibold rounded-full border ${statusConfig.color}`}>
+              {statusConfig.icon}
+              {statusConfig.label}
+            </span>
           </div>
-           
-           {/* Risk Rules Section - Now in the middle */}
-        <div className="hidden md:flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <ShieldExclamationIcon className="w-4 h-4 text-gray-400" />
-            <div className="flex items-center gap-3">
-              <span className="text-xs text-gray-300">
-                Risk: <span className="text-white font-medium">{maxRiskPerTrade}%</span>
-              </span>
-              <span className="text-xs text-gray-300">
-                Daily DD: <span className="text-white font-medium">{maxDailyDrawdown}%</span>
-              </span>
-              <span className="text-xs text-gray-300">
-                Total DD: <span className="text-white font-medium">{maxTotalDrawdown}%</span>
-              </span>
+
+          {/* Risk rules — pill row */}
+          <div className="hidden md:flex items-center gap-2">
+            <ShieldExclamationIcon className="w-3.5 h-3.5 text-gray-500 shrink-0" />
+            <div className="flex items-center gap-1.5">
+              <RiskPill label="Risk/Trade" value={`${maxRiskPerTrade}%`} />
+              <RiskPill label="Daily DD" value={`${maxDailyDrawdown}%`} />
+              <RiskPill label="Total DD" value={`${maxTotalDrawdown}%`} />
             </div>
+            <span className="text-[11px] text-gray-600 ml-2">
+              · Since {new Date(createdAt.seconds * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+            </span>
           </div>
         </div>
 
-       
-        </div>
-
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3 shrink-0">
+          {/* Account size */}
           <div className="text-right">
-            <p className="text-xs text-gray-400">Account Size</p>
-            <p className="text-base font-semibold text-foreground">
+            <p className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold">Account</p>
+            <p className="text-lg font-bold text-white tabular-nums leading-tight">
               {formatCurrency(accountSize)}
             </p>
           </div>
 
+          {/* Actions menu */}
           <Menu as="div" className="relative">
-            <MenuButton as="button" className="p-2 text-gray-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors">
-              <EllipsisVerticalIcon className="w-6 h-6" />
+            <MenuButton className="p-2 text-gray-400 hover:text-white hover:bg-white/[0.08] rounded-lg transition-colors">
+              <EllipsisVerticalIcon className="w-5 h-5" />
             </MenuButton>
-            <MenuItems className="absolute right-0 mt-1 w-48 bg-dark border border-gray-800 rounded-lg shadow-lg overflow-hidden z-50">
+            <MenuItems className="absolute right-0 mt-1 w-48 bg-dark-lighter border border-gray-700/60 rounded-xl shadow-2xl overflow-hidden z-50 py-1">
               <MenuItem>
                 {({ active }) => (
                   <button
                     onClick={onUpdate}
-                    className={`${
-                      active ? 'bg-white/5' : ''
-                    } flex items-center w-full px-4 py-2.5 text-sm text-gray-300 hover:text-blue-500`}
+                    className={`${active ? 'bg-white/5' : ''} flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-gray-300 hover:text-white`}
                   >
-                    <PencilIcon className="w-4 h-4 mr-2" />
+                    <PencilIcon className="w-4 h-4 text-gray-500" />
                     Update Settings
                   </button>
                 )}
@@ -140,24 +114,21 @@ export default function PulseHeader({
                 {({ active }) => (
                   <button
                     onClick={onArchive}
-                    className={`${
-                      active ? 'bg-white/5' : ''
-                    } flex items-center w-full px-4 py-2.5 text-sm text-gray-300 hover:text-yellow-500`}
+                    className={`${active ? 'bg-white/5' : ''} flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-gray-300 hover:text-amber-400`}
                   >
-                    <ArchiveBoxIcon className="w-4 h-4 mr-2" />
+                    <ArchiveBoxIcon className="w-4 h-4 text-gray-500" />
                     Archive Pulse
                   </button>
                 )}
               </MenuItem>
+              <div className="h-px bg-gray-700/40 mx-3 my-1" />
               <MenuItem>
                 {({ active }) => (
                   <button
                     onClick={onDelete}
-                    className={`${
-                      active ? 'bg-white/5' : ''
-                    } flex items-center w-full px-4 py-2.5 text-sm text-gray-300 hover:text-red-500`}
+                    className={`${active ? 'bg-red-500/5' : ''} flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-gray-400 hover:text-red-400`}
                   >
-                    <TrashIcon className="w-4 h-4 mr-2" />
+                    <TrashIcon className="w-4 h-4" />
                     Delete Pulse
                   </button>
                 )}
@@ -167,89 +138,37 @@ export default function PulseHeader({
         </div>
       </div>
 
-      {/* Mobile Risk Rules Section */}
-      <div className="md:hidden px-4 py-2 border-t border-gray-800/50 flex flex-wrap items-center gap-4">
-        <div className="flex items-center gap-2">
-          <ShieldExclamationIcon className="w-4 h-4 text-gray-400" />
-          <span className="text-xs text-gray-400">Risk Rules:</span>
-        </div>
-        <div className="flex flex-wrap gap-4">
-          <span className="text-xs text-gray-300">
-            Max Risk: <span className="text-white font-medium">{maxRiskPerTrade}%</span>
-          </span>
-          <span className="text-xs text-gray-300">
-            Daily DD: <span className="text-white font-medium">{maxDailyDrawdown}%</span>
-          </span>
-          <span className="text-xs text-gray-300">
-            Total DD: <span className="text-white font-medium">{maxTotalDrawdown}%</span>
-          </span>
+      {/* Mobile risk rules */}
+      <div className="md:hidden px-4 pb-3 flex items-center gap-2 flex-wrap border-t border-gray-800/50 pt-2.5">
+        <ShieldExclamationIcon className="w-3.5 h-3.5 text-gray-500 shrink-0" />
+        <div className="flex items-center gap-1.5">
+          <RiskPill label="Risk/Trade" value={`${maxRiskPerTrade}%`} />
+          <RiskPill label="Daily DD" value={`${maxDailyDrawdown}%`} />
+          <RiskPill label="Total DD" value={`${maxTotalDrawdown}%`} />
         </div>
       </div>
 
-      {/* Rule Violations Alert */}
-      {status === PULSE_STATUS.LOCKED && ruleViolations.length > 0 && (
-        <div className="px-4 py-2 bg-red-500/10 border-t border-red-500/20">
-          <div className="flex items-start gap-2">
-            <LockClosedIcon className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" />
-            <div>
-              <p className="text-xs font-medium text-red-500 mb-1">Pulse Locked - Rule Violations:</p>
-              <ul className="text-xs text-red-400 list-disc list-inside">
-                {ruleViolations.map((violation, index) => (
-                  <li key={index}>{violation}</li>
-                ))}
-              </ul>
-            </div>
+      {/* Lock alert */}
+      {isLocked && ruleViolations.length > 0 && (
+        <div className="mx-4 md:mx-5 mb-4 rounded-lg px-3 py-2.5 bg-red-500/10 border border-red-500/20 flex items-start gap-2">
+          <LockClosedIcon className="w-4 h-4 text-red-400 mt-0.5 shrink-0" />
+          <div>
+            <p className="text-xs font-semibold text-red-400 mb-1">Pulse Locked — Rule Violations</p>
+            <ul className="text-xs text-red-400/80 space-y-0.5">
+              {ruleViolations.map((v, i) => <li key={i}>• {v}</li>)}
+            </ul>
           </div>
         </div>
       )}
-
-      {/* Time Controls Section */}
-      <div className="px-4 py-2 flex flex-wrap items-center gap-2 border-t border-gray-800/50">
-        <div className="flex items-center gap-2">
-          <Menu as="div" className="relative">
-            <MenuButton className="flex items-center gap-2 px-0 py-1.5 text-sm text-gray-300 hover:text-white rounded transition-colors">
-              <CalendarIcon className="w-4 h-4" />
-              <span>{TIME_RANGES.find(r => r.value === selectedTimeRange)?.label}</span>
-              <ChevronDownIcon className="w-4 h-4 opacity-50" />
-            </MenuButton>
-            <MenuItems className="absolute left-0 mt-1 w-48 bg-dark border border-gray-800 rounded-lg shadow-lg overflow-hidden z-50">
-              {TIME_RANGES.map((range) => (
-                <MenuItem key={range.value}>
-                  {({ active }) => (
-                    <button
-                      onClick={() => onTimeRangeChange(range.value)}
-                      className={`${
-                        active ? 'bg-white/5' : ''
-                      } ${
-                        selectedTimeRange === range.value ? 'text-blue-500' : 'text-gray-300'
-                      } flex items-center w-full px-4 py-2 text-sm`}
-                    >
-                      {range.label}
-                    </button>
-                  )}
-                </MenuItem>
-              ))}
-            </MenuItems>
-          </Menu>
-
-          <button
-            onClick={onComparisonTypeChange}
-            className={`flex items-center gap-1.5 px-2 py-1.5 text-sm ${
-              comparisonType === 'PERIOD' ? 'text-blue-500' : 'text-gray-300'
-            } hover:text-white rounded transition-colors`}
-            title={comparisonType === 'PERIOD' ? 'Comparing to Previous Period' : 'Comparing to Starting Stats'}
-          >
-            <ArrowsRightLeftIcon className="w-4 h-4" />
-            <span className="text-xs md:text-sm">
-              {comparisonType === 'PERIOD' ? 'vs Previous' : 'vs Start'}
-            </span>
-          </button>
-        </div>
-
-        <p className="text-xs text-gray-500 ml-auto hidden md:block">
-          Created {new Date(createdAt.seconds * 1000).toLocaleDateString()}
-        </p>
-      </div>
     </div>
   );
-} 
+}
+
+function RiskPill({ label, value }: { label: string; value: string }) {
+  return (
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium rounded-full bg-gray-800/80 border border-gray-700/50 text-gray-400">
+      <span className="text-gray-500">{label}</span>
+      <span className="text-gray-200">{value}</span>
+    </span>
+  );
+}

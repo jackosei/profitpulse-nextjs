@@ -1,4 +1,4 @@
-import { Trade, Pulse } from "@/types/pulse";
+import { Trade, Pulse, isPulseLocked, PULSE_MESSAGES } from "@/types/pulse";
 import { useRef, useEffect, useState, useCallback } from "react";
 import TradeDetailsModal from "@/components/modals/TradeDetailsModal";
 import { TableIcon, CalendarIcon } from "lucide-react";
@@ -71,22 +71,20 @@ export default function TradeHistory({
             <div className="bg-gray-800/80 rounded-md p-0.5 flex">
               <button
                 onClick={() => onViewTypeChange("table")}
-                className={`p-1.5 rounded-md ${
-                  viewType === "table"
-                    ? "bg-blue-600 text-white"
-                    : "text-gray-400 hover:text-white"
-                } transition-colors flex items-center`}
+                className={`p-1.5 rounded-md ${viewType === "table"
+                  ? "bg-blue-600 text-white"
+                  : "text-gray-400 hover:text-white"
+                  } transition-colors flex items-center`}
                 title="Table View"
               >
                 <TableIcon className="h-4 w-4" />
               </button>
               <button
                 onClick={() => onViewTypeChange("calendar")}
-                className={`p-1.5 rounded-md ${
-                  viewType === "calendar"
-                    ? "bg-blue-600 text-white"
-                    : "text-gray-400 hover:text-white"
-                } transition-colors flex items-center`}
+                className={`p-1.5 rounded-md ${viewType === "calendar"
+                  ? "bg-blue-600 text-white"
+                  : "text-gray-400 hover:text-white"
+                  } transition-colors flex items-center`}
                 title="Calendar View"
               >
                 <CalendarIcon className="h-4 w-4" />
@@ -94,8 +92,11 @@ export default function TradeHistory({
             </div>
           </div>
           <button
-            className="btn-primary text-sm md:text-base px-3 py-1.5 md:px-4 md:py-2"
+            className={`btn-primary text-sm md:text-base px-3 py-1.5 md:px-4 md:py-2 ${pulse && isPulseLocked(pulse) ? 'opacity-50 cursor-not-allowed' : ''
+              }`}
             onClick={onAddTrade}
+            disabled={pulse && isPulseLocked(pulse)}
+            title={pulse && isPulseLocked(pulse) ? PULSE_MESSAGES.LOCKED_STATUS_TITLE : ''}
           >
             Add Trade
           </button>
@@ -144,18 +145,18 @@ export default function TradeHistory({
                   {trade.instrument || "N/A"}
                 </td>
                 <td className="p-3 md:p-4 text-sm md:text-base text-foreground hidden md:table-cell">
-                  {trade.lotSize}
+                  {trade.execution.lotSize}
                 </td>
                 <td className="p-3 md:p-4 text-sm md:text-base text-foreground hidden lg:table-cell">
-                  {trade.entryReason.length > 30
-                    ? `${trade.entryReason.substring(0, 30)}...`
-                    : trade.entryReason}
+                  {trade.execution.entryReason.length > 30
+                    ? `${trade.execution.entryReason.substring(0, 30)}...`
+                    : trade.execution.entryReason}
                 </td>
                 <td className="p-3 md:p-4 text-sm md:text-base text-foreground">
                   {trade.outcome}
                 </td>
                 <td className="p-3 md:p-4 text-sm md:text-base text-right text-foreground">
-                  ${trade.profitLoss.toFixed(2)}
+                  ${trade.performance.profitLoss.toFixed(2)}
                 </td>
                 <td className="p-3 md:p-4 text-center">
                   <button
@@ -183,11 +184,18 @@ export default function TradeHistory({
             ))}
             {(!trades || trades.length === 0) && (
               <tr>
-                <td
-                  colSpan={8}
-                  className="p-3 md:p-4 text-center text-sm text-gray-400"
-                >
-                  No trades recorded yet
+                <td colSpan={8} className="p-0">
+                  <div className="p-12 flex flex-col items-center justify-center text-center">
+                    <div className="w-16 h-16 bg-gray-800/50 rounded-full flex items-center justify-center mb-4">
+                      <svg className="w-8 h-8 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                    </div>
+                    <h3 className="text-lg font-medium text-gray-200 mb-2">No trades recorded yet</h3>
+                    <p className="text-gray-400 text-sm max-w-sm">
+                      Log your first trade to start tracking performance and discipline metrics.
+                    </p>
+                  </div>
                 </td>
               </tr>
             )}

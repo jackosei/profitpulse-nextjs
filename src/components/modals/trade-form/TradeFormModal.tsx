@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import type { Pulse, Trade } from "@/types/pulse";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import type { Pulse, Trade, TradeEvaluationResult } from "@/types/pulse";
 import { toast } from "sonner";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
 import { usePulse } from "@/hooks/usePulse";
@@ -15,6 +15,13 @@ import type {
   TradingEnvironment,
   EmotionalImpact,
 } from "./types";
+import {
+  ViolationCategory,
+} from "@/lib/disciplineTypes";
+import type { ActiveConstraints } from "@/lib/disciplineTypes";
+import { useModalEscape } from "@/hooks/useModalEscape";
+import { AlertTriangle, X, TrendingDown, Hash, Ban, ShieldAlert } from "lucide-react";
+import { getDefaultPointValue } from "@/lib/instrumentPointValues";
 
 // Import form components
 import TradeDataForm from "./forms/TradeDataForm";
@@ -58,9 +65,9 @@ export default function TradeFormModal({
 }: TradeFormModalProps) {
   const {
     getPulseById,
-    createTrade,
     updateTrade,
     loading: apiLoading,
+    error: apiError,
   } = usePulse({
     onError: (message) => toast.error(message),
   });
@@ -72,38 +79,41 @@ export default function TradeFormModal({
   const getInitialFormData = (): TradeFormData => {
     if (mode === "update" && trade) {
       return {
-        // Trade tab
+        // Trade tab - read from nested execution and performance
         date: trade.date || new Date().toISOString().split("T")[0],
-        entryTime: trade.entryTime || "",
-        exitTime: trade.exitTime || "",
+        entryTime: trade.execution?.entryTime || "",
+        exitTime: trade.execution?.exitTime || "",
         type: trade.type || "Buy",
-        lotSize: String(trade.lotSize || ""),
-        entryPrice: String(trade.entryPrice || ""),
-        exitPrice: String(trade.exitPrice || ""),
-        entryReason: trade.entryReason || "",
-        profitLoss: String(trade.profitLoss || ""),
+        lotSize: String(trade.execution?.lotSize || ""),
+        entryPrice: String(trade.execution?.entryPrice || ""),
+        exitPrice: String(trade.execution?.exitPrice || ""),
+        plannedSL: String(trade.execution?.plannedSL || ""),
+        plannedTP: String(trade.execution?.plannedTP || ""),
+        entryReason: trade.execution?.entryReason || "",
+        profitLoss: String(trade.performance?.profitLoss || ""),
         learnings: trade.learnings || "",
         instrument: trade.instrument || "",
-        entryScreenshot: trade.entryScreenshot || "",
-        exitScreenshot: trade.exitScreenshot || "",
+        entryScreenshot: trade.execution?.entryScreenshot || "",
+        exitScreenshot: trade.execution?.exitScreenshot || "",
 
-        // Psychology tab
-        emotionalState: trade.emotionalState || "",
-        emotionalIntensity: trade.emotionalIntensity ?? 5,
-        mentalState: trade.mentalState || "",
-        planAdherence: trade.planAdherence || "",
-        impulsiveEntry: trade.impulsiveEntry ?? false,
+        // Psychology tab - read from nested psychology
+        emotionalState: trade.psychology?.emotionalState || "",
+        emotionalIntensity: trade.psychology?.emotionalIntensity ?? 5,
+        mentalState: trade.psychology?.mentalState || "",
+        planAdherence: trade.psychology?.planAdherence || "",
+        impulsiveEntry: trade.psychology?.impulsiveEntry ?? false,
 
-        // Context tab
-        marketCondition: trade.marketCondition || "",
-        timeOfDay: trade.timeOfDay || "",
-        tradingEnvironment: trade.tradingEnvironment || "",
+        // Context tab - read from nested context
+        marketCondition: trade.context?.marketCondition || "",
+        timeOfDay: trade.context?.timeOfDay || "",
+        tradingEnvironment: trade.context?.tradingEnvironment || "",
 
-        // Reflection tab
-        wouldRepeat: trade.wouldRepeat ?? false,
-        emotionalImpact: trade.emotionalImpact || "",
-        mistakesIdentified: trade.mistakesIdentified?.join(", ") || "",
-        improvementIdeas: trade.improvementIdeas || "",
+        // Reflection tab - read from nested reflection
+        wouldRepeat: trade.reflection?.wouldRepeat ?? false,
+        emotionalImpact: trade.reflection?.emotionalImpact || "",
+        mistakesIdentified:
+          trade.reflection?.mistakesIdentified?.join(", ") || "",
+        improvementIdeas: trade.reflection?.improvementIdeas || "",
       };
     }
 
@@ -116,6 +126,8 @@ export default function TradeFormModal({
       lotSize: "",
       entryPrice: "",
       exitPrice: "",
+      plannedSL: "",
+      plannedTP: "",
       entryReason: "",
       profitLoss: "",
       learnings: "",
@@ -147,6 +159,13 @@ export default function TradeFormModal({
   const [availableInstruments, setAvailableInstruments] = useState<string[]>(
     [],
   );
+  // Friction gate states
+  const [capGate, setCapGate] = useState<{ cap: number; actual: number; errorCode: string } | null>(null);
+  const [ntdGate, setNtdGate] = useState<{ daysRemaining: number } | null>(null);
+  const [ntdAck, setNtdAck] = useState("");
+  const [sessionGateError, setSessionGateError] = useState(false);
+  const acksRef = useRef<{ capAck?: boolean; noTradeDayAck?: boolean }>({});
+  const formRef = useRef<HTMLFormElement>(null);
 
   const handleInputChange = useCallback(
     (
@@ -192,6 +211,11 @@ export default function TradeFormModal({
       setFollowedRules(
         mode === "update" && trade?.followedRules ? trade.followedRules : [],
       );
+      setCapGate(null);
+      setNtdGate(null);
+      setNtdAck("");
+      setSessionGateError(false);
+      acksRef.current = {};
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, trade, mode]);
@@ -227,23 +251,60 @@ export default function TradeFormModal({
     });
   };
 
-  const validateForm = () => {
-    // Check if all required rules are followed
-    const requiredRules =
-      pulse?.tradingRules?.filter((rule) => rule.isRequired) || [];
-    const missingRequiredRules = requiredRules.filter(
-      (rule) => !followedRules.includes(rule.id),
-    );
+  // Live risk % — mirrors the server-side formula
+  const liveRiskPct = useMemo(() => {
+    const ep = Number(formData.entryPrice);
+    const sl = Number(formData.plannedSL);
+    const lots = Number(formData.lotSize);
+    const instrument = formData.instrument;
+    if (!ep || !sl || !lots || accountSize <= 0 || !instrument) return null;
+    const pointValue =
+      pulse?.instrumentPointValues?.[instrument] ??
+      pulse?.instrumentPointValues?.[instrument.toUpperCase()] ??
+      getDefaultPointValue(instrument);
+    return (Math.abs(ep - sl) * pointValue * lots / accountSize) * 100;
+  }, [formData.entryPrice, formData.plannedSL, formData.lotSize, formData.instrument, accountSize, pulse]);
 
-    if (missingRequiredRules.length > 0) {
-      setError(
-        `Please confirm all required trading rules: ${missingRequiredRules.map((r) => r.description).join(", ")}`,
-      );
+  // Effective per-trade risk cap factoring in any active risk cap constraint
+  const effectiveRiskLimitPct = useMemo(() => {
+    if (!pulse) return null;
+    const baseLimit = pulse.maxRiskPerTrade;
+    const capFraction = pulse.discipline?.activeConstraints?.riskCapPct;
+    if (capFraction !== null && capFraction !== undefined) {
+      return baseLimit * capFraction;
+    }
+    return baseLimit;
+  }, [pulse]);
+
+  const handleCapAckConfirm = () => {
+    acksRef.current = { ...acksRef.current, capAck: true };
+    setCapGate(null);
+    formRef.current?.requestSubmit();
+  };
+
+  const handleNtdConfirm = () => {
+    if (ntdAck.trim().toLowerCase() !== "i acknowledge") return;
+    acksRef.current = { ...acksRef.current, noTradeDayAck: true };
+    setNtdGate(null);
+    formRef.current?.requestSubmit();
+  };
+
+  const validateForm = () => {
+    // Note: required rules are NOT a form gate. Unchecked required rules are
+    // passed to the discipline engine which applies a -4 score penalty per miss.
+    if (!formData.instrument) {
+      setError("Please select an instrument");
+      return false;
+    }
+    
+    if (!formData.date) {
+      setError("Please select a trade date");
       return false;
     }
 
-    if (!formData.instrument) {
-      setError("Please select an instrument");
+    const todayStr = new Date().toISOString().split("T")[0];
+    if (formData.date > todayStr) {
+      setError("Future dates are not allowed for trades");
       return false;
     }
 
@@ -331,92 +392,291 @@ export default function TradeFormModal({
         ? formData.mistakesIdentified.split(",").map((m) => m.trim())
         : undefined;
 
+      // Build nested trade data structure
       const tradeData: TradeCreateData = {
         date: formData.date,
-        entryTime: formData.entryTime || undefined,
-        exitTime: formData.exitTime || undefined,
         type: formData.type as "Buy" | "Sell",
-        lotSize: Number(formData.lotSize),
-        entryPrice: Number(formData.entryPrice),
-        exitPrice: Number(formData.exitPrice),
-        entryReason: formData.entryReason,
-        learnings: formData.learnings || "",
-        profitLoss,
-        profitLossPercentage: (profitLoss / accountSize) * 100,
         outcome,
         pulseId,
         userId,
         instrument: formData.instrument,
-        followedRules,
 
-        // Screenshots
-        entryScreenshot: formData.entryScreenshot || undefined,
-        exitScreenshot: formData.exitScreenshot || undefined,
+        // Execution data (required)
+        execution: {
+          lotSize: Number(formData.lotSize),
+          entryPrice: Number(formData.entryPrice),
+          exitPrice: Number(formData.exitPrice),
+          entryReason: formData.entryReason,
+          ...(formData.plannedSL && Number(formData.plannedSL) > 0 && { plannedSL: Number(formData.plannedSL) }),
+          ...(formData.plannedTP && Number(formData.plannedTP) > 0 && { plannedTP: Number(formData.plannedTP) }),
+          ...(formData.entryTime && { entryTime: formData.entryTime }),
+          ...(formData.exitTime && { exitTime: formData.exitTime }),
+          ...(formData.entryScreenshot && {
+            entryScreenshot: formData.entryScreenshot,
+          }),
+          ...(formData.exitScreenshot && {
+            exitScreenshot: formData.exitScreenshot,
+          }),
+        },
 
-        // Psychological factors
-        emotionalState: formData.emotionalState
-          ? (formData.emotionalState as EmotionalState)
-          : undefined,
-        emotionalIntensity:
-          formData.emotionalIntensity !== undefined
-            ? Number(formData.emotionalIntensity)
-            : undefined,
-        mentalState: formData.mentalState
-          ? (formData.mentalState as MentalState)
-          : undefined,
+        // Performance data (required)
+        performance: {
+          profitLoss,
+          profitLossPercentage: (profitLoss / accountSize) * 100,
+        },
 
-        // Decision quality
-        planAdherence: formData.planAdherence
-          ? (formData.planAdherence as PlanAdherence)
-          : undefined,
-        impulsiveEntry:
-          formData.impulsiveEntry !== undefined
-            ? formData.impulsiveEntry
-            : undefined,
-
-        // Context factors
-        marketCondition: formData.marketCondition
-          ? (formData.marketCondition as MarketCondition)
-          : undefined,
-        timeOfDay: formData.timeOfDay || undefined,
-        tradingEnvironment: formData.tradingEnvironment
-          ? (formData.tradingEnvironment as TradingEnvironment)
-          : undefined,
-
-        // Reflection
-        wouldRepeat:
-          formData.wouldRepeat !== undefined ? formData.wouldRepeat : undefined,
-        emotionalImpact: formData.emotionalImpact
-          ? (formData.emotionalImpact as EmotionalImpact)
-          : undefined,
-        mistakesIdentified,
-        improvementIdeas: formData.improvementIdeas || undefined,
+        // Other top-level fields
+        ...(formData.learnings && { learnings: formData.learnings }),
+        ...(followedRules.length > 0 && { followedRules }),
       };
 
-      // Filter out undefined values (Firebase doesn't allow undefined)
-      const cleanedTradeData = Object.fromEntries(
-        Object.entries(tradeData).filter(([_, value]) => value !== undefined),
-      ) as TradeCreateData;
-
-      let response;
-      if (mode === "create") {
-        response = await createTrade(firestoreId, cleanedTradeData);
-      } else {
-        response = await updateTrade(firestoreId, trade!.id!, cleanedTradeData);
+      // Psychology data (optional)
+      const psychologyData: Record<string, string | number | boolean> = {};
+      if (formData.emotionalState) {
+        psychologyData.emotionalState =
+          formData.emotionalState as EmotionalState;
+      }
+      if (formData.emotionalIntensity !== undefined) {
+        psychologyData.emotionalIntensity = Number(formData.emotionalIntensity);
+      }
+      if (formData.mentalState) {
+        psychologyData.mentalState = formData.mentalState as MentalState;
+      }
+      if (formData.planAdherence) {
+        psychologyData.planAdherence = formData.planAdherence as PlanAdherence;
+      }
+      if (formData.impulsiveEntry !== undefined) {
+        psychologyData.impulsiveEntry = formData.impulsiveEntry;
+      }
+      if (Object.keys(psychologyData).length > 0) {
+        tradeData.psychology = psychologyData;
       }
 
-      if (!response) {
-        throw new Error(`Failed to ${mode} trade`);
+      // Context data (optional)
+      const contextData: Record<string, string> = {};
+      if (formData.marketCondition) {
+        contextData.marketCondition =
+          formData.marketCondition as MarketCondition;
+      }
+      if (formData.timeOfDay) {
+        contextData.timeOfDay = formData.timeOfDay;
+      }
+      if (formData.tradingEnvironment) {
+        contextData.tradingEnvironment =
+          formData.tradingEnvironment as TradingEnvironment;
+      }
+      if (Object.keys(contextData).length > 0) {
+        tradeData.context = contextData;
+      }
+
+      // Reflection data (optional)
+      const reflectionData: Record<string, boolean | string | string[]> = {};
+      if (formData.wouldRepeat !== undefined) {
+        reflectionData.wouldRepeat = formData.wouldRepeat;
+      }
+      if (formData.emotionalImpact) {
+        reflectionData.emotionalImpact =
+          formData.emotionalImpact as EmotionalImpact;
+      }
+      if (mistakesIdentified) {
+        reflectionData.mistakesIdentified = mistakesIdentified;
+      }
+      if (formData.improvementIdeas) {
+        reflectionData.improvementIdeas = formData.improvementIdeas;
+      }
+      if (Object.keys(reflectionData).length > 0) {
+        tradeData.reflection = reflectionData;
+      }
+
+      let response: TradeEvaluationResult | null = null;
+      let tradeResult;
+      if (mode === "create") {
+        const { getFirebaseToken } = await import("@/services/firebase/authService");
+        const token = await getFirebaseToken();
+        if (!token) throw new Error("Not authenticated");
+
+        const acks = { ...acksRef.current };
+        const fetchResponse = await fetch("/api/discipline/evaluate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({
+            pulseId: tradeData.pulseId,
+            userId: tradeData.userId,
+            tradeData,
+            ...acks,
+          }),
+        });
+
+        if (!fetchResponse.ok) {
+          const errorBody = await fetchResponse.json().catch(() => ({}));
+          if (fetchResponse.status === 422) {
+            setCapGate({ cap: errorBody.cap ?? 0, actual: errorBody.actual ?? 0, errorCode: errorBody.error ?? "CAP_EXCEEDED" });
+            return;
+          }
+          if (fetchResponse.status === 409) {
+            setNtdGate({ daysRemaining: errorBody.daysRemaining ?? 1 });
+            return;
+          }
+          if (fetchResponse.status === 403 && errorBody.error === "SESSION_GATE_NOT_ACKNOWLEDGED") {
+            setSessionGateError(true);
+            return;
+          }
+          throw new Error(errorBody.error || `Server error (${fetchResponse.status})`);
+        }
+
+        const result = await fetchResponse.json();
+        if (result.success && result.data?.trade) {
+          response = result.data;
+          tradeResult = result.data.trade;
+          acksRef.current = {}; // Clear acks after success
+        } else {
+          setError(result.error || "Failed to create trade");
+          return;
+        }
+      } else {
+        tradeResult = await updateTrade(firestoreId, trade!.id!, tradeData);
+      }
+
+      if (!tradeResult) {
+        return;
       }
 
       toast.success(
         `Trade ${mode === "create" ? "added" : "updated"} successfully!`,
         {
-          description: `${cleanedTradeData.type} trade on ${cleanedTradeData.instrument} with P/L of $${cleanedTradeData.profitLoss.toFixed(2)}`,
+          description: `${tradeData.type} trade on ${tradeData.instrument} with P/L of $${tradeData.performance.profitLoss.toFixed(2)}`,
           duration: 4000,
         },
       );
 
+      // Discipline breach notification — only on create
+      if (mode === "create" && response) {
+        const violations = (response.violations as { category: string; type: string; severity: number; details: string }[]) ?? [];
+        const isViolationTrade = response.isViolationTrade === true;
+        const activeConstraints = response.activeConstraints as ActiveConstraints;
+        const hasCaps =
+          activeConstraints?.riskCapPct !== null ||
+          activeConstraints?.tradeCapCount !== null ||
+          activeConstraints?.noTradeDays > 0;
+
+        if (violations.length > 0 || isViolationTrade || hasCaps) {
+          const totalPenalty = violations.reduce((sum, v) => sum + v.severity, 0);
+          const ruleBreaches = violations.filter(
+            (v) => v.category === ViolationCategory.QUALITATIVE,
+          );
+          const quantBreaches = violations.filter(
+            (v) => v.category === ViolationCategory.QUANTITATIVE,
+          );
+
+          toast.custom(
+            (id) => (
+              <div className="w-[360px] rounded-xl border border-amber-500/30 bg-[#1a1a1a] shadow-xl p-4 text-sm">
+                {/* Header */}
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="w-5 h-5 text-amber-400" />
+                    <span className="font-semibold text-amber-400">Discipline breach detected</span>
+                  </div>
+                  <button
+                    onClick={() => toast.dismiss(id)}
+                    className="text-gray-500 hover:text-gray-300"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {/* Rule misses */}
+                {ruleBreaches.length > 0 && (
+                  <div className="mb-3">
+                    <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1.5">
+                      Rules missed
+                    </p>
+                    <ul className="space-y-1.5">
+                      {ruleBreaches.map((v, i) => (
+                        <li key={i} className="flex items-start justify-between gap-2">
+                          <span className="text-gray-300 leading-snug">• {v.details}</span>
+                          <span className="shrink-0 text-xs font-medium text-red-400 bg-red-500/10 px-1.5 py-0.5 rounded">
+                            −{v.severity} pts
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Quantitative breaches */}
+                {quantBreaches.length > 0 && (
+                  <div className="mb-3">
+                    <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1.5">
+                      Risk &amp; limits
+                    </p>
+                    <ul className="space-y-1.5">
+                      {quantBreaches.map((v, i) => (
+                        <li key={i} className="flex items-start justify-between gap-2">
+                          <span className="text-gray-300 leading-snug">• {v.details}</span>
+                          <span className="shrink-0 text-xs font-medium text-red-400 bg-red-500/10 px-1.5 py-0.5 rounded">
+                            −{v.severity} pts
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Enforcement Constraint Warning */}
+                {(isViolationTrade || hasCaps) && (
+                  <div className="mb-3">
+                    <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1.5">
+                      Enforcement Actions
+                    </p>
+                    <ul className="space-y-1.5">
+                      {isViolationTrade && (
+                        <li className="flex items-start gap-2">
+                          <span className="text-red-400 leading-snug font-medium">
+                            • Trade logged during a No-Trade Day
+                          </span>
+                        </li>
+                      )}
+                      {activeConstraints?.riskCapPct !== null && (
+                        <li className="flex items-start gap-2">
+                          <span className="text-amber-400 leading-snug">
+                            • Next session risk capped at {Math.round(activeConstraints!.riskCapPct! * 100)}%
+                          </span>
+                        </li>
+                      )}
+                      {activeConstraints?.tradeCapCount !== null && (
+                        <li className="flex items-start gap-2">
+                          <span className="text-amber-400 leading-snug">
+                            • Next session trade count capped at {activeConstraints.tradeCapCount}
+                          </span>
+                        </li>
+                      )}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Footer summary */}
+                <div className="mt-4 pt-3 border-t border-gray-800/60 flex items-center justify-between">
+                  <span className="text-xs font-medium text-amber-500/80">
+                    Discipline score impacted
+                  </span>
+                  {totalPenalty > 0 && (
+                    <span className="text-sm font-bold text-red-400">
+                      -{totalPenalty} pts total
+                    </span>
+                  )}
+                </div>
+              </div>
+            ),
+            { duration: 6000 },
+          );
+        }
+      }
+
+
+      setCapGate(null);
+      setNtdGate(null);
+      setSessionGateError(false);
       onSuccess?.();
       onClose();
 
@@ -447,6 +707,8 @@ export default function TradeFormModal({
     }
   };
 
+  useModalEscape(isOpen && !isSubmitting && !loadingPulse, onClose);
+
   if (!isOpen) return null;
 
   // Tab completion indicators
@@ -473,29 +735,53 @@ export default function TradeFormModal({
     formData.improvementIdeas;
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 overflow-y-auto">
-      <div className="relative bg-dark p-6 rounded-lg border border-gray-800 w-full max-w-4xl max-h-[95vh] overflow-y-auto my-8">
-        <div className="flex justify-between items-center mb-4 sticky top-0 bg-dark z-10 pb-4">
-          <h2 className="text-2xl font-bold text-foreground">
+    <div
+      className="fixed inset-0 z-50 min-h-[100dvh] w-full overflow-y-auto bg-black/50 !mt-0"
+      onClick={() => {
+        if (!isSubmitting && !loadingPulse) onClose();
+      }}
+      role="presentation"
+    >
+      <div
+        className="flex min-h-[100dvh] w-full items-start justify-center p-4 sm:p-4"
+        onClick={() => {
+          if (!isSubmitting && !loadingPulse) onClose();
+        }}
+      >
+        <div
+          className="relative my-2 flex w-full max-w-4xl flex-col overflow-hidden rounded-lg border border-gray-800 bg-dark shadow-xl sm:my-4 max-h-[min(95vh,calc(100dvh-1rem))]"
+          onClick={(e) => e.stopPropagation()}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="trade-form-title"
+        >
+        <div className="flex shrink-0 items-center justify-between border-b border-gray-800 px-5 py-3 sm:px-6 sm:py-3.5">
+          <h2 id="trade-form-title" className="text-2xl font-bold text-foreground">
             {mode === "create" ? "Add Trade" : "Edit Trade"}
           </h2>
           <button
+            type="button"
             onClick={onClose}
             disabled={isSubmitting}
-            className="text-gray-400 hover:text-white disabled:opacity-50 text-2xl"
+            className="text-2xl text-gray-400 hover:text-white disabled:opacity-50"
+            aria-label="Close"
           >
             ✕
           </button>
         </div>
 
         {loadingPulse ? (
-          <div className="flex justify-center items-center py-12">
+          <div className="flex items-center justify-center py-16">
             <LoadingSpinner />
           </div>
         ) : (
-          <form onSubmit={handleSubmit}>
-            {/* Tab Navigation */}
-            <div className="flex border-b border-gray-800 mb-6 overflow-x-auto">
+          <form
+            ref={formRef}
+            className="relative flex flex-col overflow-hidden"
+            onSubmit={handleSubmit}
+          >
+            {/* Tab navigation — fixed below header; only tab content scrolls */}
+            <div className="flex shrink-0 overflow-x-auto border-b border-gray-800 bg-dark px-1 sm:px-3">
               <button
                 type="button"
                 className={`px-4 py-3 text-sm font-medium flex items-center gap-2 ${
@@ -571,7 +857,85 @@ export default function TradeFormModal({
               </button>
             </div>
 
-            {/* Tab Content */}
+            {/* NTD Gate Overlay — shown when 409 fires */}
+            {ntdGate && (
+              <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/80 backdrop-blur-sm rounded-lg">
+                <div className="w-full max-w-sm mx-4 rounded-xl border border-red-500/40 bg-[#121212] shadow-2xl overflow-hidden">
+                  <div className="px-5 py-4 bg-red-500/10 border-b border-red-500/30 flex items-center gap-2.5">
+                    <Ban className="w-5 h-5 text-red-400 shrink-0" />
+                    <div>
+                      <p className="text-sm font-semibold text-red-400">No-Trade Day Active</p>
+                      <p className="text-xs text-gray-400">{ntdGate.daysRemaining} day{ntdGate.daysRemaining > 1 ? "s" : ""} remaining</p>
+                    </div>
+                  </div>
+                  <div className="px-5 py-4 space-y-3">
+                    <p className="text-sm text-gray-300">
+                      Logging this trade will apply a <span className="font-semibold text-red-400">−20 discipline point penalty</span>. Type <span className="font-mono text-xs bg-gray-800 px-1 py-0.5 rounded">I acknowledge</span> below to confirm.
+                    </p>
+                    <input
+                      type="text"
+                      value={ntdAck}
+                      onChange={(e) => setNtdAck(e.target.value)}
+                      placeholder="I acknowledge"
+                      className="w-full input-dark text-sm"
+                      autoFocus
+                      onKeyDown={(e) => e.key === "Enter" && handleNtdConfirm()}
+                    />
+                  </div>
+                  <div className="px-5 py-3 border-t border-gray-800/60 flex gap-2 justify-end">
+                    <button
+                      type="button"
+                      onClick={() => { setNtdGate(null); setNtdAck(""); }}
+                      className="px-4 py-2 text-sm text-gray-400 hover:text-white"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleNtdConfirm}
+                      disabled={ntdAck.trim().toLowerCase() !== "i acknowledge"}
+                      className="px-4 py-2 text-sm font-medium rounded-lg bg-red-500/20 border border-red-500/40 text-red-400 hover:brightness-125 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                    >
+                      Confirm &amp; Submit
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="overflow-y-auto px-5 py-4 sm:px-6 max-h-[calc(100dvh-12rem)] sm:max-h-[calc(100dvh-11.5rem)]">
+            {/* Constraint Banner — shown when active caps exist */}
+            {mode === "create" && pulse?.discipline?.activeConstraints && (() => {
+              const c = pulse.discipline.activeConstraints;
+              const hasCaps = c.riskCapPct !== null || c.tradeCapCount !== null || c.noTradeDays > 0;
+              if (!hasCaps) return null;
+              return (
+                <div className="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 space-y-1.5">
+                  <div className="flex items-center gap-2 mb-1">
+                    <ShieldAlert className="w-4 h-4 text-amber-400 shrink-0" />
+                    <p className="text-xs font-semibold text-amber-400 uppercase tracking-wider">Active Constraints</p>
+                  </div>
+                  {c.riskCapPct !== null && (
+                    <div className="flex items-center gap-2 text-xs text-gray-300">
+                      <TrendingDown className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                      Risk capped at <span className="font-semibold text-amber-300">{Math.round(c.riskCapPct * 100)}%</span> of your configured limit
+                    </div>
+                  )}
+                  {c.tradeCapCount !== null && (
+                    <div className="flex items-center gap-2 text-xs text-gray-300">
+                      <Hash className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                      Maximum <span className="font-semibold text-amber-300">{c.tradeCapCount}</span> trades today
+                    </div>
+                  )}
+                  {c.noTradeDays > 0 && (
+                    <div className="flex items-center gap-2 text-xs text-gray-300">
+                      <Ban className="w-3.5 h-3.5 text-red-400 shrink-0" />
+                      <span className="text-red-300">No-trade day — logging incurs a −20 pt penalty</span>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
             {activeTab === "trade" && (
               <>
                 <TradeDataForm
@@ -580,6 +944,8 @@ export default function TradeFormModal({
                   isSubmitting={isSubmitting}
                   availableInstruments={availableInstruments}
                   onTimeChange={handleTimeChange}
+                  liveRiskPct={liveRiskPct}
+                  effectiveRiskLimitPct={effectiveRiskLimitPct}
                 />
                 <TradingRulesSection
                   pulse={pulse}
@@ -611,13 +977,31 @@ export default function TradeFormModal({
               />
             )}
 
-            {error && (
-              <div className="mt-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
-                <p className="text-sm text-red-400">{error}</p>
+            {sessionGateError && (
+              <div className="mt-4 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg flex items-start gap-2">
+                <ShieldAlert className="w-4 h-4 text-amber-400 mt-0.5 shrink-0" />
+                <p className="text-sm text-amber-300">You must acknowledge the active constraints via the constraint banner on your pulse page before logging a trade today.</p>
               </div>
             )}
+            {capGate && (
+              <div className="mt-4 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg flex items-start gap-2">
+                <TrendingDown className="w-4 h-4 text-amber-400 mt-0.5 shrink-0" />
+                <p className="text-sm text-amber-300">
+                  {capGate.errorCode === "RISK_CAP_EXCEEDED"
+                    ? `Risk cap exceeded: this trade risks ${capGate.actual.toFixed(2)}% but your current cap is ${capGate.cap.toFixed(2)}%.`
+                    : `Trade cap exceeded: you have reached your daily trade limit.`}
+                  {" "}Use the button below to submit anyway.
+                </p>
+              </div>
+            )}
+            {(error || apiError) && (
+              <div className="mt-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
+                <p className="text-sm text-red-400">{error || apiError}</p>
+              </div>
+            )}
+            </div>
 
-            <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-800">
+            <div className="flex shrink-0 flex-wrap items-center justify-end gap-3 border-t border-gray-800 bg-dark px-5 py-4 sm:px-6">
               <button
                 type="button"
                 onClick={onClose}
@@ -626,23 +1010,36 @@ export default function TradeFormModal({
               >
                 Cancel
               </button>
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="btn-primary px-6 py-2 disabled:opacity-50 flex items-center gap-2"
-              >
-                {isSubmitting && <LoadingSpinner />}
-                {isSubmitting
-                  ? mode === "create"
-                    ? "Adding..."
-                    : "Updating..."
-                  : mode === "create"
-                    ? "Add Trade"
-                    : "Update Trade"}
-              </button>
+              {capGate ? (
+                <button
+                  type="button"
+                  onClick={handleCapAckConfirm}
+                  disabled={isSubmitting}
+                  className="px-6 py-2 rounded-lg font-medium text-sm border border-amber-500/40 bg-amber-500/15 text-amber-300 hover:brightness-125 active:scale-[0.98] disabled:opacity-50 flex items-center gap-2 transition-all"
+                >
+                  {isSubmitting && <LoadingSpinner />}
+                  {isSubmitting ? "Submitting..." : "Submit with Acknowledged Cap"}
+                </button>
+              ) : (
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="btn-primary px-6 py-2 disabled:opacity-50 flex items-center gap-2"
+                >
+                  {isSubmitting && <LoadingSpinner />}
+                  {isSubmitting
+                    ? mode === "create"
+                      ? "Adding..."
+                      : "Updating..."
+                    : mode === "create"
+                      ? "Add Trade"
+                      : "Update Trade"}
+                </button>
+              )}
             </div>
           </form>
         )}
+      </div>
       </div>
     </div>
   );

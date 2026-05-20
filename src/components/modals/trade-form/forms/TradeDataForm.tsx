@@ -7,6 +7,9 @@ interface TradeDataFormProps extends FormComponentProps {
   onTimeChange: (
     name: string,
   ) => (e: React.ChangeEvent<HTMLInputElement>) => void;
+  liveRiskPct?: number | null;
+  /** Effective per-trade risk cap as a percentage (already factors in active caps). */
+  effectiveRiskLimitPct?: number | null;
 }
 
 export default function TradeDataForm({
@@ -15,6 +18,8 @@ export default function TradeDataForm({
   isSubmitting,
   availableInstruments,
   onTimeChange,
+  liveRiskPct,
+  effectiveRiskLimitPct,
 }: TradeDataFormProps) {
   const entryTimeRef = useRef<HTMLInputElement>(null);
   const exitTimeRef = useRef<HTMLInputElement>(null);
@@ -42,6 +47,7 @@ export default function TradeDataForm({
             id="trade-date"
             required
             disabled={isSubmitting}
+            max={new Date().toISOString().split("T")[0]}
             className="input-dark w-full disabled:opacity-50 disabled:cursor-not-allowed text-white"
             value={formData.date}
             onChange={onChange}
@@ -106,7 +112,7 @@ export default function TradeDataForm({
 
         <div>
           <label className="block text-sm text-gray-400 mb-2">
-            Type / Lot Size <span className="text-red-500">*</span>
+            Trade Type / Contract or Lot Size <span className="text-red-500">*</span>
           </label>
           <div className="grid grid-cols-2 gap-2">
             <select
@@ -126,7 +132,7 @@ export default function TradeDataForm({
               required
               step="0.01"
               min="0.01"
-              placeholder="Lot Size"
+              placeholder="Contract/Lot Size"
               disabled={isSubmitting}
               className="input-dark w-full disabled:opacity-50 disabled:cursor-not-allowed"
               value={formData.lotSize}
@@ -175,6 +181,78 @@ export default function TradeDataForm({
 
         <div>
           <label className="block text-sm text-gray-400 mb-2">
+            Planned SL / Planned TP
+          </label>
+          <div className="grid grid-cols-2 gap-2">
+            <input
+              type="number"
+              name="plannedSL"
+              id="planned-sl"
+              step="0.00001"
+              min="0"
+              placeholder="Stop Loss"
+              disabled={isSubmitting}
+              className="input-dark w-full disabled:opacity-50 disabled:cursor-not-allowed"
+              value={formData.plannedSL}
+              onChange={onChange}
+            />
+            <input
+              type="number"
+              name="plannedTP"
+              id="planned-tp"
+              step="0.00001"
+              min="0"
+              placeholder="Take Profit"
+              disabled={isSubmitting}
+              className="input-dark w-full disabled:opacity-50 disabled:cursor-not-allowed"
+              value={formData.plannedTP}
+              onChange={onChange}
+            />
+          </div>
+          <div className="flex items-center justify-between mt-1">
+            <p className="text-xs text-gray-500">
+              Optional — enables risk metrics (intended R:R, exit quality)
+            </p>
+            {liveRiskPct !== null && liveRiskPct !== undefined && liveRiskPct > 0 && (() => {
+              // Tone is computed relative to the trader's effective per-trade
+              // risk limit (which factors in any active risk cap). Falls back
+              // to absolute thresholds only if no limit is provided.
+              let tone: "ok" | "warn" | "over";
+              if (effectiveRiskLimitPct && effectiveRiskLimitPct > 0) {
+                if (liveRiskPct > effectiveRiskLimitPct) tone = "over";
+                else if (liveRiskPct > effectiveRiskLimitPct * 0.8) tone = "warn";
+                else tone = "ok";
+              } else {
+                tone = liveRiskPct > 5 ? "over" : liveRiskPct > 2 ? "warn" : "ok";
+              }
+              const colors = {
+                ok: "text-emerald-400 bg-emerald-500/15",
+                warn: "text-amber-400 bg-amber-500/15",
+                over: "text-red-400 bg-red-500/15",
+              }[tone];
+              const suffix = effectiveRiskLimitPct
+                ? ` / ${effectiveRiskLimitPct.toFixed(2)}% cap`
+                : "";
+              return (
+                <span
+                  className={`text-xs font-semibold px-2 py-0.5 rounded-full ${colors}`}
+                  title={
+                    tone === "over"
+                      ? `This trade exceeds your effective ${effectiveRiskLimitPct?.toFixed(2)}% per-trade risk cap`
+                      : tone === "warn"
+                        ? `Approaching your ${effectiveRiskLimitPct?.toFixed(2)}% per-trade risk cap`
+                        : "Within your configured risk limit"
+                  }
+                >
+                  ~{liveRiskPct.toFixed(2)}% risk{suffix}
+                </span>
+              );
+            })()}
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-sm text-gray-400 mb-2">
             Profit/Loss ($) <span className="text-red-500">*</span>
           </label>
           <div className="relative">
@@ -186,25 +264,23 @@ export default function TradeDataForm({
               required
               step="0.01"
               disabled={isSubmitting}
-              className={`input-dark w-full disabled:opacity-50 disabled:cursor-not-allowed pl-9 ${
-                parseFloat(formData.profitLoss) > 0
-                  ? "border-green-500/50 focus:border-green-500"
-                  : parseFloat(formData.profitLoss) < 0
-                    ? "border-red-500/50 focus:border-red-500"
-                    : ""
-              }`}
+              className={`input-dark w-full disabled:opacity-50 disabled:cursor-not-allowed pl-9 ${parseFloat(formData.profitLoss) > 0
+                ? "border-green-500/50 focus:border-green-500"
+                : parseFloat(formData.profitLoss) < 0
+                  ? "border-red-500/50 focus:border-red-500"
+                  : ""
+                }`}
               value={formData.profitLoss}
               onChange={onChange}
             />
             <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
               <span
-                className={`text-lg ${
-                  parseFloat(formData.profitLoss) > 0
-                    ? "text-green-500"
-                    : parseFloat(formData.profitLoss) < 0
-                      ? "text-red-500"
-                      : "text-gray-500"
-                }`}
+                className={`text-lg ${parseFloat(formData.profitLoss) > 0
+                  ? "text-green-500"
+                  : parseFloat(formData.profitLoss) < 0
+                    ? "text-red-500"
+                    : "text-gray-500"
+                  }`}
               >
                 $
               </span>

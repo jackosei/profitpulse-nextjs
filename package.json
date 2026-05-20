@@ -1,6 +1,6 @@
 {
   "name": "profitpulse-nextjs",
-  "version": "0.1.0",
+  "version": "4.2.0",
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack -p 9000",
@@ -12,13 +12,15 @@
     "@headlessui/react": "^2.2.0",
     "@heroicons/react": "^2.2.0",
     "chart.js": "^4.4.8",
+    "date-fns": "^4.1.0",
     "firebase": "^11.3.1",
-    "firebase-admin": "^13.2.0",
+    "firebase-admin": "^13.8.0",
     "lucide-react": "^0.475.0",
-    "next": "15.1.7",
+    "next": "^15.5.15",
     "react": "^19.0.0",
     "react-chartjs-2": "^5.3.0",
     "react-dom": "^19.0.0",
+    "resend": "^6.12.3",
     "sonner": "^2.0.1"
   },
   "devDependencies": {

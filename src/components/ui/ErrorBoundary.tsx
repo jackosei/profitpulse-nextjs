@@ -55,8 +55,8 @@ class ErrorBoundary extends Component<Props, State> {
             </div>
 
             <p className="text-gray-400 mb-4">
-              An unexpected error occurred. This has been logged and we'll look
-              into it.
+              An unexpected error occurred. This has been logged and we&apos;ll
+              look into it.
             </p>
 
             {this.state.error && (

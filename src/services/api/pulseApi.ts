@@ -11,12 +11,18 @@ import * as pulseService from "../firebase/pulseService";
 export interface PulseCreateData {
   name: string;
   instruments: string[];
+  /** Point/pip value per instrument — auto-populated from lookup, user-editable */
+  instrumentPointValues?: Record<string, number>;
   accountSize: number;
   maxRiskPerTrade: number;
   maxDailyDrawdown: number;
   maxTotalDrawdown: number;
   userId: string;
   tradingRules?: TradeRule[];
+  // Discipline engine — optional until WHY step is added to UI
+  whyStatement?: string;
+  whyDiscipline?: string;
+  maxTradesPerDay?: number | null;
 }
 
 // Types for updatePulse
@@ -26,70 +32,83 @@ export interface PulseUpdateData {
   maxDailyDrawdown: number;
   maxTotalDrawdown: number;
   instruments: string[];
+  /** Point/pip value per instrument — carries updated values on pulse edit */
+  instrumentPointValues?: Record<string, number>;
   tradingRules?: TradeRule[];
   updateReason: string;
+  /** Accountability partner email for Tier 2 notifications — null clears it */
+  accountabilityPartnerEmail?: string | null;
 }
 
-// Types for createTrade
+// Types for createTrade - matches nested Trade structure
 export interface TradeCreateData {
   pulseId: string;
   userId: string;
   date: string;
-  entryTime?: string;
-  exitTime?: string;
   type: "Buy" | "Sell";
-  lotSize: number;
-  entryPrice: number;
-  exitPrice: number;
-  profitLoss: number;
-  profitLossPercentage: number;
-  entryReason: string;
-  outcome: "Win" | "Loss" | "Break-even";
   instrument: string;
+  outcome: "Win" | "Loss" | "Break-even";
+
+  execution: {
+    entryTime?: string;
+    exitTime?: string;
+    lotSize: number;
+    entryPrice: number;
+    exitPrice: number;
+    plannedSL?: number;
+    plannedTP?: number;
+    entryReason: string;
+    entryScreenshot?: string;
+    exitScreenshot?: string;
+  };
+
+  performance: {
+    profitLoss: number;
+    profitLossPercentage: number;
+  };
+
+  psychology?: {
+    emotionalState?:
+      | "Calm"
+      | "Excited"
+      | "Fearful"
+      | "Greedy"
+      | "Anxious"
+      | "Confident"
+      | "Other";
+    emotionalIntensity?: number;
+    mentalState?:
+      | "Clear"
+      | "Distracted"
+      | "Tired"
+      | "Focused"
+      | "Rushed"
+      | "Other";
+    planAdherence?: "Fully" | "Partially" | "Deviated";
+    impulsiveEntry?: boolean;
+  };
+
+  context?: {
+    marketCondition?:
+      | "Trending"
+      | "Ranging"
+      | "Volatile"
+      | "Calm"
+      | "News-driven";
+    timeOfDay?: string;
+    tradingEnvironment?: "Home" | "Office" | "Mobile" | "Other";
+  };
+
+  reflection?: {
+    wouldRepeat?: boolean;
+    emotionalImpact?: "Positive" | "Negative" | "Neutral";
+    mistakesIdentified?: string[];
+    improvementIdeas?: string;
+  };
+
   learnings?: string;
   followedRules?: string[];
-
-  // Screenshots
-  entryScreenshot?: string;
-  exitScreenshot?: string;
-
-  // Psychological factors
-  emotionalState?:
-    | "Calm"
-    | "Excited"
-    | "Fearful"
-    | "Greedy"
-    | "Anxious"
-    | "Confident"
-    | "Other";
-  emotionalIntensity?: number;
-  mentalState?:
-    | "Clear"
-    | "Distracted"
-    | "Tired"
-    | "Focused"
-    | "Rushed"
-    | "Other";
-
-  // Decision quality
-  planAdherence?: "Fully" | "Partially" | "Deviated";
-  impulsiveEntry?: boolean;
-
-  // Context factors
-  marketCondition?:
-    | "Trending"
-    | "Ranging"
-    | "Volatile"
-    | "Calm"
-    | "News-driven";
-  timeOfDay?: string;
-  tradingEnvironment?: "Home" | "Office" | "Mobile" | "Other";
-
-  // Post-trade reflection
-  wouldRepeat?: boolean;
-  emotionalImpact?: "Positive" | "Negative" | "Neutral";
-  mistakesIdentified?: string[];
-  improvementIdeas?: string;
+  engineMetrics?: import("@/lib/disciplineTypes").TradeEngineMetrics;
 }
 
 /**

@@ -51,10 +51,9 @@ export default function DeletePulseModal({ isOpen, onClose, pulse, onSuccess }: 
 
   return (
     <Dialog open={isOpen} onClose={onClose} className="relative z-50">
-      <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
+      <div className="fixed inset-0 z-50 min-h-[100dvh] w-full bg-black/40" aria-hidden="true" />
       
-      <div className="fixed inset-0 overflow-y-auto">
-        <div className="flex min-h-full items-center justify-center p-4">
+      <div className="fixed inset-0 z-50 flex min-h-[100dvh] w-full items-center justify-center overflow-y-auto p-4">
           <DialogPanel className="w-full max-w-md rounded-lg bg-dark p-6 border border-gray-800">
             <div className="flex items-center gap-4 mb-6">
               <div className="flex-shrink-0 w-12 h-12 rounded-full bg-red-100 flex items-center justify-center">
@@ -85,6 +84,7 @@ export default function DeletePulseModal({ isOpen, onClose, pulse, onSuccess }: 
 
             <div className="flex justify-end gap-3">
               <button
+                type="button"
                 onClick={onClose}
                 className="px-4 py-2 rounded-lg hover:bg-white/10 text-gray-300"
                 disabled={isSubmitting}
@@ -92,6 +92,7 @@ export default function DeletePulseModal({ isOpen, onClose, pulse, onSuccess }: 
                 Cancel
               </button>
               <button
+                type="button"
                 onClick={handleDelete}
                 disabled={!isConfirmationValid || isSubmitting}
                 className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
@@ -105,7 +106,6 @@ export default function DeletePulseModal({ isOpen, onClose, pulse, onSuccess }: 
               </button>
             </div>
           </DialogPanel>
-        </div>
       </div>
     </Dialog>
   );

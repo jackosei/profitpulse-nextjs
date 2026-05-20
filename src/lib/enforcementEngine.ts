@@ -1,0 +1,481 @@
+/**
+ * Enforcement Engine — Pure Functions
+ *
+ * Phase 2 constraint computation. All functions are pure (no Firestore, no side effects).
+ * Called by the API route after violations are evaluated.
+ *
+ * Functions:
+ *  1. computeConstraints    — maps violations → active constraints
+ *  2. computeStateTransition — discipline state machine
+ *  3. shouldLiftConstraints  — cap lifting on clean session
+ *  4. computeWeeklyReset     — Monday boundary reset
+ *  5. amplifyPenalty          — zone-based severity multiplier
+ *  6. mergeConstraints        — takes the more restrictive of two constraint sets
+ */
+
+import type {
+  ActiveConstraints,
+  EscalationPreviewItem,
+  WeeklyBreachCounts,
+  DisciplineState,
+  DisciplineZone,
+  TradeViolation,
+} from "./disciplineTypes";
+import { ViolationType } from "./disciplineTypes";
+
+// ---------------------------------------------------------------------------
+// 1. computeConstraints
+// ---------------------------------------------------------------------------
+
+/**
+ * Maps violations + breach history → forward-looking constraints.
+ *
+ * Based on the enforcement matrix in CLAUDE.md:
+ *
+ * | Violation              | Breach # | Constraint                                |
+ * |------------------------|----------|-------------------------------------------|
+ * | RISK_PER_TRADE (1st)   | weekly 1 | WHY prompt only (no constraint)           |
+ * | RISK_PER_TRADE (2nd)   | weekly 2 | 75% risk cap next day                     |
+ * | RISK_PER_TRADE (3rd+)  | weekly 3+| 50% cap + soft lockout                    |
+ * | DAILY_DRAWDOWN         | any      | Day locked + reflection gate              |
+ * | TOTAL_DRAWDOWN (1st)   | lifetime | Full lockout + 50% cap × 3 sessions       |
+ * | TOTAL_DRAWDOWN (2nd+)  | lifetime | 2-day no-trade lockout                    |
+ * | MAX_TRADES_PER_DAY     | any      | Day locked + (limit−1) cap next day       |
+ */
+export function computeConstraints(
+  violations: TradeViolation[],
+  weeklyBreachCounts: WeeklyBreachCounts,
+  maxTradesPerDay: number | null,
+  existingConstraints?: ActiveConstraints,
+): { constraints: ActiveConstraints; reflectionGatePending: boolean; isLockedPermanently: boolean } {
+  let riskCapPct: number | null = null;
+  let tradeCapCount: number | null = null;
+  let noTradeDays = 0;
+  let cleanSessionsToLift = 0;
+  let reflectionGatePending = false;
+  let isLockedPermanently = false;
+
+  const existingRiskCap = existingConstraints?.riskCapPct ?? null;
+  const existingTradeCap = existingConstraints?.tradeCapCount ?? null;
+
+  for (const v of violations) {
+    switch (v.type) {
+      case ViolationType.RISK_PER_TRADE: {
+        // weeklyBreachCounts already includes this violation's increment.
+        // We escalate based on the higher of (weekly breach tier) and
+        // (current active cap tier) so escalation works even after a Monday
+        // reset where the counter zeroed but the cap is still active.
+        const totalRiskBreaches = weeklyBreachCounts.riskPerTrade;
+
+        // Determine "effective tier" from existing cap:
+        //   no cap → tier 1 (next escalation = 75% cap)
+        //   75% cap (0.75) → tier 2 (next escalation = 50% cap)
+        //   50% cap (≤0.5) → tier 3 (next escalation = no-trade day)
+        let existingTier = 1;
+        if (existingRiskCap !== null) {
+          existingTier = existingRiskCap <= 0.5 ? 3 : 2;
+        }
+        const weeklyTier =
+          totalRiskBreaches >= 4 ? 4 :
+          totalRiskBreaches === 3 ? 3 :
+          totalRiskBreaches === 2 ? 2 : 1;
+        // After this breach, escalate by at least one tier from existing.
+        const effectiveTier = Math.max(weeklyTier, existingTier + 1);
+
+        if (effectiveTier >= 4) {
+          noTradeDays = Math.max(noTradeDays, 1);
+          cleanSessionsToLift = Math.max(cleanSessionsToLift, 3);
+        } else if (effectiveTier === 3) {
+          riskCapPct = pickMoreRestrictive(riskCapPct, 0.5);
+          cleanSessionsToLift = Math.max(cleanSessionsToLift, 3);
+        } else if (effectiveTier === 2) {
+          riskCapPct = pickMoreRestrictive(riskCapPct, 0.75);
+          cleanSessionsToLift = Math.max(cleanSessionsToLift, 2);
+        }
+        // Tier 1: WHY prompt only — no constraint
+        break;
+      }
+
+      case ViolationType.DAILY_DRAWDOWN: {
+        const totalDailyDrawdownBreaches = weeklyBreachCounts.drawdownDaily;
+        if (totalDailyDrawdownBreaches >= 2) {
+          // Repeat in same week: no-trade day next day
+          noTradeDays = Math.max(noTradeDays, 1);
+        }
+        // Day locked + reflection gate + 3-session recovery cap
+        reflectionGatePending = true;
+        cleanSessionsToLift = Math.max(cleanSessionsToLift, 3);
+        break;
+      }
+
+      case ViolationType.TOTAL_DRAWDOWN: {
+        isLockedPermanently = true;
+        // Spec: Total DD sets a 5-session clean recovery countdown if not permanently locked.
+        // We set it here anyway; permanent lock overrides caps in UI/middleware.
+        cleanSessionsToLift = Math.max(cleanSessionsToLift, 5);
+        break;
+      }
+
+      case ViolationType.MAX_TRADES_PER_DAY: {
+        // Same escalation logic as risk: escalate from current trade cap if present,
+        // not just from the weekly counter (which resets Mondays).
+        const totalOvertradingBreaches = weeklyBreachCounts.overtrading;
+        const hasExistingTradeCap = existingTradeCap !== null;
+        if (totalOvertradingBreaches >= 2 || hasExistingTradeCap) {
+          // Repeat in same week OR already capped → no-trade day
+          noTradeDays = Math.max(noTradeDays, 1);
+        } else if (maxTradesPerDay !== null && maxTradesPerDay > 1) {
+          // First weekly breach + no existing cap: (limit−1) cap
+          tradeCapCount = pickMoreRestrictiveInt(
+            tradeCapCount,
+            maxTradesPerDay - 1,
+          );
+        }
+        break;
+      }
+
+      // Qualitative violations don't generate constraints
+      case ViolationType.REQUIRED_RULE_MISSED:
+      case ViolationType.OPTIONAL_RULE_MISSED:
+      case ViolationType.MULTI_REQUIRED_RULE_MISS:
+        break;
+    }
+  }
+
+  return {
+    constraints: {
+      riskCapPct,
+      tradeCapCount,
+      lockoutUntil: null, // Managed by API route for timestamp-based lockouts
+      noTradeDays,
+      cleanSessionsToLift,
+    },
+    reflectionGatePending,
+    isLockedPermanently,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// 2. computeStateTransition
+// ---------------------------------------------------------------------------
+
+/**
+ * Discipline state machine.
+ *
+ * States:
+ *  - NORMAL:     score ≥ 75 AND no active constraints
+ *  - LIMITED:    score 40–74 OR has riskCap/tradeCap (but no lockout/noTradeDays)
+ *  - RESTRICTED: score < 40 OR has lockout/noTradeDays
+ *  - RECOVERY:   transitioning out of RESTRICTED via compliance
+ *
+ * RECOVERY is entered when:
+ *  - Previous state was RESTRICTED
+ *  - Score has risen above 40
+ *  - Some constraints are still active (being lifted)
+ *
+ * RECOVERY exits to NORMAL or LIMITED once all constraints clear.
+ */
+export function computeStateTransition(
+  currentState: DisciplineState,
+  newScore: number,
+  constraints: ActiveConstraints,
+): DisciplineState {
+  const hasLockout =
+    constraints.lockoutUntil !== null || constraints.noTradeDays > 0;
+  const hasCaps =
+    constraints.riskCapPct !== null || constraints.tradeCapCount !== null;
+  const hasAnyConstraint = hasLockout || hasCaps;
+
+  // RESTRICTED: score < 40 OR active lockout/no-trade days
+  if (newScore < 40 || hasLockout) {
+    return "RESTRICTED";
+  }
+
+  // RECOVERY: was RESTRICTED, score now ≥ 40, but some caps still active
+  if (currentState === "RESTRICTED" && newScore >= 40 && hasCaps) {
+    return "RECOVERY";
+  }
+
+  // RECOVERY continues until all constraints cleared
+  if (currentState === "RECOVERY" && hasAnyConstraint) {
+    return "RECOVERY";
+  }
+
+  // LIMITED: score 40–74 OR has caps
+  if (newScore < 75 || hasCaps) {
+    return "LIMITED";
+  }
+
+  // NORMAL: score ≥ 75, no constraints
+  return "NORMAL";
+}
+
+// ---------------------------------------------------------------------------
+// 3. shouldLiftConstraints
+// ---------------------------------------------------------------------------
+
+/**
+ * After a clean capped session, determine which constraints to lift.
+ *
+ * A "capped session" is one where constraints were active.
+ * A "clean session" means no violations occurred.
+ *
+ * When a capped session completes cleanly:
+ *  - The active cap is removed
+ *  - +5 recovery bonus points are awarded
+ *  - If all constraints clear → state transitions toward NORMAL
+ *
+ * @returns liftedConstraints (the new constraint state) and recoveryBonus
+ */
+export function shouldLiftConstraints(
+  currentConstraints: ActiveConstraints,
+  sessionWasClean: boolean,
+): { liftedConstraints: ActiveConstraints; recoveryBonus: number } {
+  if (!sessionWasClean) {
+    // Constraints persist if session wasn't clean
+    return { liftedConstraints: currentConstraints, recoveryBonus: 0 };
+  }
+
+  let recoveryBonus = 0;
+  const lifted = { ...currentConstraints };
+
+  // Decrement the clean session requirement
+  if (lifted.cleanSessionsToLift > 0) {
+    lifted.cleanSessionsToLift -= 1;
+  }
+
+  // Only lift caps if we've completed the required clean sessions
+  if (lifted.cleanSessionsToLift === 0) {
+    // Lift risk cap
+    if (lifted.riskCapPct !== null) {
+      lifted.riskCapPct = null;
+      recoveryBonus += 5;
+    }
+
+    // Lift trade cap
+    if (lifted.tradeCapCount !== null) {
+      lifted.tradeCapCount = null;
+      recoveryBonus += 5;
+    }
+  }
+
+  // Decrement no-trade days
+  if (lifted.noTradeDays > 0) {
+    lifted.noTradeDays -= 1;
+    if (lifted.noTradeDays === 0) {
+      recoveryBonus += 5;
+    }
+  }
+
+  // Clear lockout (time-based lockouts are checked by the API route)
+  if (lifted.lockoutUntil !== null) {
+    lifted.lockoutUntil = null;
+    recoveryBonus += 5;
+  }
+
+  return { liftedConstraints: lifted, recoveryBonus };
+}
+
+// ---------------------------------------------------------------------------
+// 4. computeWeeklyReset
+// ---------------------------------------------------------------------------
+
+/**
+ * Resets weekly breach counters on Monday boundary.
+ *
+ * Resets: riskPerTrade, drawdownDaily, overtrading
+ * NEVER resets: drawdownTotal (lifetime counter per CLAUDE.md)
+ *
+ * @param currentCounts   Current weekly breach counts
+ * @param todayDate       YYYY-MM-DD string
+ * @param lastSessionDate YYYY-MM-DD string (last day a trade was logged)
+ * @returns reset counts if boundary crossed, unchanged otherwise
+ */
+export function computeWeeklyReset(
+  currentCounts: WeeklyBreachCounts,
+  todayDate: string,
+  lastSessionDate: string | null,
+): WeeklyBreachCounts {
+  if (!lastSessionDate) return currentCounts;
+
+  const today = new Date(todayDate);
+  const lastSession = new Date(lastSessionDate);
+
+  // Check if we've crossed a Monday boundary
+  // getDay(): 0=Sun, 1=Mon, ..., 6=Sat
+  // TODO: 
+  // const todayDay = today.getDay();
+  // const lastDay = lastSession.getDay();
+
+  // We crossed a Monday if:
+  // 1. Today is Monday or later, AND
+  // 2. Last session was in a previous week
+  const todayWeekStart = getMondayOfWeek(today);
+  const lastWeekStart = getMondayOfWeek(lastSession);
+
+  if (todayWeekStart.getTime() > lastWeekStart.getTime()) {
+    // New week — reset weekly counters
+    return {
+      riskPerTrade: 0,
+      drawdownDaily: 0,
+      drawdownTotal: currentCounts.drawdownTotal, // NEVER reset
+      overtrading: 0,
+    };
+  }
+
+  return currentCounts;
+}
+
+// ---------------------------------------------------------------------------
+// 5. amplifyPenalty
+// ---------------------------------------------------------------------------
+
+/**
+ * Zone-based penalty amplification.
+ *
+ * The same violation hits harder in Yellow/Red than in Green.
+ * This makes it progressively harder to recover from a deep zone,
+ * creating genuine urgency around discipline.
+ *
+ * Multipliers:
+ *  - GREEN:  1.0× (base)
+ *  - YELLOW: 1.25×
+ *  - RED:    1.5×
+ *
+ * @param baseSeverity  The raw penalty from the violation (e.g. 5, 10, 15)
+ * @param zone          Current discipline zone
+ * @returns amplified severity (rounded to nearest integer)
+ */
+export function amplifyPenalty(
+  baseSeverity: number,
+  zone: DisciplineZone,
+): number {
+  const multipliers: Record<DisciplineZone, number> = {
+    GREEN: 1.0,
+    YELLOW: 1.25,
+    RED: 1.5,
+  };
+
+  return Math.round(baseSeverity * multipliers[zone]);
+}
+
+// ---------------------------------------------------------------------------
+// 6. mergeConstraints
+// ---------------------------------------------------------------------------
+
+/**
+ * Merge two constraint sets, taking the more restrictive value for each field.
+ * Used when new constraints are computed but existing constraints haven't expired.
+ */
+export function mergeConstraints(
+  existing: ActiveConstraints,
+  incoming: ActiveConstraints,
+): ActiveConstraints {
+  return {
+    riskCapPct: pickMoreRestrictive(existing.riskCapPct, incoming.riskCapPct),
+    tradeCapCount: pickMoreRestrictiveInt(
+      existing.tradeCapCount,
+      incoming.tradeCapCount,
+    ),
+    lockoutUntil: existing.lockoutUntil ?? incoming.lockoutUntil,
+    noTradeDays: Math.max(existing.noTradeDays, incoming.noTradeDays),
+    cleanSessionsToLift: Math.max(existing.cleanSessionsToLift, incoming.cleanSessionsToLift),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * For risk cap: lower fraction = more restrictive (0.5 > 0.75 in strictness).
+ * null = no cap.
+ */
+function pickMoreRestrictive(
+  a: number | null,
+  b: number | null,
+): number | null {
+  if (a === null) return b;
+  if (b === null) return a;
+  return Math.min(a, b);
+}
+
+/**
+ * For trade cap: lower count = more restrictive.
+ * null = no cap.
+ */
+function pickMoreRestrictiveInt(
+  a: number | null,
+  b: number | null,
+): number | null {
+  if (a === null) return b;
+  if (b === null) return a;
+  return Math.min(a, b);
+}
+
+/**
+ * Get the Monday (start of ISO week) for a given date.
+ */
+function getMondayOfWeek(date: Date): Date {
+  const d = new Date(date);
+  const day = d.getDay();
+  // Adjust: Sunday (0) → -6, Monday (1) → 0, ... Saturday (6) → -5
+  const diff = day === 0 ? -6 : 1 - day;
+  d.setDate(d.getDate() + diff);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+// ---------------------------------------------------------------------------
+// 7. computeEscalationPreview
+// ---------------------------------------------------------------------------
+
+/**
+ * Returns a list of escalation preview items for DisciplineMeter display.
+ * Each item shows how close the trader is to the next enforcement consequence.
+ * Pure function — does not modify any state.
+ */
+export function computeEscalationPreview(
+  weeklyBreachCounts: WeeklyBreachCounts,
+  maxTradesPerDay: number | null,
+): EscalationPreviewItem[] {
+  const items: EscalationPreviewItem[] = [];
+
+  // Risk per trade escalation (weekly resets)
+  const riskBreaches = weeklyBreachCounts.riskPerTrade;
+  if (riskBreaches === 0) {
+    items.push({ label: "Risk Breach", currentBreaches: 0, nextThreshold: 2, nextConsequence: "75% risk cap next session" });
+  } else if (riskBreaches === 1) {
+    items.push({ label: "Risk Breach", currentBreaches: 1, nextThreshold: 2, nextConsequence: "75% risk cap next session" });
+  } else if (riskBreaches === 2) {
+    items.push({ label: "Risk Breach", currentBreaches: 2, nextThreshold: 3, nextConsequence: "50% risk cap next session" });
+  } else if (riskBreaches === 3) {
+    items.push({ label: "Risk Breach", currentBreaches: 3, nextThreshold: 4, nextConsequence: "No-trade day applied" });
+  } else {
+    items.push({ label: "Risk Breach", currentBreaches: riskBreaches, nextThreshold: riskBreaches + 1, nextConsequence: "Additional no-trade day" });
+  }
+
+  // Daily drawdown escalation
+  const ddBreaches = weeklyBreachCounts.drawdownDaily;
+  if (ddBreaches === 0) {
+    items.push({ label: "Daily Drawdown", currentBreaches: 0, nextThreshold: 1, nextConsequence: "Reflection gate + 3-session recovery" });
+  } else if (ddBreaches === 1) {
+    items.push({ label: "Daily Drawdown", currentBreaches: 1, nextThreshold: 2, nextConsequence: "No-trade day + reflection gate" });
+  } else {
+    items.push({ label: "Daily Drawdown", currentBreaches: ddBreaches, nextThreshold: ddBreaches + 1, nextConsequence: "Additional no-trade day" });
+  }
+
+  // Overtrading escalation
+  if (maxTradesPerDay !== null) {
+    const otBreaches = weeklyBreachCounts.overtrading;
+    if (otBreaches === 0) {
+      items.push({ label: "Overtrading", currentBreaches: 0, nextThreshold: 1, nextConsequence: `Trade cap reduced to ${maxTradesPerDay - 1}` });
+    } else if (otBreaches === 1) {
+      items.push({ label: "Overtrading", currentBreaches: 1, nextThreshold: 2, nextConsequence: "No-trade day applied" });
+    } else {
+      items.push({ label: "Overtrading", currentBreaches: otBreaches, nextThreshold: otBreaches + 1, nextConsequence: "Additional no-trade day" });
+    }
+  }
+
+  return items;
+}

@@ -359,6 +359,7 @@ export default function PulseDetailsPage() {
     lockoutUntil: null,
     noTradeDays: 0,
     cleanSessionsToLift: 0,
+    ntdWarningPending: false,
   };
   const disciplineState: DisciplineState = discipline?.disciplineState ?? "NORMAL";
 
@@ -476,8 +477,8 @@ export default function PulseDetailsPage() {
                   recoveryHint={recoveryHint}
                   activeConstraints={activeConstraints}
                   disciplineState={disciplineState}
-                  weeklyBreachCounts={discipline?.weeklyBreachCounts}
-                  maxTradesPerDay={discipline?.maxTradesPerDay}
+                  enforcementMode={discipline?.enforcementMode ?? "SCORE_BASED"}
+                  weeklySeverityTotal={discipline?.weeklySeverityTotal ?? 0}
                 />
               )}
               <StreakBadge consecutiveCleanDays={discipline?.consecutiveCleanDays ?? 0} />

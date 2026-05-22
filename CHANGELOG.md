@@ -1,5 +1,41 @@
 # Changelog
 
+## [4.4.0] - 2026-05-20
+
+Adaptive enforcement engine: per-pulse choice between Score-based and Severity-based tier ladders.
+
+### New Features
+
+#### Unified tier ladder driven by a per-pulse signal
+- Discipline engine restructured around a single tier ladder (Tier 1–5) shared across all violation types. Tier outcomes (75% cap → 50% cap + warning → NTD + 50% cap → extended NTD) are the same regardless of mode; only the trigger signal differs.
+- Each pulse picks one of two enforcement modes at creation:
+  - `SCORE_BASED` (default): tier triggered by discipline score crossing thresholds (≥85, ≥70, ≥55, ≥40). Recovery is action-based via clean sessions, journal bonuses, streaks.
+  - `SEVERITY_BASED`: tier triggered by weekly cumulative violation severity (5, 15, 25, 40). Recovery is time-based via Monday reset.
+- `EnforcementModeDetailsModal` side-by-side comparison surfaced from both CreatePulseModal and UpdatePulseModal via "Learn more". Existing pulses default to `SCORE_BASED` via read-time fallback.
+
+#### Warn-then-lock at tier 4
+- First time a trader crosses into tier 4 territory the engine sets `ntdWarningPending = true` and applies only the 50% cap (no immediate NTD). The trader gets explicit advance notice via an amber "NTD on next breach" chip in the DisciplineMeter. The next tier-4 condition fires the actual no-trade day.
+- NTD now extends by 1 day when triggered during an active NTD (previously `Math.max(1, 1) = 1` left it unchanged).
+
+#### WHY reminder on first risk breach
+- Per spec, "breach 1 = WHY prompt only" — but the email/SMS only fired on zone degradation, so first-ever risk breaches dropping from 100 → 95 stayed silent. Now fires the WHY reminder on first weekly RISK_PER_TRADE breach regardless of zone state.
+
+#### Accountability partner alerts wired to the tier ladder
+- `PartnerAlertBreachType` union extended with `NTD_WARNING` and `NO_TRADE_DAY` so the partner gets notified when the engine escalates regardless of which violation type triggered it.
+- One alert per trade, picked by priority: `TOTAL_DRAWDOWN_LOCKED` > `NO_TRADE_DAY` > `DAILY_DRAWDOWN` > `NTD_WARNING`. Prevents partner inbox spam when a single trade trips multiple signals.
+- Mode-independent — works the same in Score-based and Severity-based pulses since both flow through `noTradeDays` / `ntdWarningPending` state.
+
+### Schema
+- New `EnforcementMode` type in `disciplineTypes.ts`.
+- `PulseDisciplineFields` gains `enforcementMode` and `weeklySeverityTotal`.
+- `ActiveConstraints` gains `ntdWarningPending`.
+
+### Fixes
+- Removed accidental "breach 1 with no cap → 75% cap" escalation introduced in v4.3 — first weekly risk breach now correctly fires WHY-only with no cap, matching the spec.
+- Severity total resets to 0 alongside `weeklyBreachCounts` on the Monday boundary.
+
+---
+
 ## [4.3.0] - 2026-05-20
 
 Pulse Detail Page UX Refactor: tabbed layout for Performance / Discipline / Trade Log with persistent Vitals strip.

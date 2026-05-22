@@ -15,6 +15,7 @@
 
 import type {
   ActiveConstraints,
+  EnforcementMode,
   EscalationPreviewItem,
   WeeklyBreachCounts,
   DisciplineState,
@@ -24,85 +25,136 @@ import type {
 import { ViolationType } from "./disciplineTypes";
 
 // ---------------------------------------------------------------------------
+// Tier ladder — unified across both enforcement modes
+// ---------------------------------------------------------------------------
+
+/**
+ * Tier 1: nothing (WHY prompt only)
+ * Tier 2: 75% per-trade risk cap, 2 clean sessions to lift
+ * Tier 3: 50% per-trade risk cap + NTD warning, 3 clean sessions to lift
+ * Tier 4: NTD + 50% cap (extends NTD if already active). 3 clean sessions to lift
+ * Tier 5: same as 4 — extended NTD pathway. Distinct only for telemetry.
+ */
+export type Tier = 1 | 2 | 3 | 4 | 5;
+
+/** Map discipline score → tier (SCORE_BASED mode). */
+export function tierFromScore(score: number): Tier {
+  if (score >= 85) return 1;
+  if (score >= 70) return 2;
+  if (score >= 55) return 3;
+  if (score >= 40) return 4;
+  return 5;
+}
+
+/** Map weekly cumulative severity → tier (SEVERITY_BASED mode). */
+export function tierFromSeverity(severity: number): Tier {
+  if (severity < 5) return 1;
+  if (severity < 15) return 2;
+  if (severity < 25) return 3;
+  if (severity < 40) return 4;
+  return 5;
+}
+
+/** Compute the tier for the chosen enforcement mode. */
+export function computeTier(
+  mode: EnforcementMode,
+  scoreAfter: number,
+  weeklySeverityTotalAfter: number,
+): Tier {
+  return mode === "SCORE_BASED"
+    ? tierFromScore(scoreAfter)
+    : tierFromSeverity(weeklySeverityTotalAfter);
+}
+
+// ---------------------------------------------------------------------------
 // 1. computeConstraints
 // ---------------------------------------------------------------------------
 
 /**
- * Maps violations + breach history → forward-looking constraints.
+ * Maps violations + signals → forward-looking constraints.
  *
- * Based on the enforcement matrix in CLAUDE.md:
+ * The tier ladder (risk cap + NTD) is driven by a single signal — chosen by
+ * the trader at pulse creation:
+ *   - SCORE_BASED: discipline score crossing thresholds (action-based recovery)
+ *   - SEVERITY_BASED: weekly cumulative severity (time-based recovery)
  *
- * | Violation              | Breach # | Constraint                                |
- * |------------------------|----------|-------------------------------------------|
- * | RISK_PER_TRADE (1st)   | weekly 1 | WHY prompt only (no constraint)           |
- * | RISK_PER_TRADE (2nd)   | weekly 2 | 75% risk cap next day                     |
- * | RISK_PER_TRADE (3rd+)  | weekly 3+| 50% cap + soft lockout                    |
- * | DAILY_DRAWDOWN         | any      | Day locked + reflection gate              |
- * | TOTAL_DRAWDOWN (1st)   | lifetime | Full lockout + 50% cap × 3 sessions       |
- * | TOTAL_DRAWDOWN (2nd+)  | lifetime | 2-day no-trade lockout                    |
- * | MAX_TRADES_PER_DAY     | any      | Day locked + (limit−1) cap next day       |
+ * Both modes share the same tier outcomes:
+ *   Tier 1 — nothing (WHY prompt only)
+ *   Tier 2 — 75% per-trade cap, 2 clean to lift
+ *   Tier 3 — 50% cap + NTD warning, 3 clean to lift
+ *   Tier 4 — NTD + 50% cap (extends NTD if already active). 3 clean to lift
+ *
+ * Orthogonal mechanisms (mode-independent):
+ *   - DAILY_DRAWDOWN → reflectionGatePending
+ *   - TOTAL_DRAWDOWN → permanent lockout
+ *   - MAX_TRADES_PER_DAY (first weekly, no existing cap) → tradeCapCount
+ *
+ * These mechanisms also contribute to score/severity, so they feed back into
+ * the tier ladder.
  */
+export interface ComputeConstraintsSignals {
+  /** Discipline score AFTER this trade's penalties applied. */
+  scoreAfter: number;
+  /** Weekly severity total AFTER this trade's violations counted. */
+  weeklySeverityTotalAfter: number;
+  /** Breach counts after this trade — used only for MAX_TRADES first-cap. */
+  weeklyBreachCounts: WeeklyBreachCounts;
+}
+
+export interface ComputeConstraintsPulseConfig {
+  enforcementMode: EnforcementMode;
+  maxTradesPerDay: number | null;
+}
+
 export function computeConstraints(
   violations: TradeViolation[],
-  weeklyBreachCounts: WeeklyBreachCounts,
-  maxTradesPerDay: number | null,
+  signals: ComputeConstraintsSignals,
+  pulseConfig: ComputeConstraintsPulseConfig,
   existingConstraints?: ActiveConstraints,
 ): { constraints: ActiveConstraints; reflectionGatePending: boolean; isLockedPermanently: boolean } {
   let riskCapPct: number | null = null;
   let tradeCapCount: number | null = null;
   let noTradeDays = 0;
   let cleanSessionsToLift = 0;
+  let ntdWarningPending = false;
   let reflectionGatePending = false;
   let isLockedPermanently = false;
 
-  const existingRiskCap = existingConstraints?.riskCapPct ?? null;
-  const existingTradeCap = existingConstraints?.tradeCapCount ?? null;
+  // ── 1. Tier-driven risk cap + NTD ──────────────────────────────────
+  const tier = computeTier(
+    pulseConfig.enforcementMode,
+    signals.scoreAfter,
+    signals.weeklySeverityTotalAfter,
+  );
+  if (tier === 2) {
+    riskCapPct = pickMoreRestrictive(riskCapPct, 0.75);
+    cleanSessionsToLift = Math.max(cleanSessionsToLift, 2);
+  } else if (tier === 3) {
+    riskCapPct = pickMoreRestrictive(riskCapPct, 0.5);
+    cleanSessionsToLift = Math.max(cleanSessionsToLift, 3);
+    ntdWarningPending = true;
+  } else if (tier >= 4) {
+    riskCapPct = pickMoreRestrictive(riskCapPct, 0.5);
+    cleanSessionsToLift = Math.max(cleanSessionsToLift, 3);
+    if (existingConstraints?.ntdWarningPending) {
+      // Warning was already issued → fire NTD now. Extend by 1 if already
+      // active so a breach during NTD has real constraint consequences.
+      const existingNTD = existingConstraints.noTradeDays ?? 0;
+      noTradeDays = Math.max(noTradeDays, existingNTD + 1);
+    } else {
+      // First time at tier 4 → warning only, no NTD yet.
+      ntdWarningPending = true;
+    }
+  }
+  // Tier 1: nothing (WHY prompt fires from the eval route)
 
+  // ── 2. Orthogonal mechanisms (mode-independent) ───────────────────
+  const existingTradeCap = existingConstraints?.tradeCapCount ?? null;
   for (const v of violations) {
     switch (v.type) {
-      case ViolationType.RISK_PER_TRADE: {
-        // weeklyBreachCounts already includes this violation's increment.
-        // We escalate based on the higher of (weekly breach tier) and
-        // (current active cap tier) so escalation works even after a Monday
-        // reset where the counter zeroed but the cap is still active.
-        const totalRiskBreaches = weeklyBreachCounts.riskPerTrade;
-
-        // Determine "effective tier" from existing cap:
-        //   no cap → tier 1 (next escalation = 75% cap)
-        //   75% cap (0.75) → tier 2 (next escalation = 50% cap)
-        //   50% cap (≤0.5) → tier 3 (next escalation = no-trade day)
-        let existingTier = 1;
-        if (existingRiskCap !== null) {
-          existingTier = existingRiskCap <= 0.5 ? 3 : 2;
-        }
-        const weeklyTier =
-          totalRiskBreaches >= 4 ? 4 :
-          totalRiskBreaches === 3 ? 3 :
-          totalRiskBreaches === 2 ? 2 : 1;
-        // After this breach, escalate by at least one tier from existing.
-        const effectiveTier = Math.max(weeklyTier, existingTier + 1);
-
-        if (effectiveTier >= 4) {
-          noTradeDays = Math.max(noTradeDays, 1);
-          cleanSessionsToLift = Math.max(cleanSessionsToLift, 3);
-        } else if (effectiveTier === 3) {
-          riskCapPct = pickMoreRestrictive(riskCapPct, 0.5);
-          cleanSessionsToLift = Math.max(cleanSessionsToLift, 3);
-        } else if (effectiveTier === 2) {
-          riskCapPct = pickMoreRestrictive(riskCapPct, 0.75);
-          cleanSessionsToLift = Math.max(cleanSessionsToLift, 2);
-        }
-        // Tier 1: WHY prompt only — no constraint
-        break;
-      }
-
       case ViolationType.DAILY_DRAWDOWN: {
-        const totalDailyDrawdownBreaches = weeklyBreachCounts.drawdownDaily;
-        if (totalDailyDrawdownBreaches >= 2) {
-          // Repeat in same week: no-trade day next day
-          noTradeDays = Math.max(noTradeDays, 1);
-        }
-        // Day locked + reflection gate + 3-session recovery cap
+        // Reflection gate fires on every DD breach. The score/severity hit
+        // also feeds back into the tier ladder above.
         reflectionGatePending = true;
         cleanSessionsToLift = Math.max(cleanSessionsToLift, 3);
         break;
@@ -110,34 +162,36 @@ export function computeConstraints(
 
       case ViolationType.TOTAL_DRAWDOWN: {
         isLockedPermanently = true;
-        // Spec: Total DD sets a 5-session clean recovery countdown if not permanently locked.
-        // We set it here anyway; permanent lock overrides caps in UI/middleware.
         cleanSessionsToLift = Math.max(cleanSessionsToLift, 5);
         break;
       }
 
       case ViolationType.MAX_TRADES_PER_DAY: {
-        // Same escalation logic as risk: escalate from current trade cap if present,
-        // not just from the weekly counter (which resets Mondays).
-        const totalOvertradingBreaches = weeklyBreachCounts.overtrading;
+        // First weekly overtrading breach with no existing cap → (limit−1) cap.
+        // Subsequent breaches contribute via score/severity → tier ladder.
+        const totalOvertradingBreaches = signals.weeklyBreachCounts.overtrading;
         const hasExistingTradeCap = existingTradeCap !== null;
-        if (totalOvertradingBreaches >= 2 || hasExistingTradeCap) {
-          // Repeat in same week OR already capped → no-trade day
-          noTradeDays = Math.max(noTradeDays, 1);
-        } else if (maxTradesPerDay !== null && maxTradesPerDay > 1) {
-          // First weekly breach + no existing cap: (limit−1) cap
+        if (
+          totalOvertradingBreaches === 1 &&
+          !hasExistingTradeCap &&
+          pulseConfig.maxTradesPerDay !== null &&
+          pulseConfig.maxTradesPerDay > 1
+        ) {
           tradeCapCount = pickMoreRestrictiveInt(
             tradeCapCount,
-            maxTradesPerDay - 1,
+            pulseConfig.maxTradesPerDay - 1,
           );
         }
         break;
       }
 
-      // Qualitative violations don't generate constraints
+      // Risk-per-trade, rule misses: no orthogonal mechanism — they only
+      // contribute via severity/score → tier ladder above.
+      case ViolationType.RISK_PER_TRADE:
       case ViolationType.REQUIRED_RULE_MISSED:
       case ViolationType.OPTIONAL_RULE_MISSED:
       case ViolationType.MULTI_REQUIRED_RULE_MISS:
+      case ViolationType.NO_TRADE_DAY_VIOLATED:
         break;
     }
   }
@@ -149,6 +203,7 @@ export function computeConstraints(
       lockoutUntil: null, // Managed by API route for timestamp-based lockouts
       noTradeDays,
       cleanSessionsToLift,
+      ntdWarningPending,
     },
     reflectionGatePending,
     isLockedPermanently,
@@ -246,9 +301,11 @@ export function shouldLiftConstraints(
 
   // Only lift caps if we've completed the required clean sessions
   if (lifted.cleanSessionsToLift === 0) {
-    // Lift risk cap
+    // Lift risk cap (and clear the warn-then-lock state — the cap that
+    // triggered the warning is gone, fresh slate going forward).
     if (lifted.riskCapPct !== null) {
       lifted.riskCapPct = null;
+      lifted.ntdWarningPending = false;
       recoveryBonus += 5;
     }
 
@@ -380,6 +437,8 @@ export function mergeConstraints(
     lockoutUntil: existing.lockoutUntil ?? incoming.lockoutUntil,
     noTradeDays: Math.max(existing.noTradeDays, incoming.noTradeDays),
     cleanSessionsToLift: Math.max(existing.cleanSessionsToLift, incoming.cleanSessionsToLift),
+    // Warning sticks once set; only cleared via shouldLiftConstraints.
+    ntdWarningPending: existing.ntdWarningPending || incoming.ntdWarningPending,
   };
 }
 
@@ -431,51 +490,94 @@ function getMondayOfWeek(date: Date): Date {
 // ---------------------------------------------------------------------------
 
 /**
- * Returns a list of escalation preview items for DisciplineMeter display.
- * Each item shows how close the trader is to the next enforcement consequence.
+ * Returns the next-tier preview for the trader's chosen enforcement mode.
+ * Tells the trader, in plain language, what their next tier crossing looks
+ * like and how much "headroom" they have on the current tier signal.
+ *
  * Pure function — does not modify any state.
  */
 export function computeEscalationPreview(
-  weeklyBreachCounts: WeeklyBreachCounts,
-  maxTradesPerDay: number | null,
+  mode: EnforcementMode,
+  scoreNow: number,
+  weeklySeverityTotalNow: number,
+  ntdWarningPending: boolean,
 ): EscalationPreviewItem[] {
-  const items: EscalationPreviewItem[] = [];
+  const currentTier = computeTier(mode, scoreNow, weeklySeverityTotalNow);
 
-  // Risk per trade escalation (weekly resets)
-  const riskBreaches = weeklyBreachCounts.riskPerTrade;
-  if (riskBreaches === 0) {
-    items.push({ label: "Risk Breach", currentBreaches: 0, nextThreshold: 2, nextConsequence: "75% risk cap next session" });
-  } else if (riskBreaches === 1) {
-    items.push({ label: "Risk Breach", currentBreaches: 1, nextThreshold: 2, nextConsequence: "75% risk cap next session" });
-  } else if (riskBreaches === 2) {
-    items.push({ label: "Risk Breach", currentBreaches: 2, nextThreshold: 3, nextConsequence: "50% risk cap next session" });
-  } else if (riskBreaches === 3) {
-    items.push({ label: "Risk Breach", currentBreaches: 3, nextThreshold: 4, nextConsequence: "No-trade day applied" });
-  } else {
-    items.push({ label: "Risk Breach", currentBreaches: riskBreaches, nextThreshold: riskBreaches + 1, nextConsequence: "Additional no-trade day" });
+  // Tier 5 is already the cap of the ladder; no further escalation copy.
+  if (currentTier >= 5) {
+    return [
+      {
+        label: "Tier",
+        currentBreaches: 5,
+        nextThreshold: 5,
+        nextConsequence: "Maximum enforcement — recover via clean sessions",
+      },
+    ];
   }
 
-  // Daily drawdown escalation
-  const ddBreaches = weeklyBreachCounts.drawdownDaily;
-  if (ddBreaches === 0) {
-    items.push({ label: "Daily Drawdown", currentBreaches: 0, nextThreshold: 1, nextConsequence: "Reflection gate + 3-session recovery" });
-  } else if (ddBreaches === 1) {
-    items.push({ label: "Daily Drawdown", currentBreaches: 1, nextThreshold: 2, nextConsequence: "No-trade day + reflection gate" });
-  } else {
-    items.push({ label: "Daily Drawdown", currentBreaches: ddBreaches, nextThreshold: ddBreaches + 1, nextConsequence: "Additional no-trade day" });
+  const nextTier = (currentTier + 1) as Tier;
+  const nextConsequence = describeTierConsequence(nextTier, ntdWarningPending);
+
+  if (mode === "SCORE_BASED") {
+    // Threshold at which the next tier kicks in (score must drop BELOW this).
+    const nextThreshold = scoreThresholdForTier(nextTier);
+    return [
+      {
+        label: "Discipline Score",
+        // Re-using the EscalationPreviewItem shape: "currentBreaches" carries
+        // the current value (score), "nextThreshold" carries the score the
+        // trader must stay above to avoid the next tier.
+        currentBreaches: Math.round(scoreNow),
+        nextThreshold,
+        nextConsequence: `Drop below ${nextThreshold}: ${nextConsequence}`,
+      },
+    ];
   }
 
-  // Overtrading escalation
-  if (maxTradesPerDay !== null) {
-    const otBreaches = weeklyBreachCounts.overtrading;
-    if (otBreaches === 0) {
-      items.push({ label: "Overtrading", currentBreaches: 0, nextThreshold: 1, nextConsequence: `Trade cap reduced to ${maxTradesPerDay - 1}` });
-    } else if (otBreaches === 1) {
-      items.push({ label: "Overtrading", currentBreaches: 1, nextThreshold: 2, nextConsequence: "No-trade day applied" });
-    } else {
-      items.push({ label: "Overtrading", currentBreaches: otBreaches, nextThreshold: otBreaches + 1, nextConsequence: "Additional no-trade day" });
-    }
-  }
+  // SEVERITY_BASED
+  const nextThreshold = severityThresholdForTier(nextTier);
+  return [
+    {
+      label: "Weekly Severity",
+      currentBreaches: Math.round(weeklySeverityTotalNow),
+      nextThreshold,
+      nextConsequence: `At ${nextThreshold}+: ${nextConsequence}`,
+    },
+  ];
+}
 
-  return items;
+function describeTierConsequence(tier: Tier, ntdWarningPending: boolean): string {
+  switch (tier) {
+    case 1: return "no constraint";
+    case 2: return "75% per-trade risk cap";
+    case 3: return "50% risk cap + no-trade-day warning";
+    case 4:
+    case 5:
+      return ntdWarningPending
+        ? "No-trade day fires"
+        : "50% cap + no-trade-day warning";
+  }
+}
+
+function scoreThresholdForTier(tier: Tier): number {
+  // Score must be BELOW this to be in that tier.
+  switch (tier) {
+    case 1: return 85; // score >= 85 → tier 1
+    case 2: return 70;
+    case 3: return 55;
+    case 4: return 40;
+    case 5: return 40; // <40 is tier 5
+  }
+}
+
+function severityThresholdForTier(tier: Tier): number {
+  // Severity must be AT or above this to be in that tier.
+  switch (tier) {
+    case 1: return 0;
+    case 2: return 5;
+    case 3: return 15;
+    case 4: return 25;
+    case 5: return 40;
+  }
 }

@@ -122,6 +122,7 @@ export async function createPulse(
       discipline: createDefaultDisciplineFields(
         pulseData.whyStatement || "",
         pulseData.whyDiscipline || "",
+        pulseData.enforcementMode ?? "SCORE_BASED",
       ),
     };
 
@@ -576,6 +577,9 @@ export async function updatePulse(
       },
       ...(updateData.accountabilityPartnerEmail !== undefined && {
         "discipline.accountabilityPartnerEmail": updateData.accountabilityPartnerEmail,
+      }),
+      ...(updateData.enforcementMode !== undefined && {
+        "discipline.enforcementMode": updateData.enforcementMode,
       }),
     };
 

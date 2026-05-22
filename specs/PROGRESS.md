@@ -174,6 +174,71 @@
 
 ---
 
+### Session 11 — 2026-05-20
+**What was built (v4.4.0 — Adaptive enforcement engine: per-pulse Score-based vs Severity-based tiers):**
+
+*Motivation:* Reviewing the enforcement matrix surfaced three issues:
+1. A bug from session 10's fix where `existingTier + 1` defaulted to 2 with no existing cap, causing breach 1 with no cap to apply a 75% cap — contradicting the spec.
+2. Severity gap across violation types — DD breach (sev 15) and R/T breach (sev 5) lived on separate per-type counter ladders rather than contributing to a unified signal.
+3. Tier-4 fired NTD immediately and didn't extend NTD when breaching during an active NTD.
+
+*Design:* Replace per-violation-type counter tiers with a unified tier ladder driven by a single signal — chosen by the trader at pulse creation. `SCORE_BASED` (default, recommended): uses discipline score crossing thresholds, recovery is action-based via clean sessions. `SEVERITY_BASED`: uses weekly cumulative severity total, recovery is time-based via Monday reset.
+
+*Schema (`src/lib/disciplineTypes.ts`):*
+- Added `EnforcementMode = "SCORE_BASED" | "SEVERITY_BASED"` type.
+- Added `enforcementMode` and `weeklySeverityTotal` to `PulseDisciplineFields`.
+- Added `ntdWarningPending: boolean` to `ActiveConstraints` (warn-then-lock state).
+- Updated `createDefaultDisciplineFields()` to accept and default `enforcementMode = "SCORE_BASED"`.
+
+*Engine refactor (`src/lib/enforcementEngine.ts`):*
+- Added `Tier`, `tierFromScore`, `tierFromSeverity`, `computeTier` helpers.
+- Rewrote `computeConstraints` signature to accept `signals` (scoreAfter, weeklySeverityTotalAfter, weeklyBreachCounts) and `pulseConfig` (enforcementMode, maxTradesPerDay).
+- Tier-driven branch applies risk caps + NTD via the unified ladder. Orthogonal mechanisms (DD reflection gate, total-DD permanent lock, max-trades first-cap) live in a separate per-violation loop.
+- Tier 4 implements warn-then-lock: first time at tier 4 sets `ntdWarningPending = true` only; subsequent tier-4 condition fires NTD (extends by 1 if already active).
+- `mergeConstraints` ORs `ntdWarningPending`.
+- `shouldLiftConstraints` clears `ntdWarningPending` when the cap is lifted.
+- `computeEscalationPreview` rewritten with new signature `(mode, scoreNow, weeklySeverityTotalNow, ntdWarningPending)` — returns a single mode-aware preview row instead of per-type rows.
+
+*Eval route (`src/app/api/discipline/evaluate/route.ts`):*
+- Tracks `weeklySeverityTotal` — accumulates amplified violation severity each trade.
+- Passes new signals + pulseConfig to `computeConstraints`.
+- Persists `discipline.weeklySeverityTotal` on every constraint write.
+- Resets `weeklySeverityTotal` to 0 alongside `weeklyBreachCounts` on Monday boundary.
+- WHY-on-breach-1: WHY reminder email + SMS now fires on (zone worsened) OR (first weekly risk-per-trade breach), regardless of zone state. Removes the silent breach-1 gap.
+- All default `ActiveConstraints` fallbacks updated to include `ntdWarningPending: false`.
+
+*Pulse API (`src/services/api/pulseApi.ts`):* Added `enforcementMode` to `PulseCreateData` and `PulseUpdateData`.
+
+*Pulse service (`src/services/firebase/pulseService.ts`):*
+- `createPulse` passes `pulseData.enforcementMode ?? "SCORE_BASED"` to `createDefaultDisciplineFields`.
+- `updatePulse` writes `"discipline.enforcementMode"` via dotted-path update when supplied.
+- Existing pulses without the field on read default to `SCORE_BASED` via the `??` fallback (no migration script needed).
+
+*UX:*
+- `src/components/modals/EnforcementModeDetailsModal.tsx` (NEW): side-by-side comparison of the two modes with tier tables, recovery story, "best for" guidance, and the list of mode-independent mechanisms.
+- `src/components/modals/CreatePulseModal.tsx`: added enforcement-mode radio toggle in the WHY step with a "Learn more" link to the details modal. Passed `enforcementMode` into `createPulse`.
+- `src/components/modals/UpdatePulseModal.tsx`: same toggle on the update form. Inline note clarifies "Changing this won't reset your current breach counts or active constraints."
+- `src/components/discipline/DisciplineMeter.tsx`: replaced `weeklyBreachCounts` + `maxTradesPerDay` props with `enforcementMode` + `weeklySeverityTotal`. Escalation preview now uses the new `computeEscalationPreview`. Added "NTD on next breach" warning chip when `ntdWarningPending` is set with no active NTD. Added a mode-label footer ("Enforcement: Score" / "Severity") with tooltip.
+
+*Accountability partner alerts wired to tier ladder:*
+- `PartnerAlertBreachType` union (in `emailService.ts` and `smsService.ts`) extended with `NTD_WARNING` and `NO_TRADE_DAY`. Per-variant email subject + heading + color, per-variant SMS one-liner.
+- `evaluate/route.ts` partner-alert block rewritten as a single priority-ranked dispatcher (one alert per trade): `TOTAL_DRAWDOWN_LOCKED` > `NO_TRADE_DAY` > `DAILY_DRAWDOWN` > `NTD_WARNING`. Detects transitions (`noTradeDays` 0→>0, `ntdWarningPending` false→true) rather than steady state, so the partner gets one alert per escalation event.
+- Mode-independent: both `SCORE_BASED` and `SEVERITY_BASED` pulses route through the same `noTradeDays` / `ntdWarningPending` state, so partner alerts work uniformly across modes.
+
+*Docs (`specs/CLAUDE.md`):* Replaced the per-violation-type enforcement matrix with the unified tier ladder + two trigger-mapping tables + severity reference table. Added warn-then-lock note to the friction ladder section. Added partner-alert priority table.
+
+**Verification:**
+- `npx tsc --noEmit` → 0 errors.
+- Schema migration: existing pulses without `enforcementMode` read as `SCORE_BASED` via fallback; no Firestore migration script required.
+- Severity total resets on Monday boundary alongside breach counts.
+
+**Next session should start with:**
+- Smoke-test all the scenarios from the plan verification table.
+- Calibrate the score/severity thresholds based on real usage data.
+- Consider surfacing the tier number explicitly in DisciplineMeter (currently implicit in zone label).
+
+---
+
 ### Session 10 — 2026-05-20
 **What was built (v4.3.0 — Tabbed pulse detail layout):**
 

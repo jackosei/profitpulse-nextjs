@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import type { DisciplineZone, ActiveConstraints, DisciplineState, WeeklyBreachCounts, EscalationPreviewItem } from "@/lib/disciplineTypes";
+import type { DisciplineZone, ActiveConstraints, DisciplineState, EnforcementMode, EscalationPreviewItem } from "@/lib/disciplineTypes";
 import { computeEscalationPreview } from "@/lib/enforcementEngine";
-import { TrendingDown, Hash, Ban, Info, ChevronDown, ChevronRight } from "lucide-react";
+import { TrendingDown, Hash, Ban, Info, ChevronDown, ChevronRight, AlertTriangle } from "lucide-react";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -25,10 +25,10 @@ interface DisciplineMeterProps {
   activeConstraints?: ActiveConstraints;
   /** Phase 2: discipline state machine state */
   disciplineState?: DisciplineState;
-  /** Phase 2: weekly breach counts for escalation preview */
-  weeklyBreachCounts?: WeeklyBreachCounts;
-  /** Max trades per day from pulse config (for overtrading escalation preview) */
-  maxTradesPerDay?: number | null;
+  /** Enforcement mode chosen at pulse creation — drives tier ladder */
+  enforcementMode?: EnforcementMode;
+  /** Weekly cumulative severity total (signal for SEVERITY_BASED mode) */
+  weeklySeverityTotal?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -90,15 +90,20 @@ export default function DisciplineMeter({
   recoveryHint,
   activeConstraints,
   disciplineState,
-  weeklyBreachCounts,
-  maxTradesPerDay,
+  enforcementMode,
+  weeklySeverityTotal,
 }: DisciplineMeterProps) {
   const safeScore = clamp(Math.round(score), 0, 100);
   const colors = ZONE_COLOR[zone];
   const [showEscalation, setShowEscalation] = useState(false);
 
-  const escalationItems: EscalationPreviewItem[] = weeklyBreachCounts
-    ? computeEscalationPreview(weeklyBreachCounts, maxTradesPerDay ?? null)
+  const escalationItems: EscalationPreviewItem[] = enforcementMode
+    ? computeEscalationPreview(
+        enforcementMode,
+        score,
+        weeklySeverityTotal ?? 0,
+        activeConstraints?.ntdWarningPending ?? false,
+      )
     : [];
 
   // Marker position as a % of the bar width (left edge of marker)
@@ -254,6 +259,15 @@ export default function DisciplineMeter({
               {activeConstraints.noTradeDays}d no-trade
             </span>
           )}
+          {activeConstraints.ntdWarningPending && activeConstraints.noTradeDays === 0 && (
+            <span
+              className="flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30 cursor-help"
+              title="Warning issued. Your next risk-tier-4 condition will fire an actual no-trade day."
+            >
+              <AlertTriangle className="w-3 h-3" />
+              NTD on next breach
+            </span>
+          )}
         </div>
       )}
 
@@ -287,6 +301,30 @@ export default function DisciplineMeter({
                 </div>
               ))}
             </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Mode footer ── */}
+      {enforcementMode && (
+        <div className="flex items-center justify-between border-t border-gray-800/60 pt-1.5 mt-0.5">
+          <span
+            className="text-[9px] uppercase tracking-wider text-gray-600 font-semibold cursor-help"
+            title={
+              enforcementMode === "SCORE_BASED"
+                ? "Tier ladder is driven by your discipline score. Recovery via clean sessions."
+                : "Tier ladder is driven by weekly cumulative severity. Recovery via Monday reset."
+            }
+          >
+            Enforcement:{" "}
+            <span className={enforcementMode === "SCORE_BASED" ? "text-blue-400/80" : "text-purple-400/80"}>
+              {enforcementMode === "SCORE_BASED" ? "Score" : "Severity"}
+            </span>
+          </span>
+          {enforcementMode === "SEVERITY_BASED" && (
+            <span className="text-[9px] tabular-nums text-gray-600">
+              {Math.round(weeklySeverityTotal ?? 0)} sev this week
+            </span>
           )}
         </div>
       )}
@@ -335,6 +373,7 @@ function hasActiveConstraints(c: ActiveConstraints): boolean {
     c.riskCapPct !== null ||
     c.tradeCapCount !== null ||
     c.lockoutUntil !== null ||
-    c.noTradeDays > 0
+    c.noTradeDays > 0 ||
+    c.ntdWarningPending
   );
 }

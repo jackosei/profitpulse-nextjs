@@ -272,8 +272,18 @@ export interface SessionSummary {
   hasViolations: boolean;
   /** Whether every required rule was followed on every trade */
   allRequiredRulesFollowed: boolean;
-  /** Whether at least one trade has a reflection > 50 chars */
+  /**
+   * @deprecated since v4.7.0 — superseded by `engagementScore`. Kept for
+   * backwards-compatible reads; no longer drives recovery math.
+   */
   hasFullJournal: boolean;
+  /**
+   * Per-section engagement credit for the session (v4.7.0+).
+   * 0–4 points: +1 each for psychology, context, reflection, learnings sections.
+   * Caller pre-computes via `computeEngagementCredit(sessionTrades)`.
+   * Applies even on violation days — the only recovery component that survives one.
+   */
+  engagementScore: number;
   /** Whether a reflection gate was completed this session (post-lockout) */
   reflectionGateCompleted: boolean;
   /** Consecutive clean days ending with this session (0 if this day has violations) */

@@ -1,5 +1,23 @@
 # Changelog
 
+## [4.7.0] - 2026-05-23
+
+Reward system overhaul: per-section engagement credit, rebalanced YELLOW/RED recovery caps.
+
+### New Features
+- **Engagement credit**: trades earn up to +4 recovery pts/day based on which optional sections are filled (psychology, context, reflection, learnings — 1 pt each). Engagement credit applies even on days with violations, so thorough journaling on a bad day still rewards reflection. Capped at +4/day so it can't out-pace clean-session bonuses.
+
+### Behaviour changes
+- **Recovery caps rebalanced**: YELLOW 10→15, RED 5→10, GREEN 13→15. A single −20 overtrading breach in RED is now recoverable in 2–3 days of clean sessions instead of 4+. Clean-session bonuses remain the fast lane to recovery.
+
+### Fixes
+- **Dead-letter `whatILearned` bonus removed**: the engine was checking `trade.reflection.whatILearned` for the +3 full-journal bonus, but the form never writes that field — the bonus was unreachable. Replaced with the per-section engagement credit which reads fields the form actually collects.
+
+### Internal
+- `SessionSummary.hasFullJournal` deprecated (still populated for backwards compat, but no longer drives recovery). New `engagementScore: number` field is the source of truth.
+
+---
+
 ## [4.6.1] - 2026-05-23
 
 Discipline engine bug fixes: history chart baseline, risk-cap detection, and overtrading severity.

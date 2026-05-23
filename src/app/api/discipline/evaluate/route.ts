@@ -31,6 +31,7 @@ import {
   applyScorePenalties,
   getZone,
   computeRecovery,
+  computeEngagementCredit,
 } from "@/lib/disciplineEngine";
 import type {
   EvaluationContext,
@@ -293,17 +294,17 @@ export async function POST(request: Request) {
           ),
         );
 
-      const hasFullJournal = prevTrades.some(
-        (t) =>
-          typeof t.reflection?.whatILearned === "string" &&
-          (t.reflection.whatILearned as string).trim().length > 50,
-      );
+      // v4.7.0: per-section engagement credit. Replaces the broken
+      // `reflection.whatILearned` check (that field was never written by
+      // the form, so the old +3 full-journal bonus was unreachable).
+      const engagementScore = computeEngagementCredit(prevTrades);
 
       const prevSession: SessionSummary = {
         tradeCount: prevTrades.length,
         hasViolations: prevHasViolations,
         allRequiredRulesFollowed: allRequiredFollowed,
-        hasFullJournal,
+        hasFullJournal: engagementScore >= 2,  // deprecated field; derive for legacy reads
+        engagementScore,
         reflectionGateCompleted: false,
         // Pass the NEW streak (after today's increment) so computeRecovery
         // can apply the +10 bonus if we've just completed day 3+

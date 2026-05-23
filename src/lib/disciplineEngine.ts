@@ -48,14 +48,22 @@ const ZONE_THRESHOLDS = {
 /** Recovery point values */
 const RECOVERY = {
   CLEAN_SESSION: 8,
-  FULL_JOURNAL: 3,
   ALL_RULES_FOLLOWED: 2,
   REFLECTION_GATE: 5,
   STREAK_BONUS: 10, // 3 consecutive clean days
   STREAK_THRESHOLD: 3,
-  DAILY_CAP_GREEN: 13,
-  DAILY_CAP_YELLOW: 10,
-  DAILY_CAP_RED: 5,
+
+  // Daily recovery caps per zone. Raised in v4.7.0 to make YELLOW/RED
+  // recovery from a single amplified breach achievable within a week.
+  DAILY_CAP_GREEN: 15,
+  DAILY_CAP_YELLOW: 15,
+  DAILY_CAP_RED: 10,
+
+  // Per-section engagement credit (v4.7.0).
+  // +1 per filled section (psychology, context, reflection, learnings),
+  // capped at ENGAGEMENT_DAILY_CAP. Applies even on violation days.
+  ENGAGEMENT_PER_SECTION: 1,
+  ENGAGEMENT_DAILY_CAP: 4,
 } as const;
 
 const SCORE_MIN = 0;
@@ -266,18 +274,19 @@ export function getZone(score: number): DisciplineZone {
  * Computes recovery points earned from a completed session.
  * Called lazily on-read, using the session summary.
  *
- * Recovery rules (from CLAUDE.md):
+ * Recovery rules (v4.7.0):
  *   - Clean session (no violations, ≥1 trade):    +8
- *   - Full journal (reflection >50 chars):         +3
  *   - 100% required rules followed:                +2
  *   - Reflection gate completed after lockout:     +5 (one-time)
  *   - 3 consecutive clean days:                    +10 streak bonus
- *   - Daily cap: +13 (Green), +10 (Yellow), +5 (Red)
+ *   - Engagement (per-section journaling):         up to +4 (applies even on violation days)
+ *   - Daily cap: +15 (Green), +15 (Yellow), +10 (Red)
  *
  * Guards:
  *   - No recovery while reflectionGatePending = true
  *   - Minimum 1 logged trade for any recovery credit
  *   - No-trade days don't count toward or against streak
+ *   - Engagement is the ONLY component that survives a violation day
  *
  * @param currentScore           Score before recovery
  * @param session                Summary of the completed session
@@ -295,32 +304,35 @@ export function computeRecovery(
   // Guard: must have ≥1 trade to earn any recovery
   if (session.tradeCount < 1) return 0;
 
-  // Guard: no recovery if session had violations
-  if (session.hasViolations) return 0;
-
   let points = 0;
 
-  // Base: clean session
-  points += RECOVERY.CLEAN_SESSION;
+  // Engagement always counts (capped), even on violation days. Rewards
+  // traders who journal thoroughly even after a bad trade.
+  const engagement = Math.min(
+    session.engagementScore ?? 0,
+    RECOVERY.ENGAGEMENT_DAILY_CAP,
+  );
+  points += engagement;
 
-  // Bonus: full journal
-  if (session.hasFullJournal) {
-    points += RECOVERY.FULL_JOURNAL;
-  }
+  // All other bonuses require a violation-free session.
+  if (!session.hasViolations) {
+    // Base: clean session
+    points += RECOVERY.CLEAN_SESSION;
 
-  // Bonus: all required rules followed
-  if (session.allRequiredRulesFollowed) {
-    points += RECOVERY.ALL_RULES_FOLLOWED;
-  }
+    // Bonus: all required rules followed
+    if (session.allRequiredRulesFollowed) {
+      points += RECOVERY.ALL_RULES_FOLLOWED;
+    }
 
-  // Bonus: reflection gate completed (one-time, post-lockout)
-  if (session.reflectionGateCompleted) {
-    points += RECOVERY.REFLECTION_GATE;
-  }
+    // Bonus: reflection gate completed (one-time, post-lockout)
+    if (session.reflectionGateCompleted) {
+      points += RECOVERY.REFLECTION_GATE;
+    }
 
-  // Bonus: 3 consecutive clean days streak
-  if (session.consecutiveCleanDays >= RECOVERY.STREAK_THRESHOLD) {
-    points += RECOVERY.STREAK_BONUS;
+    // Bonus: 3 consecutive clean days streak
+    if (session.consecutiveCleanDays >= RECOVERY.STREAK_THRESHOLD) {
+      points += RECOVERY.STREAK_BONUS;
+    }
   }
 
   // Apply daily cap based on current zone
@@ -339,6 +351,68 @@ export function computeRecovery(
   points = Math.min(points, maxRecovery);
 
   return points;
+}
+
+// ---------------------------------------------------------------------------
+// 4b. computeEngagementCredit
+// ---------------------------------------------------------------------------
+
+/**
+ * Computes the per-section engagement credit for a session (v4.7.0).
+ *
+ * Awards +1 per filled optional section (psychology, context, reflection,
+ * learnings). A section counts as "filled" if ANY trade in the session has
+ * at least one non-empty value in it. Capped at ENGAGEMENT_DAILY_CAP so a
+ * trader can't game it by logging dozens of half-filled trades.
+ *
+ * Replaces the dead-letter `reflection.whatILearned` check that the engine
+ * previously used — that field was never written by the form, so the +3
+ * full-journal bonus was permanently unreachable.
+ *
+ * @param sessionTrades  All trades logged on the session day
+ * @returns              0–ENGAGEMENT_DAILY_CAP points
+ */
+export function computeEngagementCredit(
+  sessionTrades: Array<{
+    psychology?: Record<string, unknown>;
+    context?: Record<string, unknown>;
+    reflection?: Record<string, unknown>;
+    learnings?: string;
+  }>,
+): number {
+  if (sessionTrades.length === 0) return 0;
+
+  // A field counts as "filled" if it has any non-empty primitive or non-empty array.
+  const hasAny = (obj?: Record<string, unknown>): boolean =>
+    obj !== undefined &&
+    Object.values(obj).some(
+      (v) =>
+        v !== undefined &&
+        v !== null &&
+        v !== "" &&
+        !(Array.isArray(v) && v.length === 0),
+    );
+
+  let sections = 0;
+  if (sessionTrades.some((t) => hasAny(t.psychology))) sections++;
+  if (sessionTrades.some((t) => hasAny(t.context))) sections++;
+  if (sessionTrades.some((t) => hasAny(t.reflection))) sections++;
+  if (
+    sessionTrades.some((t) => {
+      const fromTop = typeof t.learnings === "string" && t.learnings.trim().length > 20;
+      const fromReflection =
+        typeof t.reflection?.improvementIdeas === "string" &&
+        (t.reflection.improvementIdeas as string).trim().length > 20;
+      return fromTop || fromReflection;
+    })
+  ) {
+    sections++;
+  }
+
+  return Math.min(
+    sections * RECOVERY.ENGAGEMENT_PER_SECTION,
+    RECOVERY.ENGAGEMENT_DAILY_CAP,
+  );
 }
 
 // ---------------------------------------------------------------------------

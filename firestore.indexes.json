@@ -9,11 +9,43 @@
       ]
     },
     {
+      "collectionGroup": "pulses",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "name", "order": "ASCENDING" },
+        { "fieldPath": "userId", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "pulses",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "violationLog",
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "sessionDate", "order": "ASCENDING" },
         { "fieldPath": "timestamp", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "violationLog",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "sessionDate", "order": "DESCENDING" },
+        { "fieldPath": "timestamp", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "violationLog",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "sessionDate", "order": "ASCENDING" },
+        { "fieldPath": "timestamp", "order": "DESCENDING" }
       ]
     }
   ],

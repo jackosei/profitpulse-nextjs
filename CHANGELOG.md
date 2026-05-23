@@ -1,5 +1,19 @@
 # Changelog
 
+## [4.10.1] - 2026-05-23
+
+### Internal
+- **Firestore indexes**: added all missing composite indexes to `firestore.indexes.json`. Queries that would have thrown `FAILED_PRECONDITION` in production are now covered:
+  - `pulses`: `(id, userId)` — used by pulse lookup across all discipline routes and pulseService
+  - `pulses`: `(name, userId)` — used by duplicate name check on pulse creation
+  - `pulses`: `(userId, status)` — used by `getUserPulses` when filtering by active/archived
+  - `violationLog`: `(sessionDate ASC, timestamp ASC)` — discipline history range queries
+  - `violationLog`: `(sessionDate DESC, timestamp DESC)` — pre-window baseline lookup
+  - `violationLog`: `(sessionDate ASC, timestamp DESC)` — per-session violation listing
+- **`.firebaserc`**: added default project alias so `firebase deploy` works without `--project` flag.
+
+---
+
 ## [4.10.0] - 2026-05-23
 
 ### New Features

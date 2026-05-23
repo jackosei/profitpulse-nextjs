@@ -123,8 +123,6 @@ export async function GET(request: NextRequest) {
 
     const pulseDoc = pulseSnap.docs[0];
     const firestoreId = pulseDoc.id;
-    const pulseData = pulseDoc.data();
-    const currentScore: number = pulseData?.discipline?.disciplineScore ?? 100;
 
     // ── Determine date range ─────────────────────────────────────────────
     const today = new Date().toISOString().split("T")[0];

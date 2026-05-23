@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.7.2] - 2026-05-23
+
+### Fixes
+- **Build**: drop orphaned `currentScore`/`pulseData` reads in the discipline history route. The v4.6.1 baseline fix made them unused; ESLint was failing the build under `no-unused-vars`.
+
+---
+
 ## [4.7.1] - 2026-05-23
 
 ### Fixes

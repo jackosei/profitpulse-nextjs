@@ -15,6 +15,7 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   ChevronDownIcon,
+  Cog6ToothIcon,
 } from '@heroicons/react/24/outline';
 
 const iconMap: Record<string, React.ReactNode> = {
@@ -27,7 +28,7 @@ export default function Sidebar() {
   const { user } = useAuth();
   const pathname = usePathname();
   const { getUserPulses } = usePulse();
-  const [collapsed, setCollapsed] = useState(true);
+  const [collapsed, setCollapsed] = useState(false);
   const [activePulses, setActivePulses] = useState<Pulse[]>([]);
   const [pulsesOpen, setPulsesOpen] = useState(false);
 
@@ -155,12 +156,15 @@ export default function Sidebar() {
                 )}
               </div>
               {!collapsed && (
-                <div className="overflow-hidden">
-                  <p className="text-sm font-medium text-gray-900 truncate">
-                    {user.displayName || "Account"}
-                  </p>
-                  <p className="text-xs text-gray-500 truncate">{user.email}</p>
-                </div>
+                <>
+                  <div className="overflow-hidden flex-1">
+                    <p className="text-sm font-medium text-gray-900 truncate">
+                      {user.displayName || "Account"}
+                    </p>
+                    <p className="text-xs text-gray-500 truncate">{user.email}</p>
+                  </div>
+                  <Cog6ToothIcon className="w-4 h-4 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+                </>
               )}
             </Link>
 

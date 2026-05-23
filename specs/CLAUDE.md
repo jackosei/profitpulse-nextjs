@@ -108,17 +108,52 @@ accountabilityPartnerEmail: string | null
 ---
 
 ## Enforcement matrix — quick reference
-Full ladders in spec doc. Summary:
 
-| Violation | Score hit | First consequence | Repeat (same week) |
-|---|---|---|---|
-| Risk per trade (breach 1) | −5 | WHY prompt only | → escalate |
-| Risk per trade (breach 2, same day) | −10 | 75% risk cap next day | → 50% cap |
-| Risk per trade (breach 3+) | −15 | 50% cap + soft lockout | → no-trade day |
-| Daily drawdown hit | −15 | Day locked + reflection gate | → no-trade day |
-| Total drawdown hit (1st ever) | −25 | Full lockout + 50% cap × 3 sessions | → 2-day lockout |
-| Max trades/day hit | −8 | Day locked + (limit−1) cap next day | → no-trade day |
-| Required rule missed | −4/rule | Score drain only, no lockout | Accumulates toward zone change |
+### Tier ladder (mode-independent)
+Tier outcomes are the same regardless of which signal drives the ladder.
+
+| Tier | Outcome | Clean sessions to lift |
+|---|---|---|
+| 1 | nothing (WHY prompt on first weekly risk breach) | — |
+| 2 | 75% per-trade risk cap | 2 |
+| 3 | 50% cap + NTD warning | 3 |
+| 4 | NTD + 50% cap (extends NTD by 1 if already active) | 3 |
+| 5 | Extended NTD pathway | 3 |
+
+### Tier triggering — per-pulse choice
+Each pulse picks one mode at creation. Default: `SCORE_BASED`.
+
+**Score-based** (`SCORE_BASED`)
+| Discipline score | Tier |
+|---|---|
+| ≥ 85 | 1 |
+| 70–84 | 2 |
+| 55–69 | 3 |
+| 40–54 | 4 |
+| < 40 | 5 |
+
+**Severity-based** (`SEVERITY_BASED`) — weekly cumulative severity
+| Weekly severity | Tier |
+|---|---|
+| 0–4 | 1 |
+| 5–14 | 2 |
+| 15–24 | 3 |
+| 25–39 | 4 |
+| 40+ | 5 |
+
+### Per-violation severity (contributes to score AND severity total)
+| Violation | Severity | Notes |
+|---|---|---|
+| Risk per trade | 5 | First weekly breach also fires WHY reminder |
+| Daily drawdown | 15 | Also sets `reflectionGatePending`, +3 clean sessions |
+| Total drawdown | 25 | Permanent lockout |
+| Max trades/day | 8 | First weekly with no existing cap → trade cap (limit−1) |
+| Required rule missed | 4 / rule | — |
+| Optional rule missed | 1 / rule | — |
+| Multi-required-rule miss | 5 | When ≥2 required rules missed in a session |
+| No-trade day violated | 20 | Acknowledgement-only — score deduction |
+
+Severity is amplified in YELLOW/RED zones via `amplifyPenalty` — the amplified value is what gets added to `weeklySeverityTotal` and subtracted from the score, so amplification feeds back into the tier ladder.
 
 ---
 
@@ -155,6 +190,19 @@ This app is a **post-execution** logging tool. Trades are executed externally (M
 **Session gate** (once per day): If any constraint is active and `discipline.sessionGateAckDate !== calendarToday`, evaluate returns 403 `SESSION_GATE_NOT_ACKNOWLEDGED`. The trader must click "I acknowledge" in the SessionGate UI (which calls `POST /api/discipline/acknowledge-session`) before the form will submit.
 
 All Tier 2–3 trades still write to Firestore with appropriate violation flags — the friction is an acknowledgement requirement, not a hard block on data capture.
+
+**Warn-then-lock (tier 4):** When the trader first crosses into tier 4 territory the engine sets `activeConstraints.ntdWarningPending = true` and applies only the 50% cap (no NTD). The *next* tier-4 condition fires the actual NTD. If breached while NTD is already active, the NTD extends by 1 day. The warning clears when the cap is lifted (via `shouldLiftConstraints` once `cleanSessionsToLift` reaches 0).
+
+**Accountability partner alerts (Tier 2 — Resend email + Twilio SMS stub).** One alert per trade, picked by priority so the partner gets the most salient signal:
+
+| Priority | Trigger | `breachType` |
+|---|---|---|
+| 1 | `isLockedPermanently` (`TOTAL_DRAWDOWN`) | `TOTAL_DRAWDOWN_LOCKED` |
+| 2 | NTD freshly applied (`noTradeDays`: 0 → >0) | `NO_TRADE_DAY` |
+| 3 | `DAILY_DRAWDOWN` violation on this trade | `DAILY_DRAWDOWN` |
+| 4 | NTD warning freshly set (`ntdWarningPending`: false → true) | `NTD_WARNING` |
+
+All gated by `discipline.accountabilityPartnerEmail` being set on the pulse.
 
 ## What NOT to do
 - Do not put enforcement logic in React components or client hooks

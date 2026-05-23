@@ -6,6 +6,7 @@ import {
   PencilIcon,
   ShieldExclamationIcon,
   LockClosedIcon,
+  PlusIcon,
 } from '@heroicons/react/24/outline';
 import { formatCurrency } from "@/utils/format"
 import { PULSE_STATUS, isPulseLocked } from "@/types/pulse"
@@ -19,12 +20,15 @@ interface PulseHeaderProps {
   onArchive: () => void;
   onDelete: () => void;
   onUpdate: () => void;
+  onAddTrade: () => void;
   maxRiskPerTrade: number;
   maxDailyDrawdown: number;
   maxTotalDrawdown: number;
   status: string;
   ruleViolations?: string[];
   pulse?: Pulse;
+  /** Disable the "Log Trade" button (e.g. when pulse is locked) */
+  addTradeDisabled?: boolean;
 }
 
 export default function PulseHeader({
@@ -35,12 +39,14 @@ export default function PulseHeader({
   onArchive,
   onDelete,
   onUpdate,
+  onAddTrade,
   maxRiskPerTrade,
   maxDailyDrawdown,
   maxTotalDrawdown,
   status,
   ruleViolations = [],
   pulse,
+  addTradeDisabled,
 }: PulseHeaderProps) {
   const isLocked = pulse ? isPulseLocked(pulse) : false;
 
@@ -54,7 +60,7 @@ export default function PulseHeader({
   })();
 
   return (
-    <div className="bg-dark border border-gray-800 rounded-lg overflow-hidden">
+    <div className="bg-dark border border-gray-800 rounded-lg">
       {/* Main identity row */}
       <div className="px-4 md:px-5 pt-4 pb-3 flex items-start justify-between gap-4">
         <div className="flex flex-col gap-2 min-w-0">
@@ -84,14 +90,26 @@ export default function PulseHeader({
           </div>
         </div>
 
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           {/* Account size */}
-          <div className="text-right">
+          <div className="text-right hidden sm:block">
             <p className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold">Account</p>
             <p className="text-lg font-bold text-white tabular-nums leading-tight">
               {formatCurrency(accountSize)}
             </p>
           </div>
+
+          {/* Log Trade (primary CTA) */}
+          <button
+            type="button"
+            onClick={onAddTrade}
+            disabled={addTradeDisabled}
+            className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg bg-blue-500/15 text-blue-300 border border-blue-500/30 hover:bg-blue-500/25 hover:text-blue-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            title={addTradeDisabled ? "Trading is locked for this pulse" : "Log a new trade"}
+          >
+            <PlusIcon className="w-4 h-4" />
+            <span className="hidden sm:inline">Log Trade</span>
+          </button>
 
           {/* Actions menu */}
           <Menu as="div" className="relative">

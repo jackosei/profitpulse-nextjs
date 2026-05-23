@@ -6,6 +6,7 @@ import { TradeDetailsModalProps } from "@/types/pulse";
 import { formatCurrency } from "@/utils/format";
 import UpdateTradeModal from "./UpdateTradeModal";
 import { PencilIcon } from "@heroicons/react/24/outline";
+import { AlertTriangle, CheckCircle2, Camera } from "lucide-react";
 
 export default function TradeDetailsModal({
   isOpen,
@@ -77,173 +78,7 @@ export default function TradeDetailsModal({
             </div>
           </div>
 
-          <div className="space-y-6">
-            {/* Trade Basic Info */}
-            <div>
-              <h3 className="text-lg font-semibold text-foreground mb-2">
-                Basic Information
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-gray-800/30 p-4 rounded-md">
-                <div>
-                  <p className="text-sm text-gray-400">Date</p>
-                  <p className="text-base text-foreground">{trade.date}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-400">Instrument</p>
-                  <p className="text-base text-foreground">
-                    {trade.instrument}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-400">Type</p>
-                  <p
-                    className={`text-base ${trade.type === "Buy" ? "text-green-500" : "text-red-500"}`}
-                  >
-                    {trade.type}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-400">Lot Size</p>
-                  <p className="text-base text-foreground">
-                    {trade.execution.lotSize}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Trade Entry/Exit */}
-            <div>
-              <h3 className="text-lg font-semibold text-foreground mb-2">
-                Entry & Exit
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-gray-800/30 p-4 rounded-md">
-                <div>
-                  <p className="text-sm text-gray-400">Entry Price</p>
-                  <p className="text-base text-foreground">
-                    {trade.execution.entryPrice}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-400">Exit Price</p>
-                  <p className="text-base text-foreground">
-                    {trade.execution.exitPrice}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-400">Entry Time</p>
-                  <p className="text-base text-foreground">
-                    {trade.execution.entryTime || "N/A"}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-400">Exit Time</p>
-                  <p className="text-base text-foreground">
-                    {trade.execution.exitTime || "N/A"}
-                  </p>
-                </div>
-                <div className="md:col-span-2">
-                  <p className="text-sm text-gray-400">Entry Reason</p>
-                  <p className="text-base text-foreground">
-                    {trade.execution.entryReason}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-400">Outcome</p>
-                  <p
-                    className={`text-base ${
-                      trade.outcome === "Win"
-                        ? "text-success"
-                        : trade.outcome === "Loss"
-                          ? "text-error"
-                          : "text-foreground"
-                    }`}
-                  >
-                    {trade.outcome}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Trade Performance */}
-            <div>
-              <h3 className="text-lg font-semibold text-foreground mb-2">
-                Performance
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-gray-800/30 p-4 rounded-md">
-                <div>
-                  <p className="text-sm text-gray-400">Profit/Loss</p>
-                  <p
-                    className={`text-base ${trade.performance.profitLoss >= 0 ? "text-success" : "text-error"}`}
-                  >
-                    {formatCurrency(trade.performance.profitLoss)}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-400">P/L Percentage</p>
-                  <p
-                    className={`text-base ${trade.performance.profitLossPercentage >= 0 ? "text-success" : "text-error"}`}
-                  >
-                    {trade.performance.profitLossPercentage.toFixed(2)}%
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Learnings */}
-            {trade.learnings && (
-              <div>
-                <h3 className="text-lg font-semibold text-foreground mb-2">
-                  Learnings & Notes
-                </h3>
-                <div className="bg-gray-800/30 p-4 rounded-md">
-                  <p className="text-base text-foreground whitespace-pre-line">
-                    {trade.learnings}
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {/* Rules Followed Section */}
-            {trade.followedRules && trade.followedRules.length > 0 && (
-              <div className="mt-6">
-                <h3 className="text-lg font-semibold mb-3">Rules Followed</h3>
-                <div className="space-y-2 bg-dark-lighter p-3 rounded-lg">
-                  {trade.followedRules.map((ruleId, index) => {
-                    // Find the rule in the pulse's trading rules if available
-                    const ruleDetails = pulse?.tradingRules?.find(
-                      (r) => r.id === ruleId,
-                    );
-
-                    return (
-                      <div key={index} className="flex items-center gap-2 p-2">
-                        <svg
-                          className="w-4 h-4 text-green-500 flex-shrink-0"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M5 13l4 4L19 7"
-                          />
-                        </svg>
-                        <span>
-                          {ruleDetails?.description || `Rule ${index + 1}`}
-                          {ruleDetails?.isRequired && (
-                            <span className="ml-2 text-xs text-accent">
-                              (Required)
-                            </span>
-                          )}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-          </div>
+          <TradeDetailsBody trade={trade} pulse={pulse} />
         </div>
       </div>
     </div>
@@ -262,5 +97,363 @@ export default function TradeDetailsModal({
         />
       )}
     </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Trade details body — richer layout for reviewing a trade. Organized into
+// sections: headline summary, setup, performance & risk, plan/reflection,
+// discipline (violations + rules), psychology, context, screenshots.
+// ---------------------------------------------------------------------------
+
+type TradeForBody = TradeDetailsModalProps["trade"];
+type PulseForBody = TradeDetailsModalProps["pulse"];
+
+function TradeDetailsBody({ trade, pulse }: { trade: TradeForBody; pulse: PulseForBody }) {
+  const pl = trade.performance.profitLoss;
+  const plPct = trade.performance.profitLossPercentage;
+  const plColor = pl > 0 ? "text-emerald-400" : pl < 0 ? "text-red-400" : "text-gray-200";
+
+  const outcomeStyle =
+    trade.outcome === "Win"
+      ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/30"
+      : trade.outcome === "Loss"
+        ? "bg-red-500/15 text-red-300 border-red-500/30"
+        : "bg-gray-500/15 text-gray-300 border-gray-500/30";
+
+  const typeStyle =
+    trade.type === "Buy"
+      ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+      : "bg-red-500/10 text-red-400 border-red-500/20";
+
+  const em = trade.engineMetrics;
+  const hasRiskMetrics = !!em && (em.intendedRiskPct > 0 || em.actualR !== 0);
+  const hasViolations = !!em && em.violations && em.violations.length > 0;
+
+  return (
+    <div className="space-y-5">
+      {/* Headline summary strip */}
+      <div className="rounded-lg border border-gray-800 bg-gray-800/30 px-4 py-3 flex flex-wrap items-center gap-3">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border ${typeStyle}`}>
+            {trade.type}
+          </span>
+          <span className="text-base font-semibold text-gray-100">{trade.instrument || "—"}</span>
+          <span className={`text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full border ${outcomeStyle}`}>
+            {trade.outcome}
+          </span>
+        </div>
+        <div className="flex-1" />
+        <div className="text-right">
+          <div className={`text-2xl font-bold tabular-nums leading-none ${plColor}`}>
+            {pl > 0 ? "+" : ""}{formatCurrency(pl)}
+          </div>
+          <div className={`text-xs tabular-nums ${plColor} opacity-80 mt-0.5`}>
+            {plPct >= 0 ? "+" : ""}{plPct.toFixed(2)}% of account
+            {em && em.actualR !== 0 && (
+              <span className="text-gray-500 ml-2">·{" "}
+                <span className={pl > 0 ? "text-emerald-400" : "text-red-400"}>
+                  {em.actualR > 0 ? "+" : ""}{em.actualR.toFixed(2)}R
+                </span>
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Setup */}
+      <Section title="Setup">
+        <Grid>
+          <Field label="Date" value={trade.date} />
+          <Field label="Lot Size" value={String(trade.execution.lotSize)} />
+          <Field label="Entry Price" value={String(trade.execution.entryPrice)} />
+          <Field label="Exit Price" value={String(trade.execution.exitPrice)} />
+          <Field label="Entry Time" value={trade.execution.entryTime || "—"} />
+          <Field label="Exit Time" value={trade.execution.exitTime || "—"} />
+          {trade.execution.plannedSL !== undefined && trade.execution.plannedSL !== null && (
+            <Field label="Planned Stop Loss" value={String(trade.execution.plannedSL)} />
+          )}
+          {trade.execution.plannedTP !== undefined && trade.execution.plannedTP !== null && (
+            <Field label="Planned Take Profit" value={String(trade.execution.plannedTP)} />
+          )}
+        </Grid>
+      </Section>
+
+      {/* Risk & R metrics — only when engine metrics are present */}
+      {hasRiskMetrics && em && (
+        <Section title="Risk & R-Multiple">
+          <Grid>
+            <Field
+              label="Intended Risk"
+              value={em.intendedRiskPct > 0 ? `${em.intendedRiskPct.toFixed(2)}% of account` : "—"}
+            />
+            <Field
+              label="Planned R:R"
+              value={em.intendedRR !== null ? `1 : ${em.intendedRR.toFixed(2)}` : "—"}
+              hint={em.intendedRR === null ? "Set Planned TP to enable" : undefined}
+            />
+            <Field
+              label="Actual R"
+              value={`${em.actualR > 0 ? "+" : ""}${em.actualR.toFixed(2)}R`}
+              valueClass={em.actualR > 0 ? "text-emerald-400" : em.actualR < 0 ? "text-red-400" : ""}
+            />
+            <Field
+              label="Exit Quality"
+              value={em.exitQuality !== null ? em.exitQuality.toFixed(2) : "—"}
+              hint={
+                em.exitQuality === null
+                  ? "Set Planned TP to enable"
+                  : em.exitQuality >= 1
+                    ? "Met or beat plan"
+                    : em.exitQuality > 0
+                      ? "Partial of plan"
+                      : "Break-even or worse"
+              }
+            />
+          </Grid>
+        </Section>
+      )}
+
+      {/* Plan & Reflection */}
+      <Section title="Plan & Reflection">
+        <div className="space-y-3 bg-gray-800/30 p-4 rounded-md">
+          <Field
+            label="Entry Reason"
+            value={trade.execution.entryReason || "—"}
+            multiline
+          />
+          {trade.learnings && <Field label="Learnings" value={trade.learnings} multiline />}
+          {trade.reflection?.wouldRepeat !== undefined && (
+            <Field
+              label="Would repeat this trade?"
+              value={trade.reflection.wouldRepeat ? "Yes" : "No"}
+              valueClass={trade.reflection.wouldRepeat ? "text-emerald-400" : "text-red-400"}
+            />
+          )}
+          {trade.reflection?.emotionalImpact && (
+            <Field label="Emotional impact" value={trade.reflection.emotionalImpact} />
+          )}
+          {trade.reflection?.mistakesIdentified && trade.reflection.mistakesIdentified.length > 0 && (
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-1">Mistakes identified</p>
+              <ul className="text-sm text-gray-300 space-y-0.5 list-disc list-inside">
+                {trade.reflection.mistakesIdentified.map((m, i) => <li key={i}>{m}</li>)}
+              </ul>
+            </div>
+          )}
+          {trade.reflection?.improvementIdeas && (
+            <Field label="Improvement ideas" value={trade.reflection.improvementIdeas} multiline />
+          )}
+        </div>
+      </Section>
+
+      {/* Discipline — violations + rules */}
+      {(hasViolations || (trade.followedRules && trade.followedRules.length > 0)) && (
+        <Section title="Discipline">
+          <div className="space-y-3">
+            {hasViolations && em && (
+              <div className="rounded-md border border-red-500/25 bg-red-500/[0.04] p-3">
+                <p className="text-[10px] uppercase tracking-wider text-red-400 font-semibold mb-2 flex items-center gap-1.5">
+                  <AlertTriangle className="w-3 h-3" />
+                  Violations on this trade
+                </p>
+                <ul className="space-y-1.5">
+                  {em.violations.map((v, i) => (
+                    <li key={i} className="flex items-start justify-between gap-3 text-xs">
+                      <span className="text-gray-300 leading-snug">• {v.details}</span>
+                      <span className="shrink-0 text-[11px] font-semibold text-red-400 bg-red-500/10 px-1.5 py-0.5 rounded tabular-nums">
+                        −{v.severity} pts
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {trade.followedRules && trade.followedRules.length > 0 && (
+              <div className="rounded-md border border-gray-800 bg-gray-800/30 p-3">
+                <p className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-2 flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                  Rules followed
+                </p>
+                <ul className="space-y-1">
+                  {trade.followedRules.map((ruleId, i) => {
+                    const ruleDetails = pulse?.tradingRules?.find((r) => r.id === ruleId);
+                    return (
+                      <li key={i} className="flex items-start gap-2 text-sm text-gray-300">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 mt-0.5 shrink-0" />
+                        <span>
+                          {ruleDetails?.description || `Rule ${i + 1}`}
+                          {ruleDetails?.isRequired && (
+                            <span className="ml-2 text-[10px] uppercase tracking-wider text-blue-400">Required</span>
+                          )}
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            )}
+          </div>
+        </Section>
+      )}
+
+      {/* Psychology */}
+      {trade.psychology && (
+        trade.psychology.emotionalState ||
+        trade.psychology.mentalState ||
+        trade.psychology.planAdherence ||
+        trade.psychology.impulsiveEntry !== undefined ||
+        trade.psychology.emotionalIntensity !== undefined
+      ) && (
+        <Section title="Psychology">
+          <Grid>
+            {trade.psychology.emotionalState && (
+              <Field
+                label="Emotional state"
+                value={
+                  trade.psychology.emotionalIntensity !== undefined
+                    ? `${trade.psychology.emotionalState} (${trade.psychology.emotionalIntensity}/10)`
+                    : trade.psychology.emotionalState
+                }
+              />
+            )}
+            {trade.psychology.mentalState && (
+              <Field label="Mental state" value={trade.psychology.mentalState} />
+            )}
+            {trade.psychology.planAdherence && (
+              <Field
+                label="Plan adherence"
+                value={trade.psychology.planAdherence}
+                valueClass={
+                  trade.psychology.planAdherence === "Fully"
+                    ? "text-emerald-400"
+                    : trade.psychology.planAdherence === "Deviated"
+                      ? "text-red-400"
+                      : "text-amber-400"
+                }
+              />
+            )}
+            {trade.psychology.impulsiveEntry !== undefined && (
+              <Field
+                label="Impulsive entry"
+                value={trade.psychology.impulsiveEntry ? "Yes" : "No"}
+                valueClass={trade.psychology.impulsiveEntry ? "text-red-400" : "text-emerald-400"}
+              />
+            )}
+          </Grid>
+        </Section>
+      )}
+
+      {/* Context */}
+      {trade.context && (
+        trade.context.marketCondition || trade.context.timeOfDay || trade.context.tradingEnvironment
+      ) && (
+        <Section title="Context">
+          <Grid>
+            {trade.context.marketCondition && (
+              <Field label="Market condition" value={trade.context.marketCondition} />
+            )}
+            {trade.context.timeOfDay && (
+              <Field label="Time of day" value={trade.context.timeOfDay} />
+            )}
+            {trade.context.tradingEnvironment && (
+              <Field label="Trading environment" value={trade.context.tradingEnvironment} />
+            )}
+          </Grid>
+        </Section>
+      )}
+
+      {/* Screenshots */}
+      {(trade.execution.entryScreenshot || trade.execution.exitScreenshot) && (
+        <Section title="Screenshots">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {trade.execution.entryScreenshot && (
+              <a
+                href={trade.execution.entryScreenshot}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="rounded-md border border-gray-800 bg-gray-800/30 overflow-hidden hover:border-gray-700 transition-colors group"
+              >
+                <div className="aspect-video bg-black/30 flex items-center justify-center">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={trade.execution.entryScreenshot}
+                    alt="Entry screenshot"
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <div className="px-3 py-2 flex items-center gap-1.5 text-xs text-gray-400 group-hover:text-gray-200">
+                  <Camera className="w-3 h-3" />
+                  Entry
+                </div>
+              </a>
+            )}
+            {trade.execution.exitScreenshot && (
+              <a
+                href={trade.execution.exitScreenshot}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="rounded-md border border-gray-800 bg-gray-800/30 overflow-hidden hover:border-gray-700 transition-colors group"
+              >
+                <div className="aspect-video bg-black/30 flex items-center justify-center">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={trade.execution.exitScreenshot}
+                    alt="Exit screenshot"
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <div className="px-3 py-2 flex items-center gap-1.5 text-xs text-gray-400 group-hover:text-gray-200">
+                  <Camera className="w-3 h-3" />
+                  Exit
+                </div>
+              </a>
+            )}
+          </div>
+        </Section>
+      )}
+    </div>
+  );
+}
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <h3 className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-2">{title}</h3>
+      {children}
+    </div>
+  );
+}
+
+function Grid({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-3 bg-gray-800/30 p-4 rounded-md">
+      {children}
+    </div>
+  );
+}
+
+function Field({
+  label,
+  value,
+  hint,
+  valueClass,
+  multiline,
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+  valueClass?: string;
+  multiline?: boolean;
+}) {
+  return (
+    <div className={multiline ? "md:col-span-2" : undefined}>
+      <p className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-0.5">{label}</p>
+      <p className={`text-sm text-gray-200 ${multiline ? "whitespace-pre-line leading-relaxed" : ""} ${valueClass ?? ""}`}>
+        {value}
+      </p>
+      {hint && <p className="text-[10px] text-gray-600 mt-0.5">{hint}</p>}
+    </div>
   );
 }

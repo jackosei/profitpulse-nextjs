@@ -15,9 +15,10 @@ import {
   ChevronRight,
   TableIcon,
   CalendarIcon,
+  Layers,
 } from "lucide-react";
 
-type ViewType = "table" | "calendar";
+type ViewType = "by-day" | "table" | "calendar";
 
 interface TradeCalendarProps {
   trades: Trade[];
@@ -37,7 +38,19 @@ export default function TradeCalendar({
   onViewTypeChange,
 }: TradeCalendarProps) {
   const [selectedTrade, setSelectedTrade] = useState<Trade | null>(null);
+  const [dayPicker, setDayPicker] = useState<{ date: string; trades: Trade[] } | null>(null);
   const [currentMonth, setCurrentMonth] = useState(new Date());
+
+  // Click handler — single trade opens directly; multiple opens a picker
+  // so the trader can choose which trade to inspect.
+  const handleDayClick = (dateKey: string, dayTrades: Trade[]) => {
+    if (dayTrades.length === 0) return;
+    if (dayTrades.length === 1) {
+      setSelectedTrade(dayTrades[0]);
+      return;
+    }
+    setDayPicker({ date: dateKey, trades: dayTrades });
+  };
 
   // Get the days for the current month
   const days = useMemo(() => {
@@ -99,6 +112,18 @@ export default function TradeCalendar({
             {/* View Toggle */}
             <div className="bg-gray-800/80 rounded-md p-0.5 flex">
               <button
+                type="button"
+                onClick={() => onViewTypeChange("by-day")}
+                className={`p-1.5 rounded-md ${viewType === "by-day"
+                    ? "bg-blue-600 text-white"
+                    : "text-gray-400 hover:text-white"
+                  } transition-colors flex items-center`}
+                title="By Day (grouped)"
+              >
+                <Layers className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
                 onClick={() => onViewTypeChange("table")}
                 className={`p-1.5 rounded-md ${viewType === "table"
                     ? "bg-blue-600 text-white"
@@ -109,6 +134,7 @@ export default function TradeCalendar({
                 <TableIcon className="h-4 w-4" />
               </button>
               <button
+                type="button"
                 onClick={() => onViewTypeChange("calendar")}
                 className={`p-1.5 rounded-md ${viewType === "calendar"
                     ? "bg-blue-600 text-white"
@@ -189,9 +215,7 @@ export default function TradeCalendar({
                 key={i}
                 className={`min-h-[80px] p-1 rounded border ${borderColor} ${isToday(day) ? "bg-gray-800/30" : "bg-gray-900/30"
                   } hover:bg-gray-800/50 transition-colors cursor-pointer`}
-                onClick={() =>
-                  dayTrades.length > 0 && setSelectedTrade(dayTrades[0])
-                }
+                onClick={() => handleDayClick(dateKey, dayTrades)}
               >
                 <div className="text-right mb-1">
                   <span
@@ -243,6 +267,85 @@ export default function TradeCalendar({
           pulse={pulse}
           onRefresh={onRefresh}
         />
+      )}
+
+      {/* Day picker — appears when the trader clicks a calendar day with
+          more than one trade. They pick which trade to inspect; we then
+          hand off to TradeDetailsModal. */}
+      {dayPicker && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+          onClick={() => setDayPicker(null)}
+          role="presentation"
+        >
+          <div
+            className="w-full max-w-md rounded-2xl border border-gray-700/60 bg-[#151f2e] shadow-2xl overflow-hidden flex flex-col max-h-[80vh]"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="day-picker-title"
+          >
+            <div className="px-5 py-3 border-b border-gray-800 flex items-center justify-between">
+              <h2 id="day-picker-title" className="text-sm font-semibold text-gray-100">
+                {dayPicker.trades.length} trades on{" "}
+                <span className="text-gray-300">
+                  {(() => {
+                    const [y, m, d] = dayPicker.date.split("-");
+                    return new Date(Number(y), Number(m) - 1, Number(d)).toLocaleDateString("en-US", {
+                      weekday: "short",
+                      month: "short",
+                      day: "numeric",
+                    });
+                  })()}
+                </span>
+              </h2>
+              <button
+                type="button"
+                onClick={() => setDayPicker(null)}
+                className="text-gray-500 hover:text-white"
+                aria-label="Close"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto divide-y divide-gray-800/60">
+              {dayPicker.trades.map((trade) => {
+                const pl = trade.performance?.profitLoss ?? 0;
+                const plClass = pl > 0 ? "text-emerald-400" : pl < 0 ? "text-red-400" : "text-gray-300";
+                return (
+                  <button
+                    key={trade.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedTrade(trade);
+                      setDayPicker(null);
+                    }}
+                    className="w-full flex items-center justify-between gap-3 px-4 py-3 hover:bg-gray-800/40 transition-colors text-left"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span
+                        className={`text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded shrink-0 ${
+                          trade.type === "Buy"
+                            ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                            : "bg-red-500/10 text-red-400 border border-red-500/20"
+                        }`}
+                      >
+                        {trade.type}
+                      </span>
+                      <span className="text-sm font-medium text-gray-200 shrink-0">{trade.instrument || "—"}</span>
+                      <span className="text-xs text-gray-500 truncate hidden sm:inline">
+                        {trade.execution?.entryTime || ""}
+                      </span>
+                    </div>
+                    <span className={`text-sm font-semibold tabular-nums ${plClass}`}>
+                      {pl > 0 ? "+" : ""}${pl.toFixed(2)}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

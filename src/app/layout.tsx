@@ -3,7 +3,6 @@ import Providers from "@/context/Providers";
 import Navbar from "@/components/layout/Navbar";
 import Sidebar from "@/components/layout/Sidebar";
 import { Toaster } from "sonner";
-import FeedbackWidget from "@/components/ui/FeedbackWidget";
 import ErrorBoundary from "@/components/ui/ErrorBoundary";
 import { Inter } from "next/font/google";
 import { Metadata } from "next";
@@ -28,19 +27,18 @@ const RootLayout = ({ children }: { children: React.ReactNode }) => {
       <body className="bg-dark-darker font-sans">
         <ErrorBoundary>
           <Providers>
-            <div className="flex h-screen">
-              {/* Sidebar Navigation */}
-              <Sidebar />
+            <div className="flex flex-col h-screen">
+              {/* Navbar — full width */}
+              <Navbar />
 
-              {/* Main Content Area */}
-              <div className="flex-1 flex flex-col overflow-hidden">
-                <Navbar />
-                <main className="flex-1 overflow-y-auto p-4 bg-dark pb-24 md:pb-6">
+              {/* Sidebar + Main Content */}
+              <div className="flex flex-1 overflow-hidden">
+                <Sidebar />
+                <main className="flex-1 overflow-y-auto p-4 bg-dark-lighter pb-24 md:pb-6">
                   {children}
                 </main>
               </div>
             </div>
-            <FeedbackWidget />
           </Providers>
           <Toaster
             position="bottom-center"

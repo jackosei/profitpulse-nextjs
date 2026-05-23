@@ -44,11 +44,17 @@ export interface WHYReminderPayload {
   disciplineScore: number;
 }
 
+export type PartnerAlertBreachType =
+  | "DAILY_DRAWDOWN"
+  | "TOTAL_DRAWDOWN_LOCKED"
+  | "NTD_WARNING"
+  | "NO_TRADE_DAY";
+
 export interface PartnerAlertPayload {
   partnerEmail: string;
   traderName: string;
   pulseName: string;
-  breachType: "DAILY_DRAWDOWN" | "TOTAL_DRAWDOWN_LOCKED";
+  breachType: PartnerAlertBreachType;
   disciplineScore: number;
   details: string;
 }
@@ -61,7 +67,7 @@ export async function sendWHYReminder(payload: WHYReminderPayload): Promise<void
   const resend = getResendClient();
   if (!resend) return;
 
-  const zoneLabel = payload.disciplineZone === "RED" ? "Enforcement 🔴" : "At Risk 🟡";
+  const zoneLabel = payload.disciplineZone === "RED" ? "Enforcement" : "At Risk";
 
   const html = `
     <div style="font-family: sans-serif; max-width: 560px; margin: auto; color: #1a1a2e;">
@@ -80,7 +86,7 @@ export async function sendWHYReminder(payload: WHYReminderPayload): Promise<void
         <p style="margin: 0; font-style: italic;">"${payload.whyDiscipline}"</p>
       </div>
       
-      <p>Log a clean session today — all required rules followed, full reflection — to begin recovery (+8 pts).</p>
+      <p>Log a clean session today (all required rules followed, full reflection) to begin recovery (+8 pts).</p>
       <p style="color: #888; font-size: 12px;">This is an automated reminder from ProfitPulse.</p>
     </div>
   `;
@@ -89,7 +95,7 @@ export async function sendWHYReminder(payload: WHYReminderPayload): Promise<void
     await resend.emails.send({
       from: FROM_EMAIL,
       to: payload.traderEmail,
-      subject: `⚠️ ProfitPulse — Your discipline is ${zoneLabel} on ${payload.pulseName}`,
+      subject: `ProfitPulse: Your discipline is ${zoneLabel} on ${payload.pulseName}`,
       html,
     });
   } catch (err) {
@@ -105,29 +111,49 @@ export async function sendPartnerAlert(payload: PartnerAlertPayload): Promise<vo
   const resend = getResendClient();
   if (!resend) return;
 
-  const isLockout = payload.breachType === "TOTAL_DRAWDOWN_LOCKED";
-  const subject = isLockout
-    ? `🔒 ProfitPulse — ${payload.traderName} has been locked out of ${payload.pulseName}`
-    : `⚠️ ProfitPulse — ${payload.traderName} hit a daily drawdown limit`;
+  // Per-event copy. Headline color signals severity: red = terminal/lockout,
+  // orange = drawdown / NTD, amber = warning.
+  const variant: Record<PartnerAlertBreachType, { subject: string; heading: string; color: string }> = {
+    TOTAL_DRAWDOWN_LOCKED: {
+      subject: `ProfitPulse: ${payload.traderName} has been locked out of ${payload.pulseName}`,
+      heading: "Pulse Locked",
+      color: "#e94560",
+    },
+    NO_TRADE_DAY: {
+      subject: `ProfitPulse: ${payload.traderName} is on a no-trade day on ${payload.pulseName}`,
+      heading: "No-Trade Day Applied",
+      color: "#e94560",
+    },
+    DAILY_DRAWDOWN: {
+      subject: `ProfitPulse: ${payload.traderName} hit a daily drawdown limit`,
+      heading: "Daily Drawdown Limit Hit",
+      color: "#e67e22",
+    },
+    NTD_WARNING: {
+      subject: `ProfitPulse: ${payload.traderName} is one breach away from a no-trade day`,
+      heading: "No-Trade Day Warning",
+      color: "#f39c12",
+    },
+  };
+  const v = variant[payload.breachType];
 
   const html = `
     <div style="font-family: sans-serif; max-width: 560px; margin: auto; color: #1a1a2e;">
-      <h2 style="color: ${isLockout ? "#e94560" : "#e67e22"};">
-        ${isLockout ? "🔒 Pulse Locked" : "⚠️ Daily Drawdown Limit Hit"}
-      </h2>
+      <h2 style="color: ${v.color};">${v.heading}</h2>
       <p>Hi,</p>
       <p>Your accountability partner <strong>${payload.traderName}</strong> needs your support.</p>
-      
+
       <div style="background: #fff8f0; border: 1px solid #ffd7a8; padding: 16px; border-radius: 4px; margin: 16px 0;">
         <p><strong>Pulse:</strong> ${payload.pulseName}</p>
         <p><strong>Event:</strong> ${payload.details}</p>
         <p><strong>Discipline Score:</strong> ${payload.disciplineScore}/100</p>
       </div>
-      
+
       <p>Reach out and remind them of their commitment. A few words of encouragement can make all the difference.</p>
       <p style="color: #888; font-size: 12px;">This is an automated notification from ProfitPulse. You are receiving this because you are an accountability partner.</p>
     </div>
   `;
+  const subject = v.subject;
 
   try {
     await resend.emails.send({

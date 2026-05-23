@@ -174,6 +174,153 @@
 
 ---
 
+### Session 12 — 2026-05-23
+**What was built (v4.5.0 — Pulse detail UI/UX refinements):**
+
+*Goal:* Improve clarity, density and review-quality on the pulse detail page. No engine changes — pure front-end.
+
+**Unified tabs + content** (`src/components/pulse/PulseTabs.tsx`, `src/app/pulse/[id]/page.tsx`)
+- `PulseTabs` stripped of its outer card chrome — now renders as a bare tab strip designed to sit at the top of a parent card.
+- Active tab uses an underline (`border-b-2 -mb-px border-blue-400`) that visually overlaps the strip's bottom border, the classic "tabs above content" affordance.
+- Tabs + active panel now share one outer card (`bg-dark border border-gray-800 rounded-lg overflow-hidden`).
+- Panel area gets a subtle `bg-white/[0.015]` translucent overlay to lift the content surface.
+- Performance tab's `PerformanceControls` moved onto the tab row itself (rendered only when `tab === "performance"`), saving a row of vertical space.
+
+**LimitsTracker density** (`src/components/discipline/LimitsTracker.tsx`)
+- Collapsible header padding tightened from `py-3` to `py-2`.
+- Expanded content rebalanced (`pt-1` + bars `mt-3` → unified `pt-3`).
+
+**"By Day" trade view + default** (`src/components/pulse/TradeHistory.tsx`, `src/app/pulse/[id]/page.tsx`)
+- `ViewType` union extended to `"by-day" | "table" | "calendar"`. Default in page state is now `by-day`.
+- New `ByDayView` sub-component in `TradeHistory.tsx`: groups trades by `date`, sorts descending, renders each day as a collapsible row with summary (count, win rate, total P/L). Most recent day auto-expands.
+- Toggle button added (Lucide `Layers` icon) to both TradeHistory and TradeCalendar headers.
+- Page routes the Trade Log panel: `viewType === "calendar"` → `TradeCalendar`; everything else → `TradeHistory` (which internally renders either the table body or the by-day groups).
+
+**Calendar day-click fix** (`src/components/pulse/TradeCalendar.tsx`)
+- Old behavior: clicking any day opened `dayTrades[0]` regardless of count.
+- New behavior: 0 → no-op; 1 → opens `TradeDetailsModal` directly; 2+ → opens a small "Day picker" modal listing all trades with type badge + instrument + time + P/L. Selecting a trade in the picker opens TradeDetailsModal and closes the picker.
+
+**Trade Details — review-grade detail** (`src/components/modals/TradeDetailsModal.tsx`)
+- Extracted body into a `TradeDetailsBody` sub-component for clarity.
+- Headline summary strip: type badge + instrument + outcome pill + bold P/L with %-of-account and R-multiple.
+- New sections, each only rendered when its data is present:
+  - **Risk & R-Multiple** — Intended Risk %, Planned R:R, Actual R (color-coded), Exit Quality with hints.
+  - **Plan & Reflection** — Entry Reason, Learnings, Would Repeat, Emotional Impact, Mistakes Identified (bulleted), Improvement Ideas.
+  - **Discipline** — Violations on this trade (red-bordered card with per-violation severity badges), Rules Followed (green check list).
+  - **Psychology** — Emotional state + intensity, mental state, plan adherence (color-coded), impulsive entry (color-coded).
+  - **Context** — Market condition, time of day, trading environment.
+  - **Screenshots** — Entry/exit thumbnails opening the original in a new tab.
+- Reusable internal helpers: `Section`, `Grid`, `Field`.
+
+**Verification:** `npx tsc --noEmit` and `npx next lint` both clean.
+
+**Next session should start with:** Carry-over items: SMS activation (Twilio env vars), CSV import pipeline, `RESEND_API_KEY` configuration.
+
+---
+
+### Session 11 — 2026-05-20
+**What was built (v4.4.0 — Adaptive enforcement engine: per-pulse Score-based vs Severity-based tiers):**
+
+*Motivation:* Reviewing the enforcement matrix surfaced three issues:
+1. A bug from session 10's fix where `existingTier + 1` defaulted to 2 with no existing cap, causing breach 1 with no cap to apply a 75% cap — contradicting the spec.
+2. Severity gap across violation types — DD breach (sev 15) and R/T breach (sev 5) lived on separate per-type counter ladders rather than contributing to a unified signal.
+3. Tier-4 fired NTD immediately and didn't extend NTD when breaching during an active NTD.
+
+*Design:* Replace per-violation-type counter tiers with a unified tier ladder driven by a single signal — chosen by the trader at pulse creation. `SCORE_BASED` (default, recommended): uses discipline score crossing thresholds, recovery is action-based via clean sessions. `SEVERITY_BASED`: uses weekly cumulative severity total, recovery is time-based via Monday reset.
+
+*Schema (`src/lib/disciplineTypes.ts`):*
+- Added `EnforcementMode = "SCORE_BASED" | "SEVERITY_BASED"` type.
+- Added `enforcementMode` and `weeklySeverityTotal` to `PulseDisciplineFields`.
+- Added `ntdWarningPending: boolean` to `ActiveConstraints` (warn-then-lock state).
+- Updated `createDefaultDisciplineFields()` to accept and default `enforcementMode = "SCORE_BASED"`.
+
+*Engine refactor (`src/lib/enforcementEngine.ts`):*
+- Added `Tier`, `tierFromScore`, `tierFromSeverity`, `computeTier` helpers.
+- Rewrote `computeConstraints` signature to accept `signals` (scoreAfter, weeklySeverityTotalAfter, weeklyBreachCounts) and `pulseConfig` (enforcementMode, maxTradesPerDay).
+- Tier-driven branch applies risk caps + NTD via the unified ladder. Orthogonal mechanisms (DD reflection gate, total-DD permanent lock, max-trades first-cap) live in a separate per-violation loop.
+- Tier 4 implements warn-then-lock: first time at tier 4 sets `ntdWarningPending = true` only; subsequent tier-4 condition fires NTD (extends by 1 if already active).
+- `mergeConstraints` ORs `ntdWarningPending`.
+- `shouldLiftConstraints` clears `ntdWarningPending` when the cap is lifted.
+- `computeEscalationPreview` rewritten with new signature `(mode, scoreNow, weeklySeverityTotalNow, ntdWarningPending)` — returns a single mode-aware preview row instead of per-type rows.
+
+*Eval route (`src/app/api/discipline/evaluate/route.ts`):*
+- Tracks `weeklySeverityTotal` — accumulates amplified violation severity each trade.
+- Passes new signals + pulseConfig to `computeConstraints`.
+- Persists `discipline.weeklySeverityTotal` on every constraint write.
+- Resets `weeklySeverityTotal` to 0 alongside `weeklyBreachCounts` on Monday boundary.
+- WHY-on-breach-1: WHY reminder email + SMS now fires on (zone worsened) OR (first weekly risk-per-trade breach), regardless of zone state. Removes the silent breach-1 gap.
+- All default `ActiveConstraints` fallbacks updated to include `ntdWarningPending: false`.
+
+*Pulse API (`src/services/api/pulseApi.ts`):* Added `enforcementMode` to `PulseCreateData` and `PulseUpdateData`.
+
+*Pulse service (`src/services/firebase/pulseService.ts`):*
+- `createPulse` passes `pulseData.enforcementMode ?? "SCORE_BASED"` to `createDefaultDisciplineFields`.
+- `updatePulse` writes `"discipline.enforcementMode"` via dotted-path update when supplied.
+- Existing pulses without the field on read default to `SCORE_BASED` via the `??` fallback (no migration script needed).
+
+*UX:*
+- `src/components/modals/EnforcementModeDetailsModal.tsx` (NEW): side-by-side comparison of the two modes with tier tables, recovery story, "best for" guidance, and the list of mode-independent mechanisms.
+- `src/components/modals/CreatePulseModal.tsx`: added enforcement-mode radio toggle in the WHY step with a "Learn more" link to the details modal. Passed `enforcementMode` into `createPulse`.
+- `src/components/modals/UpdatePulseModal.tsx`: same toggle on the update form. Inline note clarifies "Changing this won't reset your current breach counts or active constraints."
+- `src/components/discipline/DisciplineMeter.tsx`: replaced `weeklyBreachCounts` + `maxTradesPerDay` props with `enforcementMode` + `weeklySeverityTotal`. Escalation preview now uses the new `computeEscalationPreview`. Added "NTD on next breach" warning chip when `ntdWarningPending` is set with no active NTD. Added a mode-label footer ("Enforcement: Score" / "Severity") with tooltip.
+
+*Accountability partner alerts wired to tier ladder:*
+- `PartnerAlertBreachType` union (in `emailService.ts` and `smsService.ts`) extended with `NTD_WARNING` and `NO_TRADE_DAY`. Per-variant email subject + heading + color, per-variant SMS one-liner.
+- `evaluate/route.ts` partner-alert block rewritten as a single priority-ranked dispatcher (one alert per trade): `TOTAL_DRAWDOWN_LOCKED` > `NO_TRADE_DAY` > `DAILY_DRAWDOWN` > `NTD_WARNING`. Detects transitions (`noTradeDays` 0→>0, `ntdWarningPending` false→true) rather than steady state, so the partner gets one alert per escalation event.
+- Mode-independent: both `SCORE_BASED` and `SEVERITY_BASED` pulses route through the same `noTradeDays` / `ntdWarningPending` state, so partner alerts work uniformly across modes.
+
+*Docs (`specs/CLAUDE.md`):* Replaced the per-violation-type enforcement matrix with the unified tier ladder + two trigger-mapping tables + severity reference table. Added warn-then-lock note to the friction ladder section. Added partner-alert priority table.
+
+**Verification:**
+- `npx tsc --noEmit` → 0 errors.
+- Schema migration: existing pulses without `enforcementMode` read as `SCORE_BASED` via fallback; no Firestore migration script required.
+- Severity total resets on Monday boundary alongside breach counts.
+
+**Next session should start with:**
+- Smoke-test all the scenarios from the plan verification table.
+- Calibrate the score/severity thresholds based on real usage data.
+- Consider surfacing the tier number explicitly in DisciplineMeter (currently implicit in zone label).
+
+---
+
+### Session 10 — 2026-05-20
+**What was built (v4.3.0 — Tabbed pulse detail layout):**
+
+*Pulse detail page UX refactor:*
+
+**Hypothesis:** Traders mentally toggle between two questions — "how did I perform?" (quantitative) and "how well did I execute?" (qualitative). A single scrolling page mixes both, making each harder to consume and burying the discipline engine below performance metrics that every competing tool also shows. Splitting the page into focused tabs surfaces both equally and halves vertical scroll per view.
+
+**New components:**
+- `src/components/pulse/PulseVitals.tsx` — always-visible snapshot strip above the tabs. Shows zone+score, today's P/L (color-coded), today's trade count vs daily cap, streak (when > 0), and an "active constraints" button that jumps to the Discipline tab. Reads entirely from already-loaded pulse data — no new API calls.
+- `src/components/pulse/PulseTabs.tsx` — three-tab navigation (Performance / Discipline / Trade Log) with proper ARIA (`role="tablist"`, `role="tab"`, `aria-selected`). Supports per-tab badges; the Discipline tab shows the active-constraint count.
+
+**Page restructure (`src/app/pulse/[id]/page.tsx`):**
+- Tab state is URL-synced via `?tab=…` query param using `useSearchParams` + `router.replace(href, { scroll: false })`. The `scroll: false` prevents the scroll-jump regression previously debugged.
+- Smart default tab: opens to Discipline when `activeConstraints` is non-empty, zone is not GREEN, or `reflectionGatePending` is true; otherwise defaults to Performance.
+- WHYReminderBanner sits above the tabs so it's visible on every tab when the trader's zone is degraded.
+- Per-tab panels use `role="tabpanel"` / `aria-labelledby` for accessibility.
+
+**PulseHeader updates (`src/components/pulse/PulseHeader.tsx`):**
+- Added `+ Log Trade` primary CTA next to the actions menu so trade logging is reachable from any tab. Disabled when `pulse.status === "locked"`.
+- Removed `overflow-hidden` from the container that was clipping the actions dropdown popup.
+
+**Deleted:**
+- `src/components/pulse/ChartsCard.tsx` — the tabbed-chart wrapper combining Equity Curve and Discipline Score is obsolete. Each chart now lives in its respective tab with a dedicated card header.
+
+**Verification:**
+- `npx tsc --noEmit` → 0 errors.
+- Tab change updates URL, does not scroll to top, supports browser back/forward.
+- Reload preserves the active tab via URL.
+- Pulse opened in GREEN zone with no constraints defaults to Performance; pulse with active risk cap defaults to Discipline.
+- `+ Log Trade` opens AddTradeModal from any tab.
+- Mobile: tabs scroll horizontally if overflow; vitals chips wrap.
+
+**Next session should start with:**
+- Phase 3 carryovers: SMS activation (Twilio env vars), CSV import pipeline (`/api/import/csv`, `TradeImport.tsx` wizard, `importMappers.ts`), `RESEND_API_KEY` configuration for live email.
+- Consider extracting the per-tab card patterns into a reusable `SectionCard` if more sections get added.
+
+---
+
 ### Session 9 — 2026-05-19
 **What was built (v4.2.0 — Friction Ladder Enforcement closes + Transparency layer):**
 

@@ -111,6 +111,18 @@ export type DisciplineState = "NORMAL" | "LIMITED" | "RESTRICTED" | "RECOVERY";
 // Pulse-level discipline fields (stored on Pulse document)
 // ---------------------------------------------------------------------------
 
+/**
+ * Enforcement mode — chosen by the trader at pulse creation. Drives which
+ * signal triggers the tier ladder (risk caps + NTD).
+ *
+ * - `SCORE_BASED` (recommended default): tier driven by discipline score
+ *   crossing thresholds (≥85, ≥70, ≥55, ≥40). Recovery is action-based via
+ *   clean sessions, journal bonuses, streaks.
+ * - `SEVERITY_BASED`: tier driven by weekly cumulative severity total.
+ *   Recovery is time-based — Monday rolls in a fresh slate.
+ */
+export type EnforcementMode = "SCORE_BASED" | "SEVERITY_BASED";
+
 /** Phase 2 enforcement constraints — Phase 1 stores defaults (all null/0) */
 export interface ActiveConstraints {
   /** Risk cap as fraction of configured limit, e.g. 0.5 = 50%. null = no cap */
@@ -123,6 +135,12 @@ export interface ActiveConstraints {
   noTradeDays: number;
   /** Number of consecutive clean sessions required to lift the current caps */
   cleanSessionsToLift: number;
+  /**
+   * Warn-then-lock state. Set to `true` when the trader first crosses into
+   * tier-4 territory; the next tier-4 condition then fires an actual NTD.
+   * Clears when the 50% cap is lifted via `shouldLiftConstraints`.
+   */
+  ntdWarningPending: boolean;
 }
 
 /** Breach counts for penalty escalation */
@@ -157,12 +175,21 @@ export interface PulseDisciplineFields {
    * trade submission when constraints are active.
    */
   sessionGateAckDate: string | null;
+  /** Which signal drives the tier ladder for this pulse. */
+  enforcementMode: EnforcementMode;
+  /**
+   * Sum of (amplified) violation severity this week. Used as the tier signal
+   * when `enforcementMode === 'SEVERITY_BASED'`. Tracked always for parity
+   * and resets on Monday boundary alongside `weeklyBreachCounts`.
+   */
+  weeklySeverityTotal: number;
 }
 
 /** Default discipline fields for new Pulse creation */
 export function createDefaultDisciplineFields(
   whyStatement: string,
   whyDiscipline: string,
+  enforcementMode: EnforcementMode = "SCORE_BASED",
 ): PulseDisciplineFields {
   return {
     disciplineScore: 100,
@@ -173,6 +200,7 @@ export function createDefaultDisciplineFields(
       lockoutUntil: null,
       noTradeDays: 0,
       cleanSessionsToLift: 0,
+      ntdWarningPending: false,
     },
     lastSessionDate: null,
     reflectionGatePending: false,
@@ -188,6 +216,8 @@ export function createDefaultDisciplineFields(
     maxTradesPerDay: null,
     consecutiveCleanDays: 0,
     sessionGateAckDate: null,
+    enforcementMode,
+    weeklySeverityTotal: 0,
   };
 }
 
@@ -242,8 +272,18 @@ export interface SessionSummary {
   hasViolations: boolean;
   /** Whether every required rule was followed on every trade */
   allRequiredRulesFollowed: boolean;
-  /** Whether at least one trade has a reflection > 50 chars */
+  /**
+   * @deprecated since v4.7.0 — superseded by `engagementScore`. Kept for
+   * backwards-compatible reads; no longer drives recovery math.
+   */
   hasFullJournal: boolean;
+  /**
+   * Per-section engagement credit for the session (v4.7.0+).
+   * 0–4 points: +1 each for psychology, context, reflection, learnings sections.
+   * Caller pre-computes via `computeEngagementCredit(sessionTrades)`.
+   * Applies even on violation days — the only recovery component that survives one.
+   */
+  engagementScore: number;
   /** Whether a reflection gate was completed this session (post-lockout) */
   reflectionGateCompleted: boolean;
   /** Consecutive clean days ending with this session (0 if this day has violations) */

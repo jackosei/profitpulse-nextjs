@@ -1,5 +1,204 @@
 # Changelog
 
+## [4.9.2] - 2026-05-23
+
+### Fixes
+- **Navbar buttons**: calculator button is now icon-only (label removed) and matches the icon-button style of the Help and Sign Out buttons (`bg-gray-800` resting state, `hover:bg-gray-600`).
+- **Help dropdown**: added `overflow-hidden` to prevent rounded corners being clipped by child hover backgrounds.
+
+---
+
+## [4.9.1] - 2026-05-23
+
+### Fixes
+- **Email notifications**: removed emojis from all subject lines and headings (WHY reminder, partner alert variants). Subjects now use a plain `ProfitPulse:` prefix.
+- **Email copy**: replaced em dash in WHY reminder body with parentheses.
+
+---
+
+## [4.9.0] - 2026-05-23
+
+Navigation overhaul, futures calculator, journal history, auth flow fixes, and in-app contact.
+
+### New Features
+
+#### In-app contact form
+- **Help dropdown** in navbar (? icon) replaces the floating FeedbackWidget. Items: Request a feature, Report a bug, Learning Resources, Contact Developers.
+- **Contact Developers modal**: subject selector + message textarea (20-char minimum). Sends via Resend to `hello@profitpulse.app` with the sender's email as `Reply-To`. Rate-limited to one message per user per 24 hours (enforced server-side via Firestore).
+
+#### Futures market support in Lot Size Calculator
+- Added 8 futures contracts: ES ($12.50/tick), MES ($1.25), NQ ($5.00), MNQ ($0.50), YM ($5.00), MYM ($0.50), CL ($10.00), GC ($10.00).
+- Futures branch: `contracts = floor(riskAmount / (stopLoss × tickValue))`. Output labelled "Contracts" with tick reference displayed.
+- Instrument dropdown now grouped by category (Forex, Metals, Indices, Energy, Crypto, Futures).
+
+#### Journal history in Profile
+- New accordion in the Profile page: browse past gratitude journal entries with server-side cursor pagination (7 per page, `orderBy('day', 'desc')`). Client-side search filters across all loaded entries.
+
+#### Sidebar profile footer + collapsible Pulses
+- **Profile footer**: avatar (photo or initials), display name, email, and settings-icon-on-hover moved to sidebar bottom. Ring highlights on hover.
+- **Collapsible Pulses**: active pulses listed as sub-links under the Pulses nav item. Auto-expands when navigating to a pulse detail page.
+- Desktop collapsed state: icon-only; profile footer shows avatar circle only.
+- Mobile bottom nav updated: Dashboard | Pulses | Profile (three items).
+
+### Fixes
+- **Login flash**: login page showed the form briefly even when the user was already authenticated and had journaled for the day. Guard added: `if (loading || user) return null`.
+- **Blank body post-logout**: logout now calls `router.replace('/login')` after `await logout()`, preventing the user from remaining on a protected page with an empty shell.
+- **Sign-out dialog persistence**: `confirmLogout` state now resets on auth change, so signing back in doesn't leave the dialog open.
+- **Pulse sidebar links**: sidebar was using `pulse.firestoreId` in hrefs; `getPulseById` queries by `pulse.id` (e.g. `TRAD052306`). Fixed to use `pulse.id`.
+
+### Internal
+- Root layout restructured to `flex-col` (Navbar full-width → inner `flex` row for Sidebar + main).
+- `src/config/navigation.ts` exports separate `navigationLinks` (desktop) and `mobileNavLinks` (mobile).
+- `src/types/css.d.ts` added to declare `*.css` side-effect imports for TypeScript.
+- `POST /api/contact` route: bearer token auth, Firestore rate-limit, Resend email dispatch.
+
+---
+
+## [4.7.2] - 2026-05-23
+
+### Fixes
+- **Build**: drop orphaned `currentScore`/`pulseData` reads in the discipline history route. The v4.6.1 baseline fix made them unused; ESLint was failing the build under `no-unused-vars`.
+
+---
+
+## [4.7.1] - 2026-05-23
+
+### Fixes
+- **Build**: profile page failed compilation under `no-unused-expressions` because a ternary in the journal "Show more/less" toggle was used purely for its side effects. Swapped to `if/else` — same behaviour, lint-clean.
+
+---
+
+## [4.7.0] - 2026-05-23
+
+Reward system overhaul: per-section engagement credit, rebalanced YELLOW/RED recovery caps.
+
+### New Features
+- **Engagement credit**: trades earn up to +4 recovery pts/day based on which optional sections are filled (psychology, context, reflection, learnings — 1 pt each). Engagement credit applies even on days with violations, so thorough journaling on a bad day still rewards reflection. Capped at +4/day so it can't out-pace clean-session bonuses.
+
+### Behaviour changes
+- **Recovery caps rebalanced**: YELLOW 10→15, RED 5→10, GREEN 13→15. A single −20 overtrading breach in RED is now recoverable in 2–3 days of clean sessions instead of 4+. Clean-session bonuses remain the fast lane to recovery.
+
+### Fixes
+- **Dead-letter `whatILearned` bonus removed**: the engine was checking `trade.reflection.whatILearned` for the +3 full-journal bonus, but the form never writes that field — the bonus was unreachable. Replaced with the per-section engagement credit which reads fields the form actually collects.
+
+### Internal
+- `SessionSummary.hasFullJournal` deprecated (still populated for backwards compat, but no longer drives recovery). New `engagementScore: number` field is the source of truth.
+
+---
+
+## [4.6.1] - 2026-05-23
+
+Discipline engine bug fixes: history chart baseline, risk-cap detection, and overtrading severity.
+
+### Fixes
+- **Discipline Score History chart**: chart was using the live (post-penalty) score as the starting baseline, making the "+X pts this period" delta always near zero. Now reads the most recent `violationLog` entry *before* the selected range to establish a true baseline; falls back to 100 for brand-new pulses.
+- **Risk-cap enforcement**: `evaluateViolations` was comparing trade risk against `maxRiskPerTrade` (the raw pulse limit), ignoring the active `riskCapPct` constraint. A 75% cap was invisible to the engine — the real-time form indicator showed the cap, but server-side detection missed it. Now resolves `effectiveRiskLimit = maxRiskPerTrade × riskCapPct` before comparison; violation details include `(75% cap active)` for clarity.
+
+### Behaviour changes
+- **Overtrading consequences strengthened**: `MAX_TRADES_PENALTY` bumped −8 → −20 (matches `NO_TRADE_DAY_VIOLATED`). Every `MAX_TRADES_PER_DAY` breach now sets `noTradeDays = 1` immediately, blocking further trades today and tomorrow. The existing first-weekly `tradeCapCount` logic still applies.
+
+---
+
+## [4.5.0] - 2026-05-23
+
+Pulse detail page UI/UX refinements: unified tabs + panel, new "By Day" trade view, calendar day-picker fix, and a richer Trade Details modal.
+
+### New Features
+
+#### Unified tabs + content
+- Tabs (Performance / Discipline / Trade Log) and the active panel now share a single bordered card. The selected tab uses an underline indicator that visually connects to the panel below — content clearly belongs to the active tab.
+- Subtle translucent `bg-white/[0.015]` overlay on the panel area to lift the content surface without adding visual weight.
+- Performance tab's date range + comparison controls moved onto the tab row itself (only visible when the Performance tab is active). Saves a row of vertical space and creates a more compact layout.
+
+#### "By Day" trade view (new default)
+- New `viewType: "by-day"` is now the default in the Trade Log tab. Trades are grouped by calendar day with a collapsible header showing count, win rate, and total P/L. Most recent day auto-expands.
+- Expanded rows show compact trade entries — type badge, instrument, entry reason snippet, entry time, P/L — clickable to open the full trade details.
+- View toggle reordered: **By Day** (default) → **Table** → **Calendar**, with `Layers` icon for the new option.
+
+#### Calendar day-picker
+- Clicking a day with multiple trades used to open only `dayTrades[0]`. Fixed: 1 trade opens directly; 2+ trades open a small picker modal listing all trades for that day so the trader can choose which to inspect.
+
+#### Trade Details — review-grade detail
+- Headline summary strip: type badge + instrument + outcome pill + bold P/L with %-of-account and R-multiple.
+- **Risk & R-Multiple** section (when engine metrics present): Intended Risk %, Planned R:R, Actual R, Exit Quality with contextual hints.
+- **Discipline** section: per-trade violations in a red-bordered card with severity badges, plus the rules followed list.
+- **Plan & Reflection** section: entry reason, learnings, would-repeat, emotional impact, mistakes identified (bulleted), improvement ideas.
+- **Psychology** section: emotional state + intensity, mental state, plan adherence, impulsive entry — color-coded.
+- **Context** section: market condition, time of day, environment.
+- **Screenshots** section: entry/exit thumbnails opening in a new tab.
+- Each section renders only when its data is present.
+
+### Fixes
+- LimitsTracker collapsible header padding tightened (`py-3` → `py-2`); expanded content rebalanced (`pt-1` + bars `mt-3` → unified `pt-3`).
+
+---
+
+## [4.4.0] - 2026-05-20
+
+Adaptive enforcement engine: per-pulse choice between Score-based and Severity-based tier ladders.
+
+### New Features
+
+#### Unified tier ladder driven by a per-pulse signal
+- Discipline engine restructured around a single tier ladder (Tier 1–5) shared across all violation types. Tier outcomes (75% cap → 50% cap + warning → NTD + 50% cap → extended NTD) are the same regardless of mode; only the trigger signal differs.
+- Each pulse picks one of two enforcement modes at creation:
+  - `SCORE_BASED` (default): tier triggered by discipline score crossing thresholds (≥85, ≥70, ≥55, ≥40). Recovery is action-based via clean sessions, journal bonuses, streaks.
+  - `SEVERITY_BASED`: tier triggered by weekly cumulative violation severity (5, 15, 25, 40). Recovery is time-based via Monday reset.
+- `EnforcementModeDetailsModal` side-by-side comparison surfaced from both CreatePulseModal and UpdatePulseModal via "Learn more". Existing pulses default to `SCORE_BASED` via read-time fallback.
+
+#### Warn-then-lock at tier 4
+- First time a trader crosses into tier 4 territory the engine sets `ntdWarningPending = true` and applies only the 50% cap (no immediate NTD). The trader gets explicit advance notice via an amber "NTD on next breach" chip in the DisciplineMeter. The next tier-4 condition fires the actual no-trade day.
+- NTD now extends by 1 day when triggered during an active NTD (previously `Math.max(1, 1) = 1` left it unchanged).
+
+#### WHY reminder on first risk breach
+- Per spec, "breach 1 = WHY prompt only" — but the email/SMS only fired on zone degradation, so first-ever risk breaches dropping from 100 → 95 stayed silent. Now fires the WHY reminder on first weekly RISK_PER_TRADE breach regardless of zone state.
+
+#### Accountability partner alerts wired to the tier ladder
+- `PartnerAlertBreachType` union extended with `NTD_WARNING` and `NO_TRADE_DAY` so the partner gets notified when the engine escalates regardless of which violation type triggered it.
+- One alert per trade, picked by priority: `TOTAL_DRAWDOWN_LOCKED` > `NO_TRADE_DAY` > `DAILY_DRAWDOWN` > `NTD_WARNING`. Prevents partner inbox spam when a single trade trips multiple signals.
+- Mode-independent — works the same in Score-based and Severity-based pulses since both flow through `noTradeDays` / `ntdWarningPending` state.
+
+### Schema
+- New `EnforcementMode` type in `disciplineTypes.ts`.
+- `PulseDisciplineFields` gains `enforcementMode` and `weeklySeverityTotal`.
+- `ActiveConstraints` gains `ntdWarningPending`.
+
+### Fixes
+- Removed accidental "breach 1 with no cap → 75% cap" escalation introduced in v4.3 — first weekly risk breach now correctly fires WHY-only with no cap, matching the spec.
+- Severity total resets to 0 alongside `weeklyBreachCounts` on the Monday boundary.
+
+---
+
+## [4.3.0] - 2026-05-20
+
+Pulse Detail Page UX Refactor: tabbed layout for Performance / Discipline / Trade Log with persistent Vitals strip.
+
+### New Features
+
+#### Tabbed Pulse Detail Layout
+- New top-level navigation on the pulse detail page splits content into three focused tabs: **Performance** (KPIs + equity curve), **Discipline** (score, meter, limits, score-over-time chart, violations), and **Trade Log** (table/calendar).
+- New `PulseTabs.tsx` component — accessible tab navigation with `role="tablist"`/`role="tab"`, optional per-tab badges (used to surface the active-constraint count on the Discipline tab).
+- Tab state is persisted to the URL as `?tab=performance|discipline|trades` via `router.replace(..., { scroll: false })` — survives refresh, supports back/forward navigation, and shareable links.
+- **Smart default tab**: opens to Discipline when active constraints exist, zone ≠ GREEN, or a reflection gate is pending; otherwise defaults to Performance.
+
+#### Persistent Vitals Strip
+- New `PulseVitals.tsx` — always-visible compact strip above the tabs.
+- Shows zone label + score, today's P/L (color-coded), today's trade count (vs daily cap when set), consecutive clean-day streak (when > 0), and a button that jumps to the Discipline tab when constraints are active.
+- Guarantees critical discipline state never gets hidden behind a tab choice.
+
+#### Global Log Trade Button
+- Added a primary `+ Log Trade` CTA to `PulseHeader` so trade logging is reachable from any tab.
+- Disabled state shown when the pulse is locked.
+
+### Removed
+- `ChartsCard.tsx` — the tabbed-chart pattern (Equity Curve | Discipline Score) is obsolete now that each chart lives in its own tab with a dedicated card header.
+
+### Fixes
+- Removed `overflow-hidden` from the `PulseHeader` container that was clipping the actions dropdown menu.
+- Tab change no longer scrolls the page to top (`scroll: false` on `router.replace`).
+
+---
+
 ## [4.2.0] - 2026-05-19
 
 Phase 3 - Sprint 2: Multi-session Risk Cap Countdown, DisciplineMeter UX Overhaul, Streak Badge, and Premium Empty States.

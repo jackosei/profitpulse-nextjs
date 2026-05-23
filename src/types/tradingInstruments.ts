@@ -1,10 +1,12 @@
 export interface TradingInstrument {
     name: string;
     symbol: string;
-    type: 'forex' | 'metals' | 'indices' | 'crypto';
+    type: 'forex' | 'metals' | 'indices' | 'crypto' | 'futures';
     lotSizeMultiplier: number;
-    pipCalculation: 'standard' | 'percentage';
+    pipCalculation: 'standard' | 'percentage' | 'futures';
     pipValue?: number;
+    tickValue?: number;  // $ per tick per contract (futures only)
+    tickSize?: number;   // minimum price increment (futures only)
     minLotSize: number;
     maxLotSize: number;
     description: string;
@@ -195,5 +197,103 @@ export interface TradingInstrument {
       minLotSize: 0.01,
       maxLotSize: 100,
       description: 'Ethereum vs US Dollar'
-    }
+    },
+
+    // Futures (CME/CBOT) — position sized in contracts, stop loss in ticks
+    {
+      name: 'ES',
+      symbol: 'ES',
+      type: 'futures',
+      lotSizeMultiplier: 1,
+      pipCalculation: 'futures',
+      tickValue: 12.50,
+      tickSize: 0.25,
+      minLotSize: 1,
+      maxLotSize: 50,
+      description: 'E-mini S&P 500'
+    },
+    {
+      name: 'MES',
+      symbol: 'MES',
+      type: 'futures',
+      lotSizeMultiplier: 1,
+      pipCalculation: 'futures',
+      tickValue: 1.25,
+      tickSize: 0.25,
+      minLotSize: 1,
+      maxLotSize: 50,
+      description: 'Micro E-mini S&P 500'
+    },
+    {
+      name: 'NQ',
+      symbol: 'NQ',
+      type: 'futures',
+      lotSizeMultiplier: 1,
+      pipCalculation: 'futures',
+      tickValue: 5.00,
+      tickSize: 0.25,
+      minLotSize: 1,
+      maxLotSize: 50,
+      description: 'E-mini Nasdaq 100'
+    },
+    {
+      name: 'MNQ',
+      symbol: 'MNQ',
+      type: 'futures',
+      lotSizeMultiplier: 1,
+      pipCalculation: 'futures',
+      tickValue: 0.50,
+      tickSize: 0.25,
+      minLotSize: 1,
+      maxLotSize: 50,
+      description: 'Micro E-mini Nasdaq 100'
+    },
+    {
+      name: 'YM',
+      symbol: 'YM',
+      type: 'futures',
+      lotSizeMultiplier: 1,
+      pipCalculation: 'futures',
+      tickValue: 5.00,
+      tickSize: 1,
+      minLotSize: 1,
+      maxLotSize: 50,
+      description: 'E-mini Dow Jones'
+    },
+    {
+      name: 'MYM',
+      symbol: 'MYM',
+      type: 'futures',
+      lotSizeMultiplier: 1,
+      pipCalculation: 'futures',
+      tickValue: 0.50,
+      tickSize: 1,
+      minLotSize: 1,
+      maxLotSize: 50,
+      description: 'Micro E-mini Dow Jones'
+    },
+    {
+      name: 'CL',
+      symbol: 'CL',
+      type: 'futures',
+      lotSizeMultiplier: 1,
+      pipCalculation: 'futures',
+      tickValue: 10.00,
+      tickSize: 0.01,
+      minLotSize: 1,
+      maxLotSize: 50,
+      description: 'Crude Oil (WTI)'
+    },
+    {
+      name: 'GC',
+      symbol: 'GC',
+      type: 'futures',
+      lotSizeMultiplier: 1,
+      pipCalculation: 'futures',
+      tickValue: 10.00,
+      tickSize: 0.10,
+      minLotSize: 1,
+      maxLotSize: 50,
+      description: 'Gold Futures'
+    },
   ];

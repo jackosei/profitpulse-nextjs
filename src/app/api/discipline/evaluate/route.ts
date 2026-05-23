@@ -31,6 +31,7 @@ import {
   applyScorePenalties,
   getZone,
   computeRecovery,
+  computeEngagementCredit,
 } from "@/lib/disciplineEngine";
 import type {
   EvaluationContext,
@@ -130,7 +131,7 @@ export async function POST(request: Request) {
     const discipline = pulseData.discipline;
     const calendarToday = new Date().toISOString().split("T")[0];
     const earlyConstraints: ActiveConstraints = discipline?.activeConstraints ?? {
-      riskCapPct: null, tradeCapCount: null, lockoutUntil: null, noTradeDays: 0, cleanSessionsToLift: 0,
+      riskCapPct: null, tradeCapCount: null, lockoutUntil: null, noTradeDays: 0, cleanSessionsToLift: 0, ntdWarningPending: false,
     };
     const hasAnyCaps =
       earlyConstraints.riskCapPct !== null ||
@@ -214,7 +215,7 @@ export async function POST(request: Request) {
     const isNewDay = lastSessionDate !== null && lastSessionDate !== today;
 
     if (isNewDay && discipline && dailyTradeCount === 0) {
-      // ── Weekly breach count reset (Monday boundary) ────────────────
+      // ── Weekly breach count + severity total reset (Monday boundary) ─
       const resetCounts = computeWeeklyReset(
         discipline.weeklyBreachCounts ?? {
           riskPerTrade: 0, drawdownDaily: 0, drawdownTotal: 0, overtrading: 0,
@@ -229,8 +230,11 @@ export async function POST(request: Request) {
       if (countsChanged) {
         await adminDb.collection("pulses").doc(firestoreId).update({
           "discipline.weeklyBreachCounts": resetCounts,
+          // Severity total tracks the same week — reset together.
+          "discipline.weeklySeverityTotal": 0,
         });
         discipline.weeklyBreachCounts = resetCounts;
+        discipline.weeklySeverityTotal = 0;
       }
 
       // ── Constraint lifting (clean previous session) ────────────────
@@ -249,7 +253,7 @@ export async function POST(request: Request) {
 
       // Lift constraints if previous capped session was clean
       const existingConstraints = discipline.activeConstraints ?? {
-        riskCapPct: null, tradeCapCount: null, lockoutUntil: null, noTradeDays: 0, cleanSessionsToLift: 0,
+        riskCapPct: null, tradeCapCount: null, lockoutUntil: null, noTradeDays: 0, cleanSessionsToLift: 0, ntdWarningPending: false,
       };
       const { liftedConstraints, recoveryBonus: liftBonus } =
         shouldLiftConstraints(existingConstraints, sessionWasClean);
@@ -290,17 +294,17 @@ export async function POST(request: Request) {
           ),
         );
 
-      const hasFullJournal = prevTrades.some(
-        (t) =>
-          typeof t.reflection?.whatILearned === "string" &&
-          (t.reflection.whatILearned as string).trim().length > 50,
-      );
+      // v4.7.0: per-section engagement credit. Replaces the broken
+      // `reflection.whatILearned` check (that field was never written by
+      // the form, so the old +3 full-journal bonus was unreachable).
+      const engagementScore = computeEngagementCredit(prevTrades);
 
       const prevSession: SessionSummary = {
         tradeCount: prevTrades.length,
         hasViolations: prevHasViolations,
         allRequiredRulesFollowed: allRequiredFollowed,
-        hasFullJournal,
+        hasFullJournal: engagementScore >= 2,  // deprecated field; derive for legacy reads
+        engagementScore,
         reflectionGateCompleted: false,
         // Pass the NEW streak (after today's increment) so computeRecovery
         // can apply the +10 bonus if we've just completed day 3+
@@ -326,7 +330,7 @@ export async function POST(request: Request) {
           discipline.disciplineState ?? "NORMAL",
           recoveredScore,
           discipline.activeConstraints ?? {
-            riskCapPct: null, tradeCapCount: null, lockoutUntil: null, noTradeDays: 0, cleanSessionsToLift: 0,
+            riskCapPct: null, tradeCapCount: null, lockoutUntil: null, noTradeDays: 0, cleanSessionsToLift: 0, ntdWarningPending: false,
           },
         );
         await adminDb.collection("pulses").doc(firestoreId).update({
@@ -350,14 +354,15 @@ export async function POST(request: Request) {
     }, 0);
 
     // ── Build evaluation context ───────────────────────────────────────
-    const defaultConstraints = {
+    const defaultConstraints: ActiveConstraints = {
       riskCapPct: null,
       tradeCapCount: null,
       lockoutUntil: null,
       noTradeDays: 0,
       cleanSessionsToLift: 0,
+      ntdWarningPending: false,
     };
-    const currentConstraints = discipline?.activeConstraints ?? defaultConstraints;
+    const currentConstraints: ActiveConstraints = discipline?.activeConstraints ?? defaultConstraints;
 
     const ctx: EvaluationContext = {
       accountSize: pulseData.accountSize,
@@ -575,14 +580,30 @@ export async function POST(request: Request) {
         }
       }
 
-      // ── Compute enforcement constraints ────────────────────────────
-      // Pass currentConstraints so escalation can fire when an existing cap
-      // is active even after the weekly counter reset.
+      // ── Weekly severity total (used by SEVERITY_BASED tier ladder) ───
+      // Accumulate the AMPLIFIED severity so zone amplification feeds back
+      // into the tier signal. Reset on Monday alongside breach counts.
+      const currentSeverityTotal = discipline.weeklySeverityTotal ?? 0;
+      const thisTradeSeverity = amplifiedViolations.reduce(
+        (sum, v) => sum + v.severity,
+        0,
+      );
+      const updatedSeverityTotal = currentSeverityTotal + thisTradeSeverity;
+
+      // ── Compute enforcement constraints (mode-driven tier ladder) ──
+      const enforcementMode = discipline.enforcementMode ?? "SCORE_BASED";
       const { constraints: incomingConstraints, reflectionGatePending, isLockedPermanently } =
         computeConstraints(
           violations,
-          updatedCounts,
-          discipline.maxTradesPerDay ?? null,
+          {
+            scoreAfter: newScore,
+            weeklySeverityTotalAfter: updatedSeverityTotal,
+            weeklyBreachCounts: updatedCounts,
+          },
+          {
+            enforcementMode,
+            maxTradesPerDay: discipline.maxTradesPerDay ?? null,
+          },
           currentConstraints,
         );
       newConstraints = mergeConstraints(currentConstraints, incomingConstraints);
@@ -603,6 +624,7 @@ export async function POST(request: Request) {
             reflectionGatePending || (discipline.reflectionGatePending ?? false),
           "discipline.lastSessionDate": today,
           "discipline.weeklyBreachCounts": updatedCounts,
+          "discipline.weeklySeverityTotal": updatedSeverityTotal,
           // Reset streak — any violation day breaks the consecutive clean chain
           "discipline.consecutiveCleanDays": 0,
         });
@@ -635,36 +657,85 @@ export async function POST(request: Request) {
         }
       }
 
-      // ── Tier 2: Daily drawdown alert ────────────────────────────────
-      const hasDailyDrawdownBreach = violations.some(
-        (v) => v.type === "DAILY_DRAWDOWN",
-      );
-      if (hasDailyDrawdownBreach && discipline.accountabilityPartnerEmail) {
-        void sendPartnerAlert({
-          partnerEmail: discipline.accountabilityPartnerEmail,
-          traderName: pulseData.userId,
-          pulseName: pulseData.name,
-          breachType: "DAILY_DRAWDOWN",
-          disciplineScore: newScore,
-          details: "Daily drawdown limit hit.",
-        });
-        void sendPartnerAlertSMS({
-          to: "",
-          traderName: pulseData.userId,
-          pulseName: pulseData.name,
-          breachType: "DAILY_DRAWDOWN",
-        });
+      // ── Tier 2: Partner alert ───────────────────────────────────────
+      // Single alert per trade — picked by priority so the partner gets the
+      // most salient signal rather than a flurry of overlapping emails.
+      // Priority (high → low):
+      //   1. TOTAL_DRAWDOWN_LOCKED — handled above with isLockedPermanently
+      //   2. NO_TRADE_DAY — NTD freshly applied (0 → >0)
+      //   3. DAILY_DRAWDOWN — DD breach this trade
+      //   4. NTD_WARNING — warn-then-lock first crossing into tier 4
+      if (discipline.accountabilityPartnerEmail && !isLockedPermanently) {
+        const ntdJustApplied =
+          (currentConstraints.noTradeDays ?? 0) === 0 &&
+          newConstraints.noTradeDays > 0;
+        const warningJustSet =
+          !currentConstraints.ntdWarningPending &&
+          newConstraints.ntdWarningPending;
+        const hasDailyDrawdownBreach = violations.some(
+          (v) => v.type === ViolationType.DAILY_DRAWDOWN,
+        );
+
+        let alert: {
+          breachType: "DAILY_DRAWDOWN" | "NTD_WARNING" | "NO_TRADE_DAY";
+          details: string;
+        } | null = null;
+
+        if (ntdJustApplied) {
+          alert = {
+            breachType: "NO_TRADE_DAY",
+            details: `No-trade day applied (${newConstraints.noTradeDays} day${newConstraints.noTradeDays === 1 ? "" : "s"} remaining). 50% risk cap active.`,
+          };
+        } else if (hasDailyDrawdownBreach) {
+          alert = {
+            breachType: "DAILY_DRAWDOWN",
+            details: "Daily drawdown limit hit.",
+          };
+        } else if (warningJustSet) {
+          alert = {
+            breachType: "NTD_WARNING",
+            details: "Discipline engine entered tier 4 — next risk breach will trigger a no-trade day. 50% risk cap is now active.",
+          };
+        }
+
+        if (alert) {
+          void sendPartnerAlert({
+            partnerEmail: discipline.accountabilityPartnerEmail,
+            traderName: pulseData.userId,
+            pulseName: pulseData.name,
+            breachType: alert.breachType,
+            disciplineScore: newScore,
+            details: alert.details,
+          });
+          void sendPartnerAlertSMS({
+            to: "",
+            traderName: pulseData.userId,
+            pulseName: pulseData.name,
+            breachType: alert.breachType,
+          });
+        }
       }
 
-      // ── Tier 1: WHY reminder on zone degradation ─────────────────────
+      // ── Tier 1: WHY reminder ──────────────────────────────────────────
+      // Fires on (a) zone degradation OR (b) first risk-per-trade breach of
+      // the week (spec: "breach 1 = WHY prompt only"). The second condition
+      // ensures the trader always gets feedback on their first weekly risk
+      // breach even when the score deduction doesn't degrade the zone.
       const prevZone = getZone(discipline.disciplineScore ?? 100);
       const zoneWorsened =
         (prevZone === "GREEN" && (newZone === "YELLOW" || newZone === "RED")) ||
         (prevZone === "YELLOW" && newZone === "RED");
-      if (zoneWorsened && pulseData.userId) {
-        // Fire-and-forget — fetch trader email from Admin Auth
+      const isFirstRiskBreachOfWeek =
+        violations.some((v) => v.type === ViolationType.RISK_PER_TRADE) &&
+        updatedCounts.riskPerTrade === 1;
+      const shouldFireWHY = zoneWorsened || isFirstRiskBreachOfWeek;
+      if (shouldFireWHY && pulseData.userId) {
+        // Fire-and-forget — fetch trader email from Admin Auth.
+        // Send the WHY nudge regardless of zone when triggered by a first
+        // risk breach (the breach-1 WHY-prompt spec); zone-worsened path
+        // also benefits.
         void admin.auth().getUser(pulseData.userId).then((userRecord) => {
-          if (userRecord.email && newZone !== "GREEN") {
+          if (userRecord.email) {
             void sendWHYReminder({
               traderEmail: userRecord.email,
               traderName: userRecord.displayName ?? userRecord.email,

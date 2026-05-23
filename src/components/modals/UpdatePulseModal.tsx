@@ -10,6 +10,9 @@ import { v4 as uuidv4 } from 'uuid';
 import { usePulse } from '@/hooks/usePulse';
 import { getDefaultPointValue } from '@/lib/instrumentPointValues';
 import { useModalEscape } from '@/hooks/useModalEscape';
+import type { EnforcementMode } from '@/lib/disciplineTypes';
+import EnforcementModeDetailsModal from '@/components/modals/EnforcementModeDetailsModal';
+import { Zap, Clock } from 'lucide-react';
 
 interface UpdatePulseModalProps {
   isOpen: boolean;
@@ -46,6 +49,10 @@ export default function UpdatePulseModal({ isOpen, onClose, onSuccess, pulse }: 
   const [partnerEmail, setPartnerEmail] = useState(
     pulse?.discipline?.accountabilityPartnerEmail ?? ''
   );
+  const [enforcementMode, setEnforcementMode] = useState<EnforcementMode>(
+    pulse?.discipline?.enforcementMode ?? 'SCORE_BASED'
+  );
+  const [showEnforcementDetails, setShowEnforcementDetails] = useState(false);
   const [error, setError] = useState('');
 
   const handleAddRule = () => {
@@ -174,6 +181,7 @@ export default function UpdatePulseModal({ isOpen, onClose, onSuccess, pulse }: 
         tradingRules: tradingRules,
         updateReason: formData.updateReason,
         accountabilityPartnerEmail: partnerEmail.trim() || null,
+        enforcementMode,
       };
 
       const success = await updatePulse(pulse.id, user.uid, updateData);
@@ -470,6 +478,59 @@ export default function UpdatePulseModal({ isOpen, onClose, onSuccess, pulse }: 
                       </p>
                     </div>
 
+                    {/* Enforcement mode */}
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <label className="block text-sm text-gray-400">
+                          Enforcement style
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => setShowEnforcementDetails(true)}
+                          className="text-xs text-blue-400 hover:text-blue-300 underline"
+                        >
+                          Learn more
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setEnforcementMode('SCORE_BASED')}
+                          disabled={isSubmitting}
+                          className={`text-left rounded-lg border p-3 transition-colors ${
+                            enforcementMode === 'SCORE_BASED'
+                              ? 'border-blue-500/50 bg-blue-500/10'
+                              : 'border-gray-700/60 bg-dark/40 hover:border-gray-600'
+                          }`}
+                        >
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <Zap className={`w-3.5 h-3.5 ${enforcementMode === 'SCORE_BASED' ? 'text-blue-400' : 'text-gray-500'}`} />
+                            <span className={`text-sm font-semibold ${enforcementMode === 'SCORE_BASED' ? 'text-blue-300' : 'text-gray-300'}`}>Score-based</span>
+                          </div>
+                          <p className="text-xs text-gray-400 leading-snug">Recovery via clean sessions.</p>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setEnforcementMode('SEVERITY_BASED')}
+                          disabled={isSubmitting}
+                          className={`text-left rounded-lg border p-3 transition-colors ${
+                            enforcementMode === 'SEVERITY_BASED'
+                              ? 'border-purple-500/50 bg-purple-500/10'
+                              : 'border-gray-700/60 bg-dark/40 hover:border-gray-600'
+                          }`}
+                        >
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <Clock className={`w-3.5 h-3.5 ${enforcementMode === 'SEVERITY_BASED' ? 'text-purple-400' : 'text-gray-500'}`} />
+                            <span className={`text-sm font-semibold ${enforcementMode === 'SEVERITY_BASED' ? 'text-purple-300' : 'text-gray-300'}`}>Severity-based</span>
+                          </div>
+                          <p className="text-xs text-gray-400 leading-snug">Monday clears last week&apos;s slate.</p>
+                        </button>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-2">
+                        Changing this won&apos;t reset your current breach counts or active constraints.
+                      </p>
+                    </div>
+
                     {error && (
                       <div className="p-3 bg-red-900/50 border border-red-800 rounded-lg">
                         <p className="text-red-500 text-sm">{error}</p>
@@ -504,6 +565,11 @@ export default function UpdatePulseModal({ isOpen, onClose, onSuccess, pulse }: 
             </div>
         </div>
       </div>
+
+      <EnforcementModeDetailsModal
+        isOpen={showEnforcementDetails}
+        onClose={() => setShowEnforcementDetails(false)}
+      />
     </div>
   );
 } 

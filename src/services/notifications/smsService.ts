@@ -100,17 +100,19 @@ export async function sendWHYReminderSMS(opts: {
   });
 }
 
-/** Tier 2: Partner alert SMS on drawdown breach or lockout */
+/** Tier 2: Partner alert SMS on drawdown breach, lockout, NTD warning, or NTD applied */
 export async function sendPartnerAlertSMS(opts: {
   to: string;
   traderName: string;
   pulseName: string;
-  breachType: "DAILY_DRAWDOWN" | "TOTAL_DRAWDOWN_LOCKED";
+  breachType: "DAILY_DRAWDOWN" | "TOTAL_DRAWDOWN_LOCKED" | "NTD_WARNING" | "NO_TRADE_DAY";
 }): Promise<void> {
-  const msg =
-    opts.breachType === "TOTAL_DRAWDOWN_LOCKED"
-      ? `${opts.traderName} has been locked out of "${opts.pulseName}" on ProfitPulse after hitting their total drawdown limit. They need your support.`
-      : `${opts.traderName} hit their daily drawdown limit on "${opts.pulseName}" on ProfitPulse. Reach out and encourage them.`;
+  const messages: Record<typeof opts.breachType, string> = {
+    TOTAL_DRAWDOWN_LOCKED: `${opts.traderName} has been locked out of "${opts.pulseName}" after hitting their total drawdown limit. They need your support.`,
+    NO_TRADE_DAY: `${opts.traderName} is on a no-trade day on "${opts.pulseName}". Their discipline engine has escalated to a hard lockout. Reach out.`,
+    DAILY_DRAWDOWN: `${opts.traderName} hit their daily drawdown limit on "${opts.pulseName}". Reach out and encourage them.`,
+    NTD_WARNING: `${opts.traderName} is one breach away from a no-trade day on "${opts.pulseName}". A check-in could prevent escalation.`,
+  };
 
-  await sendSMS({ to: opts.to, body: `ProfitPulse — ${msg}` });
+  await sendSMS({ to: opts.to, body: `ProfitPulse — ${messages[opts.breachType]}` });
 }

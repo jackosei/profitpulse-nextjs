@@ -1,4 +1,5 @@
 import { Pulse, Trade, PulseStatus, TradeRule } from "@/types/pulse";
+import type { EnforcementMode } from "@/lib/disciplineTypes";
 import {
   ApiResponse,
   createErrorResponse,
@@ -23,6 +24,8 @@ export interface PulseCreateData {
   whyStatement?: string;
   whyDiscipline?: string;
   maxTradesPerDay?: number | null;
+  /** Enforcement signal driver (defaults to SCORE_BASED on the server). */
+  enforcementMode?: EnforcementMode;
 }
 
 // Types for updatePulse
@@ -38,6 +41,8 @@ export interface PulseUpdateData {
   updateReason: string;
   /** Accountability partner email for Tier 2 notifications — null clears it */
   accountabilityPartnerEmail?: string | null;
+  /** Allow changing the enforcement mode after pulse creation. */
+  enforcementMode?: EnforcementMode;
 }
 
 // Types for createTrade - matches nested Trade structure

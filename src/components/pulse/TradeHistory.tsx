@@ -1,9 +1,10 @@
 import { Trade, Pulse, isPulseLocked, PULSE_MESSAGES } from "@/types/pulse";
-import { useRef, useEffect, useState, useCallback } from "react";
+import { useRef, useEffect, useState, useCallback, useMemo } from "react";
 import TradeDetailsModal from "@/components/modals/TradeDetailsModal";
-import { TableIcon, CalendarIcon } from "lucide-react";
+import { TableIcon, CalendarIcon, Layers, ChevronDown, ChevronRight } from "lucide-react";
+import { formatCurrency } from "@/utils/format";
 
-type ViewType = "table" | "calendar";
+type ViewType = "by-day" | "table" | "calendar";
 
 interface TradeHistoryProps {
   trades: Trade[];
@@ -70,6 +71,18 @@ export default function TradeHistory({
             {/* View Toggle */}
             <div className="bg-gray-800/80 rounded-md p-0.5 flex">
               <button
+                type="button"
+                onClick={() => onViewTypeChange("by-day")}
+                className={`p-1.5 rounded-md ${viewType === "by-day"
+                  ? "bg-blue-600 text-white"
+                  : "text-gray-400 hover:text-white"
+                  } transition-colors flex items-center`}
+                title="By Day (grouped)"
+              >
+                <Layers className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
                 onClick={() => onViewTypeChange("table")}
                 className={`p-1.5 rounded-md ${viewType === "table"
                   ? "bg-blue-600 text-white"
@@ -80,6 +93,7 @@ export default function TradeHistory({
                 <TableIcon className="h-4 w-4" />
               </button>
               <button
+                type="button"
                 onClick={() => onViewTypeChange("calendar")}
                 className={`p-1.5 rounded-md ${viewType === "calendar"
                   ? "bg-blue-600 text-white"
@@ -102,6 +116,9 @@ export default function TradeHistory({
           </button>
         </div>
       </div>
+      {viewType === "by-day" ? (
+        <ByDayView trades={trades} onView={(t) => setSelectedTrade(t)} />
+      ) : (
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead className="bg-gray-800/50">
@@ -202,8 +219,9 @@ export default function TradeHistory({
           </tbody>
         </table>
       </div>
+      )}
 
-      {hasMore && (
+      {hasMore && viewType === "table" && (
         <div ref={observerTarget} className="p-4 text-center text-gray-400">
           {loadingMore ? "Loading more trades..." : "Scroll for more"}
         </div>
@@ -218,6 +236,145 @@ export default function TradeHistory({
           onRefresh={onRefresh}
         />
       )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// By Day view — groups trades by their `date` field, sorts descending, and
+// renders each day as a collapsible row with a summary (count, P/L, win rate).
+// Auto-expands the most recent day on first render so the trader sees today's
+// activity at a glance.
+// ---------------------------------------------------------------------------
+
+function formatDayHeader(dateStr: string): string {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr;
+  const [y, m, d] = dateStr.split("-");
+  const date = new Date(Number(y), Number(m) - 1, Number(d));
+  return date.toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function ByDayView({ trades, onView }: { trades: Trade[]; onView: (t: Trade) => void }) {
+  const grouped = useMemo(() => {
+    const map = new Map<string, Trade[]>();
+    for (const t of trades ?? []) {
+      const key = t.date;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(t);
+    }
+    return Array.from(map.entries()).sort((a, b) => b[0].localeCompare(a[0]));
+  }, [trades]);
+
+  // Default: expand the most recent day only
+  const [expanded, setExpanded] = useState<Set<string>>(() => {
+    return grouped.length > 0 ? new Set([grouped[0][0]]) : new Set();
+  });
+
+  const toggle = (date: string) => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(date)) next.delete(date);
+      else next.add(date);
+      return next;
+    });
+  };
+
+  if (grouped.length === 0) {
+    return (
+      <div className="p-12 flex flex-col items-center justify-center text-center">
+        <div className="w-16 h-16 bg-gray-800/50 rounded-full flex items-center justify-center mb-4">
+          <svg className="w-8 h-8 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+        </div>
+        <h3 className="text-lg font-medium text-gray-200 mb-2">No trades recorded yet</h3>
+        <p className="text-gray-400 text-sm max-w-sm">
+          Log your first trade to start tracking performance and discipline metrics.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="divide-y divide-gray-800">
+      {grouped.map(([date, dayTrades]) => {
+        const isExpanded = expanded.has(date);
+        const totalPL = dayTrades.reduce((sum, t) => sum + (t.performance?.profitLoss ?? 0), 0);
+        const wins = dayTrades.filter((t) => t.outcome === "Win").length;
+        const winRate = dayTrades.length > 0 ? Math.round((wins / dayTrades.length) * 100) : 0;
+        const plClass = totalPL > 0 ? "text-emerald-400" : totalPL < 0 ? "text-red-400" : "text-gray-300";
+
+        return (
+          <div key={date}>
+            {/* Day header */}
+            <button
+              type="button"
+              onClick={() => toggle(date)}
+              className="w-full flex items-center justify-between gap-3 px-4 py-3 hover:bg-gray-800/30 transition-colors text-left"
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                {isExpanded
+                  ? <ChevronDown className="w-4 h-4 text-gray-500 shrink-0" />
+                  : <ChevronRight className="w-4 h-4 text-gray-500 shrink-0" />
+                }
+                <span className="text-sm font-semibold text-gray-200">{formatDayHeader(date)}</span>
+                <span className="text-xs text-gray-500">{dayTrades.length} trade{dayTrades.length !== 1 ? "s" : ""}</span>
+              </div>
+              <div className="flex items-center gap-3 shrink-0">
+                <span className="text-[11px] text-gray-500 tabular-nums hidden sm:inline">{winRate}% win</span>
+                <span className={`text-sm font-bold tabular-nums ${plClass}`}>
+                  {totalPL > 0 ? "+" : ""}{formatCurrency(totalPL)}
+                </span>
+              </div>
+            </button>
+
+            {/* Trade rows */}
+            {isExpanded && (
+              <div className="bg-dark/30">
+                {dayTrades.map((trade) => {
+                  const pl = trade.performance?.profitLoss ?? 0;
+                  const plRowClass = pl > 0 ? "text-emerald-400" : pl < 0 ? "text-red-400" : "text-gray-300";
+                  return (
+                    <button
+                      key={trade.id}
+                      type="button"
+                      onClick={() => onView(trade)}
+                      className="w-full flex items-center justify-between gap-3 px-4 pl-10 py-2.5 hover:bg-gray-800/40 transition-colors text-left border-t border-gray-800/40"
+                    >
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                        <span
+                          className={`text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded shrink-0 ${
+                            trade.type === "Buy"
+                              ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                              : "bg-red-500/10 text-red-400 border border-red-500/20"
+                          }`}
+                        >
+                          {trade.type}
+                        </span>
+                        <span className="text-sm font-medium text-gray-200 shrink-0">{trade.instrument || "—"}</span>
+                        <span className="text-xs text-gray-500 truncate hidden md:inline">
+                          {trade.execution?.entryReason || ""}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3 shrink-0">
+                        <span className="text-[11px] text-gray-500">{trade.execution?.entryTime || ""}</span>
+                        <span className={`text-sm font-semibold tabular-nums w-20 text-right ${plRowClass}`}>
+                          {pl > 0 ? "+" : ""}{formatCurrency(pl)}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }

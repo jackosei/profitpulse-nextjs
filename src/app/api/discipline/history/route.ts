@@ -123,8 +123,6 @@ export async function GET(request: NextRequest) {
 
     const pulseDoc = pulseSnap.docs[0];
     const firestoreId = pulseDoc.id;
-    const pulseData = pulseDoc.data();
-    const currentScore: number = pulseData?.discipline?.disciplineScore ?? 100;
 
     // ── Determine date range ─────────────────────────────────────────────
     const today = new Date().toISOString().split("T")[0];
@@ -151,8 +149,25 @@ export async function GET(request: NextRequest) {
     }
 
     // ── Fill date series with carry-forward ──────────────────────────────
-    // The starting score is the current pulse score (best proxy when no violations exist)
-    const series = fillDateSeries(scoreByDate, startDate, today, currentScore);
+    // Starting score: use the scoreAfter from the very first violation log entry
+    // that pre-dates our window (i.e. what the score was just before the period
+    // started). Falling back to 100 (not the current score) keeps the baseline
+    // correct — the current score is the *result* of all penalties, not the start.
+    const firstLogBeforeWindow = await adminDb
+      .collection("pulses")
+      .doc(firestoreId)
+      .collection("violationLog")
+      .where("sessionDate", "<", startDate)
+      .orderBy("sessionDate", "desc")
+      .orderBy("timestamp", "desc")
+      .limit(1)
+      .get();
+
+    const initialScore: number = firstLogBeforeWindow.empty
+      ? 100
+      : (firstLogBeforeWindow.docs[0].data() as { scoreAfter: number }).scoreAfter;
+
+    const series = fillDateSeries(scoreByDate, startDate, today, initialScore);
 
     return NextResponse.json({ data: series });
 

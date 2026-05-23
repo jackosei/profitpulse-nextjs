@@ -28,13 +28,13 @@ const RootLayout = ({ children }: { children: React.ReactNode }) => {
       <body className="bg-dark-darker font-sans">
         <ErrorBoundary>
           <Providers>
-            <div className="flex h-screen">
-              {/* Sidebar Navigation */}
-              <Sidebar />
+            <div className="flex flex-col h-screen">
+              {/* Navbar — full width */}
+              <Navbar />
 
-              {/* Main Content Area */}
-              <div className="flex-1 flex flex-col overflow-hidden">
-                <Navbar />
+              {/* Sidebar + Main Content */}
+              <div className="flex flex-1 overflow-hidden">
+                <Sidebar />
                 <main className="flex-1 overflow-y-auto p-4 bg-dark pb-24 md:pb-6">
                   {children}
                 </main>

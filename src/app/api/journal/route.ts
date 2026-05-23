@@ -32,6 +32,22 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
+  const { searchParams } = new URL(request.url)
+  if (searchParams.get('history') === 'true') {
+    const PAGE_SIZE = 7
+    const before = searchParams.get('before') // YYYY-MM-DD cursor, exclusive
+
+    const base = adminDb
+      .collection('users').doc(uid)
+      .collection('journal')
+      .orderBy('day', 'desc')
+      .limit(PAGE_SIZE)
+
+    const snap = await (before ? base.startAfter(before) : base).get()
+    const entries = snap.docs.map(d => ({ day: d.id, text: d.data().text ?? '' }))
+    return NextResponse.json({ entries, hasMore: snap.docs.length === PAGE_SIZE })
+  }
+
   const day = utcDayKey()
   const snap = await journalDoc(uid, day).get()
   return NextResponse.json({

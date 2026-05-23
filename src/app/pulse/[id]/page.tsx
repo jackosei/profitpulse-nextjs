@@ -30,6 +30,7 @@ import WHYReminderBanner from "@/components/discipline/WHYReminderBanner";
 import DisciplineMeter from "@/components/discipline/DisciplineMeter";
 import StreakBadge from "@/components/discipline/StreakBadge";
 import EditWHYModal from "@/components/modals/EditWHYModal";
+import AddTradeFAB from "@/components/pulse/AddTradeFAB";
 
 type TimeRange = "7D" | "30D" | "90D" | "1Y" | "ALL";
 type ComparisonType = "PERIOD" | "START";
@@ -399,14 +400,12 @@ export default function PulseDetailsPage() {
         onArchive={() => setShowArchiveModal(true)}
         onDelete={() => setShowDeleteModal(true)}
         onUpdate={() => setShowUpdateModal(true)}
-        onAddTrade={() => setShowAddTradeModal(true)}
         maxRiskPerTrade={pulse.maxRiskPerTrade}
         maxDailyDrawdown={pulse.maxDailyDrawdown}
         maxTotalDrawdown={pulse.maxTotalDrawdown}
         status={pulse.status}
         ruleViolations={pulse.ruleViolations}
         pulse={pulse}
-        addTradeDisabled={pulse.status === "locked"}
       />
 
       {/* WHY reminder — persistent across tabs when zone is degraded */}
@@ -669,6 +668,11 @@ export default function PulseDetailsPage() {
           }}
         />
       )}
+
+      <AddTradeFAB
+        onClick={() => setShowAddTradeModal(true)}
+        disabled={pulse.status === "locked"}
+      />
     </div>
   );
 }

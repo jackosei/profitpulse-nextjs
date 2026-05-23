@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.12.1] - 2026-05-23
+
+### UX
+- **Log Trade button moved to floating action button (FAB)**: removed from `PulseHeader` and replaced with a fixed pill (`AddTradeFAB`) in the bottom-right corner, visible only on the pulse detail page. Shows a lock icon and is disabled when the pulse is locked. On mobile it sits above the bottom nav bar.
+
+---
+
 ## [4.12.0] - 2026-05-23
 
 ### New Features

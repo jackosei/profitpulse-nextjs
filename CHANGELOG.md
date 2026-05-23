@@ -1,5 +1,13 @@
 # Changelog
 
+## [4.9.2] - 2026-05-23
+
+### Fixes
+- **Navbar buttons**: calculator button is now icon-only (label removed) and matches the icon-button style of the Help and Sign Out buttons (`bg-gray-800` resting state, `hover:bg-gray-600`).
+- **Help dropdown**: added `overflow-hidden` to prevent rounded corners being clipped by child hover backgrounds.
+
+---
+
 ## [4.9.1] - 2026-05-23
 
 ### Fixes

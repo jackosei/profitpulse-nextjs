@@ -97,25 +97,25 @@ export default function Navbar() {
               <>
                 <button
                   onClick={() => setIsCalculatorOpen(true)}
-                  className="inline-flex items-center px-3 py-2 border border-gray-800 rounded-md text-sm font-medium text-gray-300 hover:bg-gray-800 hover:text-white transition-colors"
+                  className="flex items-center justify-center w-9 h-9 rounded-md text-gray-400 bg-gray-800 hover:bg-gray-600 hover:text-white transition-colors"
                   title="Position Size Calculator"
                 >
-                  <CalculatorIcon className="h-5 w-5 mr-2" />
-                  <span className="hidden sm:inline">Calculator</span>
+                  <CalculatorIcon className="h-5 w-5" />
+                  {/* <span className="hidden sm:inline">Calculator</span> */}
                 </button>
 
                 {/* Help dropdown */}
                 <div className="relative" ref={helpRef}>
                   <button
                     onClick={() => setHelpOpen(o => !o)}
-                    className="flex items-center justify-center w-9 h-9 rounded-md text-gray-400 hover:bg-gray-800 hover:text-white transition-colors"
+                    className="flex items-center justify-center w-9 h-9 rounded-md text-gray-400 bg-gray-800 hover:bg-gray-600 hover:text-white transition-colors"
                     title="Help"
                   >
                     <QuestionMarkCircleIcon className="h-5 w-5" />
                   </button>
 
                   {helpOpen && (
-                    <div className="absolute right-0 mt-2 w-52 bg-dark border border-gray-800 rounded-lg shadow-xl py-1 z-50">
+                    <div className="absolute right-0 mt-2 w-52 bg-dark border border-gray-800 rounded-lg shadow-xl pt-1 z-50 overflow-hidden">
                       <p className="px-3 py-1.5 text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Help &amp; Feedback
                       </p>
@@ -171,7 +171,7 @@ export default function Navbar() {
                 ) : (
                   <button
                     onClick={() => setConfirmLogout(true)}
-                    className="flex items-center justify-center w-9 h-9 rounded-md text-gray-400 hover:bg-gray-800 hover:text-red-400 transition-colors"
+                    className="flex items-center justify-center w-9 h-9 rounded-md text-gray-400 bg-gray-800 hover:bg-gray-600 hover:text-red-400 transition-colors"
                     title="Sign out"
                   >
                     <ArrowRightStartOnRectangleIcon className="h-5 w-5" />

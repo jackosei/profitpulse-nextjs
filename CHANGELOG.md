@@ -1,5 +1,39 @@
 # Changelog
 
+## [4.5.0] - 2026-05-23
+
+Pulse detail page UI/UX refinements: unified tabs + panel, new "By Day" trade view, calendar day-picker fix, and a richer Trade Details modal.
+
+### New Features
+
+#### Unified tabs + content
+- Tabs (Performance / Discipline / Trade Log) and the active panel now share a single bordered card. The selected tab uses an underline indicator that visually connects to the panel below — content clearly belongs to the active tab.
+- Subtle translucent `bg-white/[0.015]` overlay on the panel area to lift the content surface without adding visual weight.
+- Performance tab's date range + comparison controls moved onto the tab row itself (only visible when the Performance tab is active). Saves a row of vertical space and creates a more compact layout.
+
+#### "By Day" trade view (new default)
+- New `viewType: "by-day"` is now the default in the Trade Log tab. Trades are grouped by calendar day with a collapsible header showing count, win rate, and total P/L. Most recent day auto-expands.
+- Expanded rows show compact trade entries — type badge, instrument, entry reason snippet, entry time, P/L — clickable to open the full trade details.
+- View toggle reordered: **By Day** (default) → **Table** → **Calendar**, with `Layers` icon for the new option.
+
+#### Calendar day-picker
+- Clicking a day with multiple trades used to open only `dayTrades[0]`. Fixed: 1 trade opens directly; 2+ trades open a small picker modal listing all trades for that day so the trader can choose which to inspect.
+
+#### Trade Details — review-grade detail
+- Headline summary strip: type badge + instrument + outcome pill + bold P/L with %-of-account and R-multiple.
+- **Risk & R-Multiple** section (when engine metrics present): Intended Risk %, Planned R:R, Actual R, Exit Quality with contextual hints.
+- **Discipline** section: per-trade violations in a red-bordered card with severity badges, plus the rules followed list.
+- **Plan & Reflection** section: entry reason, learnings, would-repeat, emotional impact, mistakes identified (bulleted), improvement ideas.
+- **Psychology** section: emotional state + intensity, mental state, plan adherence, impulsive entry — color-coded.
+- **Context** section: market condition, time of day, environment.
+- **Screenshots** section: entry/exit thumbnails opening in a new tab.
+- Each section renders only when its data is present.
+
+### Fixes
+- LimitsTracker collapsible header padding tightened (`py-3` → `py-2`); expanded content rebalanced (`pt-1` + bars `mt-3` → unified `pt-3`).
+
+---
+
 ## [4.4.0] - 2026-05-20
 
 Adaptive enforcement engine: per-pulse choice between Score-based and Severity-based tier ladders.

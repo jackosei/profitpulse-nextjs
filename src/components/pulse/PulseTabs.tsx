@@ -17,12 +17,20 @@ const TABS: { id: PulseTab; label: string; icon: React.ReactNode }[] = [
   { id: "trades", label: "Trade Log", icon: <ListChecks className="w-3.5 h-3.5" /> },
 ];
 
+/**
+ * Tab strip designed to sit at the top of a card container. Renders no
+ * outer background/border of its own — the parent provides the card chrome,
+ * so the tabs and the panel below feel like one unified surface.
+ *
+ * Active tab uses an underline that overlaps the strip's bottom border
+ * (the classic "tabs above content" pattern).
+ */
 export default function PulseTabs({ active, onChange, badges }: PulseTabsProps) {
   return (
     <div
       role="tablist"
       aria-label="Pulse view"
-      className="bg-dark border border-gray-800 rounded-lg px-1 py-1 flex items-center gap-1 overflow-x-auto"
+      className="flex items-center gap-0.5 overflow-x-auto"
     >
       {TABS.map((tab) => {
         const isActive = active === tab.id;
@@ -36,10 +44,10 @@ export default function PulseTabs({ active, onChange, badges }: PulseTabsProps) 
             aria-controls={`panel-${tab.id}`}
             id={`tab-${tab.id}`}
             onClick={() => onChange(tab.id)}
-            className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-colors shrink-0 ${
+            className={`relative flex items-center gap-1.5 px-3 py-3 text-xs font-semibold transition-colors shrink-0 border-b-2 -mb-px ${
               isActive
-                ? "bg-blue-500/15 text-blue-300"
-                : "text-gray-400 hover:text-gray-200 hover:bg-white/[0.03]"
+                ? "text-blue-300 border-blue-400"
+                : "text-gray-500 hover:text-gray-200 border-transparent"
             }`}
           >
             {tab.icon}
@@ -47,7 +55,7 @@ export default function PulseTabs({ active, onChange, badges }: PulseTabsProps) 
             {badge !== undefined && badge !== 0 && (
               <span
                 className={`ml-1 inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full text-[9px] font-bold ${
-                  isActive ? "bg-blue-400/30 text-blue-200" : "bg-amber-500/20 text-amber-300"
+                  isActive ? "bg-blue-400/20 text-blue-200" : "bg-amber-500/20 text-amber-300"
                 }`}
               >
                 {badge}

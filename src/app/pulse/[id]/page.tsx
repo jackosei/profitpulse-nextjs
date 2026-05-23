@@ -32,7 +32,7 @@ import StreakBadge from "@/components/discipline/StreakBadge";
 
 type TimeRange = "7D" | "30D" | "90D" | "1Y" | "ALL";
 type ComparisonType = "PERIOD" | "START";
-type ViewType = "table" | "calendar";
+type ViewType = "by-day" | "table" | "calendar";
 
 export default function PulseDetailsPage() {
   const { id } = useParams();
@@ -58,7 +58,7 @@ export default function PulseDetailsPage() {
   const [selectedTimeRange, setSelectedTimeRange] = useState<TimeRange>("30D");
   const [comparisonType, setComparisonType] =
     useState<ComparisonType>("PERIOD");
-  const [viewType, setViewType] = useState<ViewType>("table");
+  const [viewType, setViewType] = useState<ViewType>("by-day");
   const [periodStats, setPeriodStats] = useState<{
     winRate: { current: number; previous: number; initial: number };
     totalPL: { current: number; previous: number; initial: number };
@@ -418,23 +418,19 @@ export default function PulseDetailsPage() {
       {/* Vitals strip — always visible above tabs */}
       <PulseVitals pulse={pulse} onJumpToDiscipline={() => handleTabChange("discipline")} />
 
-      {/* Tab navigation */}
-      <PulseTabs
-        active={tab}
-        onChange={handleTabChange}
-        badges={{ discipline: activeConstraintCount }}
-      />
-
-      {/* Tab panels */}
-      <div
-        id={`panel-${tab}`}
-        role="tabpanel"
-        aria-labelledby={`tab-${tab}`}
-        className="px-4 md:px-0"
-      >
-        {tab === "performance" && (
-          <div className="space-y-4">
-            <div className="flex items-center justify-end">
+      {/* Unified tab card — tabs and the active panel share one container so
+          the content visibly belongs to the selected tab. */}
+      <div className="bg-dark border border-gray-800 rounded-lg overflow-hidden">
+        {/* Tab strip row — tabs on the left, contextual controls on the right
+            (currently: the time-range / comparison controls for the Performance tab). */}
+        <div className="flex items-center justify-between gap-2 border-b border-gray-800/70 pl-2 sm:pl-3 pr-2 sm:pr-3">
+          <PulseTabs
+            active={tab}
+            onChange={handleTabChange}
+            badges={{ discipline: activeConstraintCount }}
+          />
+          {tab === "performance" && (
+            <div className="shrink-0 py-1.5">
               <PerformanceControls
                 selectedTimeRange={selectedTimeRange}
                 comparisonType={comparisonType}
@@ -444,7 +440,17 @@ export default function PulseDetailsPage() {
                 }
               />
             </div>
+          )}
+        </div>
 
+        <div
+          id={`panel-${tab}`}
+          role="tabpanel"
+          aria-labelledby={`tab-${tab}`}
+          className="p-4 md:p-5 bg-white/[0.015]"
+        >
+        {tab === "performance" && (
+          <div className="space-y-4">
             <PulseStats stats={periodStats} comparisonType={comparisonType} />
 
             {/* Equity Curve */}
@@ -518,7 +524,16 @@ export default function PulseDetailsPage() {
 
         {tab === "trades" && (
           <>
-            {viewType === "table" ? (
+            {viewType === "calendar" ? (
+              <TradeCalendar
+                trades={pulse.trades || []}
+                pulse={pulse}
+                onAddTrade={() => setShowAddTradeModal(true)}
+                onRefresh={fetchPulse}
+                viewType={viewType}
+                onViewTypeChange={setViewType}
+              />
+            ) : (
               <TradeHistory
                 trades={pulse.trades || []}
                 hasMore={hasMore}
@@ -530,18 +545,10 @@ export default function PulseDetailsPage() {
                 viewType={viewType}
                 onViewTypeChange={setViewType}
               />
-            ) : (
-              <TradeCalendar
-                trades={pulse.trades || []}
-                pulse={pulse}
-                onAddTrade={() => setShowAddTradeModal(true)}
-                onRefresh={fetchPulse}
-                viewType={viewType}
-                onViewTypeChange={setViewType}
-              />
             )}
           </>
         )}
+        </div>
       </div>
 
       <AddTradeModal

@@ -174,6 +174,50 @@
 
 ---
 
+### Session 12 — 2026-05-23
+**What was built (v4.5.0 — Pulse detail UI/UX refinements):**
+
+*Goal:* Improve clarity, density and review-quality on the pulse detail page. No engine changes — pure front-end.
+
+**Unified tabs + content** (`src/components/pulse/PulseTabs.tsx`, `src/app/pulse/[id]/page.tsx`)
+- `PulseTabs` stripped of its outer card chrome — now renders as a bare tab strip designed to sit at the top of a parent card.
+- Active tab uses an underline (`border-b-2 -mb-px border-blue-400`) that visually overlaps the strip's bottom border, the classic "tabs above content" affordance.
+- Tabs + active panel now share one outer card (`bg-dark border border-gray-800 rounded-lg overflow-hidden`).
+- Panel area gets a subtle `bg-white/[0.015]` translucent overlay to lift the content surface.
+- Performance tab's `PerformanceControls` moved onto the tab row itself (rendered only when `tab === "performance"`), saving a row of vertical space.
+
+**LimitsTracker density** (`src/components/discipline/LimitsTracker.tsx`)
+- Collapsible header padding tightened from `py-3` to `py-2`.
+- Expanded content rebalanced (`pt-1` + bars `mt-3` → unified `pt-3`).
+
+**"By Day" trade view + default** (`src/components/pulse/TradeHistory.tsx`, `src/app/pulse/[id]/page.tsx`)
+- `ViewType` union extended to `"by-day" | "table" | "calendar"`. Default in page state is now `by-day`.
+- New `ByDayView` sub-component in `TradeHistory.tsx`: groups trades by `date`, sorts descending, renders each day as a collapsible row with summary (count, win rate, total P/L). Most recent day auto-expands.
+- Toggle button added (Lucide `Layers` icon) to both TradeHistory and TradeCalendar headers.
+- Page routes the Trade Log panel: `viewType === "calendar"` → `TradeCalendar`; everything else → `TradeHistory` (which internally renders either the table body or the by-day groups).
+
+**Calendar day-click fix** (`src/components/pulse/TradeCalendar.tsx`)
+- Old behavior: clicking any day opened `dayTrades[0]` regardless of count.
+- New behavior: 0 → no-op; 1 → opens `TradeDetailsModal` directly; 2+ → opens a small "Day picker" modal listing all trades with type badge + instrument + time + P/L. Selecting a trade in the picker opens TradeDetailsModal and closes the picker.
+
+**Trade Details — review-grade detail** (`src/components/modals/TradeDetailsModal.tsx`)
+- Extracted body into a `TradeDetailsBody` sub-component for clarity.
+- Headline summary strip: type badge + instrument + outcome pill + bold P/L with %-of-account and R-multiple.
+- New sections, each only rendered when its data is present:
+  - **Risk & R-Multiple** — Intended Risk %, Planned R:R, Actual R (color-coded), Exit Quality with hints.
+  - **Plan & Reflection** — Entry Reason, Learnings, Would Repeat, Emotional Impact, Mistakes Identified (bulleted), Improvement Ideas.
+  - **Discipline** — Violations on this trade (red-bordered card with per-violation severity badges), Rules Followed (green check list).
+  - **Psychology** — Emotional state + intensity, mental state, plan adherence (color-coded), impulsive entry (color-coded).
+  - **Context** — Market condition, time of day, trading environment.
+  - **Screenshots** — Entry/exit thumbnails opening the original in a new tab.
+- Reusable internal helpers: `Section`, `Grid`, `Field`.
+
+**Verification:** `npx tsc --noEmit` and `npx next lint` both clean.
+
+**Next session should start with:** Carry-over items: SMS activation (Twilio env vars), CSV import pipeline, `RESEND_API_KEY` configuration.
+
+---
+
 ### Session 11 — 2026-05-20
 **What was built (v4.4.0 — Adaptive enforcement engine: per-pulse Score-based vs Severity-based tiers):**
 

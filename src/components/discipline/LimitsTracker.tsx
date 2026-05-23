@@ -73,7 +73,7 @@ export default function LimitsTracker({ pulse, defaultExpanded = false }: Limits
       <button
         type="button"
         onClick={() => setExpanded((v) => !v)}
-        className="w-full flex items-center justify-between gap-3 px-4 py-3 hover:bg-white/[0.02] transition-colors text-left"
+        className="w-full flex items-center justify-between gap-3 px-4 py-2 hover:bg-white/[0.02] transition-colors text-left"
       >
         <div className="flex items-center gap-2.5 min-w-0">
           {expanded
@@ -113,8 +113,8 @@ export default function LimitsTracker({ pulse, defaultExpanded = false }: Limits
       </button>
 
       {/* Expanded content */}
-      {expanded && <div className="px-4 pb-4 pt-1 border-t border-gray-800/60">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-3">
+      {expanded && <div className="px-4 pb-4 pt-3 border-t border-gray-800/60">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <ProgressBarMetric 
           label={metrics.daily.label}
           current={`$${metrics.daily.current.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}

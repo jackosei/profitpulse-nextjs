@@ -3,7 +3,6 @@ import Providers from "@/context/Providers";
 import Navbar from "@/components/layout/Navbar";
 import Sidebar from "@/components/layout/Sidebar";
 import { Toaster } from "sonner";
-import FeedbackWidget from "@/components/ui/FeedbackWidget";
 import ErrorBoundary from "@/components/ui/ErrorBoundary";
 import { Inter } from "next/font/google";
 import { Metadata } from "next";
@@ -40,7 +39,6 @@ const RootLayout = ({ children }: { children: React.ReactNode }) => {
                 </main>
               </div>
             </div>
-            <FeedbackWidget />
           </Providers>
           <Toaster
             position="bottom-center"

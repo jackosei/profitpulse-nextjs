@@ -3,12 +3,44 @@
 import { useAuth } from "@/context/AuthContext";
 import Link from "next/link";
 import Image from "next/image";
-import { useState, useEffect } from "react";
-import { CalculatorIcon, ArrowRightStartOnRectangleIcon } from "@heroicons/react/24/outline";
+import { useState, useEffect, useRef } from "react";
+import {
+  CalculatorIcon,
+  ArrowRightStartOnRectangleIcon,
+  QuestionMarkCircleIcon,
+  SparklesIcon,
+  BugAntIcon,
+  BookOpenIcon,
+  EnvelopeIcon,
+} from "@heroicons/react/24/outline";
 import LotSizeCalculatorModal from "@/components/modals/LotSizeCalculatorModal";
+import ContactModal from "@/components/modals/ContactModal";
 import { useParams, useRouter } from "next/navigation";
 import { usePulse } from "@/hooks/usePulse";
 import type { Pulse } from "@/types/pulse";
+
+const HELP_ITEMS = [
+  {
+    label: "Request a feature",
+    icon: SparklesIcon,
+    href: "https://profitpulse.featurebase.app/",
+  },
+  {
+    label: "Report a bug",
+    icon: BugAntIcon,
+    href: "https://profitpulse.featurebase.app/",
+  },
+  {
+    label: "Learning resources",
+    icon: BookOpenIcon,
+    href: "https://profitpulse.featurebase.app/",
+  },
+  {
+    label: "Contact developers",
+    icon: EnvelopeIcon,
+    href: "contact" as string,
+  },
+];
 
 export default function Navbar() {
   const { user, logout } = useAuth();
@@ -16,8 +48,11 @@ export default function Navbar() {
   const router = useRouter();
   const [isCalculatorOpen, setIsCalculatorOpen] = useState(false);
   const [confirmLogout, setConfirmLogout] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
+  const [contactModalOpen, setContactModalOpen] = useState(false);
   const [currentPulse, setCurrentPulse] = useState<Pulse | null>(null);
   const { getPulseById } = usePulse();
+  const helpRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setConfirmLogout(false);
@@ -31,6 +66,17 @@ export default function Navbar() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params?.id, user]);
+
+  // Close help dropdown on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (helpRef.current && !helpRef.current.contains(e.target as Node)) {
+        setHelpOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
 
   return (
     <header className="sticky top-0 z-10 w-full bg-dark border-b border-gray-800">
@@ -57,6 +103,49 @@ export default function Navbar() {
                   <CalculatorIcon className="h-5 w-5 mr-2" />
                   <span className="hidden sm:inline">Calculator</span>
                 </button>
+
+                {/* Help dropdown */}
+                <div className="relative" ref={helpRef}>
+                  <button
+                    onClick={() => setHelpOpen(o => !o)}
+                    className="flex items-center justify-center w-9 h-9 rounded-md text-gray-400 hover:bg-gray-800 hover:text-white transition-colors"
+                    title="Help"
+                  >
+                    <QuestionMarkCircleIcon className="h-5 w-5" />
+                  </button>
+
+                  {helpOpen && (
+                    <div className="absolute right-0 mt-2 w-52 bg-dark border border-gray-800 rounded-lg shadow-xl py-1 z-50">
+                      <p className="px-3 py-1.5 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Help &amp; Feedback
+                      </p>
+                      {HELP_ITEMS.map(({ label, icon: Icon, href }) =>
+                        href === "contact" ? (
+                          <button
+                            key={label}
+                            onClick={() => { setContactModalOpen(true); setHelpOpen(false); }}
+                            className="flex w-full items-center gap-3 px-3 py-2 text-sm text-gray-300 hover:bg-gray-800 hover:text-white transition-colors"
+                          >
+                            <Icon className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                            {label}
+                          </button>
+                        ) : (
+                          <a
+                            key={label}
+                            href={href}
+                            target={href.startsWith("http") ? "_blank" : undefined}
+                            rel={href.startsWith("http") ? "noopener noreferrer" : undefined}
+                            onClick={() => setHelpOpen(false)}
+                            className="flex items-center gap-3 px-3 py-2 text-sm text-gray-300 hover:bg-gray-800 hover:text-white transition-colors"
+                          >
+                            <Icon className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                            {label}
+                          </a>
+                        )
+                      )}
+                    </div>
+                  )}
+                </div>
 
                 {/* Logout — inline confirmation */}
                 {confirmLogout ? (
@@ -110,6 +199,10 @@ export default function Navbar() {
         isOpen={isCalculatorOpen}
         onClose={() => setIsCalculatorOpen(false)}
         pulse={currentPulse || undefined}
+      />
+      <ContactModal
+        isOpen={contactModalOpen}
+        onClose={() => setContactModalOpen(false)}
       />
     </header>
   );

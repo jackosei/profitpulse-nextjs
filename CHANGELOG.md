@@ -1,5 +1,43 @@
 # Changelog
 
+## [4.9.0] - 2026-05-23
+
+Navigation overhaul, futures calculator, journal history, auth flow fixes, and in-app contact.
+
+### New Features
+
+#### In-app contact form
+- **Help dropdown** in navbar (? icon) replaces the floating FeedbackWidget. Items: Request a feature, Report a bug, Learning Resources, Contact Developers.
+- **Contact Developers modal**: subject selector + message textarea (20-char minimum). Sends via Resend to `hello@profitpulse.app` with the sender's email as `Reply-To`. Rate-limited to one message per user per 24 hours (enforced server-side via Firestore).
+
+#### Futures market support in Lot Size Calculator
+- Added 8 futures contracts: ES ($12.50/tick), MES ($1.25), NQ ($5.00), MNQ ($0.50), YM ($5.00), MYM ($0.50), CL ($10.00), GC ($10.00).
+- Futures branch: `contracts = floor(riskAmount / (stopLoss × tickValue))`. Output labelled "Contracts" with tick reference displayed.
+- Instrument dropdown now grouped by category (Forex, Metals, Indices, Energy, Crypto, Futures).
+
+#### Journal history in Profile
+- New accordion in the Profile page: browse past gratitude journal entries with server-side cursor pagination (7 per page, `orderBy('day', 'desc')`). Client-side search filters across all loaded entries.
+
+#### Sidebar profile footer + collapsible Pulses
+- **Profile footer**: avatar (photo or initials), display name, email, and settings-icon-on-hover moved to sidebar bottom. Ring highlights on hover.
+- **Collapsible Pulses**: active pulses listed as sub-links under the Pulses nav item. Auto-expands when navigating to a pulse detail page.
+- Desktop collapsed state: icon-only; profile footer shows avatar circle only.
+- Mobile bottom nav updated: Dashboard | Pulses | Profile (three items).
+
+### Fixes
+- **Login flash**: login page showed the form briefly even when the user was already authenticated and had journaled for the day. Guard added: `if (loading || user) return null`.
+- **Blank body post-logout**: logout now calls `router.replace('/login')` after `await logout()`, preventing the user from remaining on a protected page with an empty shell.
+- **Sign-out dialog persistence**: `confirmLogout` state now resets on auth change, so signing back in doesn't leave the dialog open.
+- **Pulse sidebar links**: sidebar was using `pulse.firestoreId` in hrefs; `getPulseById` queries by `pulse.id` (e.g. `TRAD052306`). Fixed to use `pulse.id`.
+
+### Internal
+- Root layout restructured to `flex-col` (Navbar full-width → inner `flex` row for Sidebar + main).
+- `src/config/navigation.ts` exports separate `navigationLinks` (desktop) and `mobileNavLinks` (mobile).
+- `src/types/css.d.ts` added to declare `*.css` side-effect imports for TypeScript.
+- `POST /api/contact` route: bearer token auth, Firestore rate-limit, Resend email dispatch.
+
+---
+
 ## [4.7.2] - 2026-05-23
 
 ### Fixes

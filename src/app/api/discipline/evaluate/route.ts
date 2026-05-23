@@ -39,6 +39,7 @@ import type {
   TradeEngineMetrics,
   SessionSummary,
   ViolationLogEntry,
+  SessionSnapshot,
 } from "@/lib/disciplineTypes";
 import { ViolationType, ViolationCategory } from "@/lib/disciplineTypes";
 import type { ActiveConstraints, DisciplineState } from "@/lib/disciplineTypes";
@@ -771,6 +772,44 @@ export async function POST(request: Request) {
 
     // ── Recalculate pulse stats ────────────────────────────────────────
     await recalculateStats(firestoreId);
+
+    // ── Upsert session snapshot ────────────────────────────────────────
+    // todayTradesSnap was fetched before this trade was written, so append
+    // the new trade manually — avoids an extra Firestore read.
+    {
+      const allTodayTrades = [
+        ...todayTradesSnap.docs.map(d => d.data()),
+        tradeWithTimestamp,
+      ];
+      const sessionWins   = allTodayTrades.filter(t => t.outcome === "Win").length;
+      const sessionLosses = allTodayTrades.filter(t => t.outcome === "Loss").length;
+      const sessionPnL    = allTodayTrades.reduce((s, t) => s + (t.performance?.profitLoss ?? 0), 0);
+      const sessionHasViolations = violations.length > 0
+        || todayTradesSnap.docs.some(d =>
+            ((d.data().engineMetrics?.violations as unknown[]) ?? []).length > 0,
+          );
+      const sessionEngagement = computeEngagementCredit(allTodayTrades);
+
+      const snapshot: SessionSnapshot = {
+        date: today,
+        tradeCount: allTodayTrades.length,
+        wins: sessionWins,
+        losses: sessionLosses,
+        totalPnL: sessionPnL,
+        disciplineScoreAfter: newScore,
+        zone: newZone,
+        hasViolations: sessionHasViolations,
+        engagementScore: sessionEngagement,
+        updatedAt: admin.firestore.Timestamp.now(),
+      };
+
+      await adminDb
+        .collection("pulses")
+        .doc(firestoreId)
+        .collection("sessions")
+        .doc(today)
+        .set(snapshot);
+    }
 
     // ── Response ───────────────────────────────────────────────────────
     const tradeResult = {

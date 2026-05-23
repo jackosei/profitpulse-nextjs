@@ -2,8 +2,10 @@
  * GET /api/discipline/history
  *
  * Returns a chronological array of { date, score } data points representing
- * the trader's discipline score over the requested time range, derived from
- * the violationLog subcollection.
+ * the trader's discipline score over the requested time range.
+ *
+ * Reads from the `sessions` subcollection (one doc per trading day) instead of
+ * scanning `violationLog`. Non-trading days are filled via carry-forward.
  *
  * Query params:
  *   pulseId  (required) — the Pulse's logical ID field
@@ -12,22 +14,12 @@
  * Auth: Firebase ID token in Authorization header (Bearer <token>)
  *
  * Response: { data: Array<{ date: string; score: number }> }
- *
- * Algorithm:
- *   1. Determine the start date from `range`.
- *   2. Query violationLog entries in that range, ordered by timestamp.
- *   3. Group entries by sessionDate, taking the final `scoreAfter` per day.
- *   4. Fill in days with no violations using the last known score (carry-forward).
- *   5. Return the full date series from startDate to today.
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/services/admin";
 import * as admin from "firebase-admin";
-
-// ---------------------------------------------------------------------------
-// Auth helper (same pattern as evaluate route)
-// ---------------------------------------------------------------------------
+import type { SessionSnapshot } from "@/lib/disciplineTypes";
 
 async function verifyAuth(request: NextRequest): Promise<string | null> {
   const authHeader = request.headers.get("Authorization");
@@ -41,29 +33,17 @@ async function verifyAuth(request: NextRequest): Promise<string | null> {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Range → start date
-// ---------------------------------------------------------------------------
-
 type TimeRange = "7D" | "30D" | "90D" | "1Y" | "ALL";
 
 function getStartDate(range: TimeRange): string | null {
   if (range === "ALL") return null;
   const dayMap: Record<Exclude<TimeRange, "ALL">, number> = {
-    "7D": 7,
-    "30D": 30,
-    "90D": 90,
-    "1Y": 365,
+    "7D": 7, "30D": 30, "90D": 90, "1Y": 365,
   };
-  const days = dayMap[range as Exclude<TimeRange, "ALL">] ?? 30;
   const d = new Date();
-  d.setDate(d.getDate() - days);
+  d.setDate(d.getDate() - dayMap[range as Exclude<TimeRange, "ALL">]);
   return d.toISOString().split("T")[0];
 }
-
-// ---------------------------------------------------------------------------
-// Fill date gaps with carry-forward score
-// ---------------------------------------------------------------------------
 
 function fillDateSeries(
   points: Map<string, number>,
@@ -73,14 +53,12 @@ function fillDateSeries(
 ): Array<{ date: string; score: number }> {
   const result: Array<{ date: string; score: number }> = [];
   const cursor = new Date(startDate + "T00:00:00Z");
-  const end = new Date(endDate + "T00:00:00Z");
+  const end    = new Date(endDate   + "T00:00:00Z");
   let lastScore = initialScore;
 
   while (cursor <= end) {
     const dateStr = cursor.toISOString().split("T")[0];
-    if (points.has(dateStr)) {
-      lastScore = points.get(dateStr)!;
-    }
+    if (points.has(dateStr)) lastScore = points.get(dateStr)!;
     result.push({ date: dateStr, score: lastScore });
     cursor.setUTCDate(cursor.getUTCDate() + 1);
   }
@@ -88,28 +66,18 @@ function fillDateSeries(
   return result;
 }
 
-// ---------------------------------------------------------------------------
-// GET handler
-// ---------------------------------------------------------------------------
-
 export async function GET(request: NextRequest) {
   try {
-    // ── Auth ─────────────────────────────────────────────────────────────
     const uid = await verifyAuth(request);
-    if (!uid) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    if (!uid) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    // ── Params ──────────────────────────────────────────────────────────
     const { searchParams } = new URL(request.url);
     const pulseId = searchParams.get("pulseId");
-    const range = (searchParams.get("range") as TimeRange | null) ?? "30D";
+    const range   = (searchParams.get("range") as TimeRange | null) ?? "30D";
 
-    if (!pulseId) {
-      return NextResponse.json({ error: "pulseId is required" }, { status: 400 });
-    }
+    if (!pulseId) return NextResponse.json({ error: "pulseId is required" }, { status: 400 });
 
-    // ── Verify pulse ownership ───────────────────────────────────────────
+    // Verify ownership
     const pulseSnap = await adminDb
       .collection("pulses")
       .where("id", "==", pulseId)
@@ -117,55 +85,41 @@ export async function GET(request: NextRequest) {
       .limit(1)
       .get();
 
-    if (pulseSnap.empty) {
-      return NextResponse.json({ error: "Pulse not found" }, { status: 404 });
-    }
+    if (pulseSnap.empty) return NextResponse.json({ error: "Pulse not found" }, { status: 404 });
 
-    const pulseDoc = pulseSnap.docs[0];
-    const firestoreId = pulseDoc.id;
+    const firestoreId = pulseSnap.docs[0].id;
+    const today       = new Date().toISOString().split("T")[0];
+    const startDate   = getStartDate(range) ?? "2020-01-01";
 
-    // ── Determine date range ─────────────────────────────────────────────
-    const today = new Date().toISOString().split("T")[0];
-    const startDate = getStartDate(range) ?? "2020-01-01"; // ALL: from beginning
-
-    // ── Query violation log ──────────────────────────────────────────────
-    const query = adminDb
+    // One query: sessions in range, ordered by date
+    const sessionsSnap = await adminDb
       .collection("pulses")
       .doc(firestoreId)
-      .collection("violationLog")
-      .where("sessionDate", ">=", startDate)
-      .where("sessionDate", "<=", today)
-      .orderBy("sessionDate", "asc")
-      .orderBy("timestamp", "asc");
+      .collection("sessions")
+      .where("date", ">=", startDate)
+      .where("date", "<=", today)
+      .orderBy("date", "asc")
+      .get();
 
-    const logSnap = await query.get();
-
-    // ── Build score map: sessionDate → final scoreAfter that day ──────────
     const scoreByDate = new Map<string, number>();
-    for (const doc of logSnap.docs) {
-      const entry = doc.data() as { sessionDate: string; scoreAfter: number };
-      // Later entries within the same day overwrite earlier ones (we want end-of-day)
-      scoreByDate.set(entry.sessionDate, entry.scoreAfter);
+    for (const doc of sessionsSnap.docs) {
+      const s = doc.data() as SessionSnapshot;
+      scoreByDate.set(s.date, s.disciplineScoreAfter);
     }
 
-    // ── Fill date series with carry-forward ──────────────────────────────
-    // Starting score: use the scoreAfter from the very first violation log entry
-    // that pre-dates our window (i.e. what the score was just before the period
-    // started). Falling back to 100 (not the current score) keeps the baseline
-    // correct — the current score is the *result* of all penalties, not the start.
-    const firstLogBeforeWindow = await adminDb
+    // Baseline: last session doc before the window (score just before period started)
+    const beforeSnap = await adminDb
       .collection("pulses")
       .doc(firestoreId)
-      .collection("violationLog")
-      .where("sessionDate", "<", startDate)
-      .orderBy("sessionDate", "desc")
-      .orderBy("timestamp", "desc")
+      .collection("sessions")
+      .where("date", "<", startDate)
+      .orderBy("date", "desc")
       .limit(1)
       .get();
 
-    const initialScore: number = firstLogBeforeWindow.empty
+    const initialScore: number = beforeSnap.empty
       ? 100
-      : (firstLogBeforeWindow.docs[0].data() as { scoreAfter: number }).scoreAfter;
+      : (beforeSnap.docs[0].data() as SessionSnapshot).disciplineScoreAfter;
 
     const series = fillDateSeries(scoreByDate, startDate, today, initialScore);
 
@@ -173,9 +127,6 @@ export async function GET(request: NextRequest) {
 
   } catch (error) {
     console.error("[discipline/history] Error:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch discipline history" },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: "Failed to fetch discipline history" }, { status: 500 });
   }
 }

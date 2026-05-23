@@ -353,6 +353,35 @@ export interface EscalationPreviewItem {
 }
 
 // ---------------------------------------------------------------------------
+// Session snapshot subcollection schema  (pulses/{id}/sessions/{YYYY-MM-DD})
+// ---------------------------------------------------------------------------
+
+/**
+ * One document per trading day per pulse, written/upserted at every trade
+ * submission. Enables O(1) history queries instead of scanning all violations.
+ */
+export interface SessionSnapshot {
+  /** YYYY-MM-DD — also the Firestore document ID */
+  date: string;
+  /** Total trades logged this day */
+  tradeCount: number;
+  wins: number;
+  losses: number;
+  /** Sum of profitLoss across all trades */
+  totalPnL: number;
+  /** Discipline score at the end of this session (scoreAfter of last action) */
+  disciplineScoreAfter: number;
+  /** Zone corresponding to disciplineScoreAfter */
+  zone: DisciplineZone;
+  /** Whether ANY trade this day had violations */
+  hasViolations: boolean;
+  /** Engagement credit (0–4) computed from optional section fills */
+  engagementScore: number;
+  /** Firestore Timestamp of the last update to this doc */
+  updatedAt: unknown;
+}
+
+// ---------------------------------------------------------------------------
 // Violation log subcollection schema
 // ---------------------------------------------------------------------------
 

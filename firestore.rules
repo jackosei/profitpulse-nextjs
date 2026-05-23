@@ -84,6 +84,12 @@ service cloud.firestore {
         allow create, update, delete: if isOwner(get(/databases/$(database)/documents/pulses/$(pulseId)).data.userId) || isAdmin();
       }
 
+      // Session snapshots — one doc per trading day, written server-side.
+      match /sessions/{date} {
+        allow read: if isOwner(get(/databases/$(database)/documents/pulses/$(pulseId)).data.userId) || isAdmin();
+        allow write: if false; // server-side only via Admin SDK
+      }
+
       // Violation log subcollection rules
       // Written by the discipline engine at trade submission; read for Phase 2 enforcement queries.
       match /violationLog/{logId} {

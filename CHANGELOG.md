@@ -1,5 +1,18 @@
 # Changelog
 
+## [4.11.0] - 2026-05-23
+
+### New Features
+- **Sessions subcollection** (`pulses/{id}/sessions/{YYYY-MM-DD}`): one document per trading day, written/upserted at every trade submission. Stores `tradeCount`, `wins`, `losses`, `totalPnL`, `disciplineScoreAfter`, `zone`, `hasViolations`, `engagementScore`. Enables O(1) history queries instead of scanning violations.
+- **Discipline history route** now reads from `sessions` instead of `violationLog` — two `violationLog` queries replaced by one `sessions` query per request.
+- **`SessionSnapshot` type** added to `disciplineTypes.ts`.
+- **Backfill script** at `scripts/backfill-sessions.ts`: populates session docs for all existing pulses from their trades and violation logs. Run with: `npx tsx --env-file=.env.local scripts/backfill-sessions.ts`
+
+### Internal
+- Firestore security rules updated: `sessions` subcollection is read-accessible to the pulse owner; write is server-side only (`allow write: if false`).
+
+---
+
 ## [4.10.1] - 2026-05-23
 
 ### Internal

@@ -366,7 +366,8 @@ export default function ProfilePage() {
                               onClick={() =>
                                 setExpandedEntries(prev => {
                                   const next = new Set(prev);
-                                  isExpanded ? next.delete(entry.day) : next.add(entry.day);
+                                  if (isExpanded) next.delete(entry.day);
+                                  else next.add(entry.day);
                                   return next;
                                 })
                               }

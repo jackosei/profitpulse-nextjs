@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.7.1] - 2026-05-23
+
+### Fixes
+- **Build**: profile page failed compilation under `no-unused-expressions` because a ternary in the journal "Show more/less" toggle was used purely for its side effects. Swapped to `if/else` — same behaviour, lint-clean.
+
+---
+
 ## [4.7.0] - 2026-05-23
 
 Reward system overhaul: per-section engagement credit, rebalanced YELLOW/RED recovery caps.

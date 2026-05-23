@@ -1,5 +1,13 @@
 # Changelog
 
+## [4.9.1] - 2026-05-23
+
+### Fixes
+- **Email notifications**: removed emojis from all subject lines and headings (WHY reminder, partner alert variants). Subjects now use a plain `ProfitPulse:` prefix.
+- **Email copy**: replaced em dash in WHY reminder body with parentheses.
+
+---
+
 ## [4.9.0] - 2026-05-23
 
 Navigation overhaul, futures calculator, journal history, auth flow fixes, and in-app contact.

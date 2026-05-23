@@ -67,7 +67,7 @@ export async function sendWHYReminder(payload: WHYReminderPayload): Promise<void
   const resend = getResendClient();
   if (!resend) return;
 
-  const zoneLabel = payload.disciplineZone === "RED" ? "Enforcement 🔴" : "At Risk 🟡";
+  const zoneLabel = payload.disciplineZone === "RED" ? "Enforcement" : "At Risk";
 
   const html = `
     <div style="font-family: sans-serif; max-width: 560px; margin: auto; color: #1a1a2e;">
@@ -86,7 +86,7 @@ export async function sendWHYReminder(payload: WHYReminderPayload): Promise<void
         <p style="margin: 0; font-style: italic;">"${payload.whyDiscipline}"</p>
       </div>
       
-      <p>Log a clean session today — all required rules followed, full reflection — to begin recovery (+8 pts).</p>
+      <p>Log a clean session today (all required rules followed, full reflection) to begin recovery (+8 pts).</p>
       <p style="color: #888; font-size: 12px;">This is an automated reminder from ProfitPulse.</p>
     </div>
   `;
@@ -95,7 +95,7 @@ export async function sendWHYReminder(payload: WHYReminderPayload): Promise<void
     await resend.emails.send({
       from: FROM_EMAIL,
       to: payload.traderEmail,
-      subject: `⚠️ ProfitPulse — Your discipline is ${zoneLabel} on ${payload.pulseName}`,
+      subject: `ProfitPulse: Your discipline is ${zoneLabel} on ${payload.pulseName}`,
       html,
     });
   } catch (err) {
@@ -115,23 +115,23 @@ export async function sendPartnerAlert(payload: PartnerAlertPayload): Promise<vo
   // orange = drawdown / NTD, amber = warning.
   const variant: Record<PartnerAlertBreachType, { subject: string; heading: string; color: string }> = {
     TOTAL_DRAWDOWN_LOCKED: {
-      subject: `🔒 ProfitPulse — ${payload.traderName} has been locked out of ${payload.pulseName}`,
-      heading: "🔒 Pulse Locked",
+      subject: `ProfitPulse: ${payload.traderName} has been locked out of ${payload.pulseName}`,
+      heading: "Pulse Locked",
       color: "#e94560",
     },
     NO_TRADE_DAY: {
-      subject: `⛔ ProfitPulse — ${payload.traderName} is on a no-trade day on ${payload.pulseName}`,
-      heading: "⛔ No-Trade Day Applied",
+      subject: `ProfitPulse: ${payload.traderName} is on a no-trade day on ${payload.pulseName}`,
+      heading: "No-Trade Day Applied",
       color: "#e94560",
     },
     DAILY_DRAWDOWN: {
-      subject: `⚠️ ProfitPulse — ${payload.traderName} hit a daily drawdown limit`,
-      heading: "⚠️ Daily Drawdown Limit Hit",
+      subject: `ProfitPulse: ${payload.traderName} hit a daily drawdown limit`,
+      heading: "Daily Drawdown Limit Hit",
       color: "#e67e22",
     },
     NTD_WARNING: {
-      subject: `⚠️ ProfitPulse — ${payload.traderName} is one breach away from a no-trade day`,
-      heading: "⚠️ No-Trade Day Warning",
+      subject: `ProfitPulse: ${payload.traderName} is one breach away from a no-trade day`,
+      heading: "No-Trade Day Warning",
       color: "#f39c12",
     },
   };

@@ -111,11 +111,11 @@ export default function Sidebar() {
               {!collapsed && pulsesOpen && activePulses.length > 0 && (
                 <ul className="mt-1 pl-9 space-y-1">
                   {activePulses.map(pulse => {
-                    const pulseActive = pathname === `/pulse/${pulse.firestoreId}`;
+                    const pulseActive = pathname === `/pulse/${pulse.id}`;
                     return (
                       <li key={pulse.firestoreId ?? pulse.id}>
                         <Link
-                          href={`/pulse/${pulse.firestoreId}`}
+                          href={`/pulse/${pulse.id}`}
                           className={`block py-1 px-2 text-sm rounded truncate max-w-[170px] transition-colors ${
                             pulseActive
                               ? "text-accent font-medium"

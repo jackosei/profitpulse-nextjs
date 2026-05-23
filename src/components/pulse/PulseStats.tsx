@@ -70,7 +70,7 @@ export default function PulseStats({ stats, comparisonType }: PulseStatsProps) {
 	return (
 		<div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3">
 			{/* Win Rate */}
-			<StatCard accentColor="border-l-blue-500/60" label="Win Rate">
+			<StatCard accentColor="border-l-gray-600/60" label="Win Rate">
 				<div className="flex items-end justify-between gap-2">
 					<span className={`text-2xl font-bold tabular-nums leading-none ${winRateColor}`}>
 						{formatRatio(stats.winRate.current, { suffix: "%" })}
@@ -99,7 +99,7 @@ export default function PulseStats({ stats, comparisonType }: PulseStatsProps) {
 			</StatCard>
 
 			{/* Profit Factor */}
-			<StatCard accentColor="border-l-purple-500/60" label="Profit Factor">
+			<StatCard accentColor="border-l-gray-600/60" label="Profit Factor">
 				<div className="flex items-end justify-between gap-2">
 					<span className={`text-2xl font-bold tabular-nums leading-none ${pfColor}`}>
 						{formatRatio(stats.profitFactor?.current || 0)}

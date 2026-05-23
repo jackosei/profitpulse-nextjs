@@ -167,6 +167,13 @@ export function computeConstraints(
       }
 
       case ViolationType.MAX_TRADES_PER_DAY: {
+        // Overtrading is treated as a high-severity discipline failure.
+        // Every breach immediately applies a 1-day no-trade lockout so the
+        // trader can't log a 7th trade today; the −20 score penalty from the
+        // engine also feeds into the tier ladder above.
+        noTradeDays = Math.max(noTradeDays, 1);
+        cleanSessionsToLift = Math.max(cleanSessionsToLift, 3);
+
         // First weekly overtrading breach with no existing cap → (limit−1) cap.
         // Subsequent breaches contribute via score/severity → tier ladder.
         const totalOvertradingBreaches = signals.weeklyBreachCounts.overtrading;

@@ -33,7 +33,7 @@ const RISK_PENALTY = {
 } as const;
 
 const DAILY_DRAWDOWN_PENALTY = 15;
-const MAX_TRADES_PENALTY = 8;
+const MAX_TRADES_PENALTY = 20;
 const REQUIRED_RULE_PENALTY = 4; // per rule
 const OPTIONAL_RULE_PENALTY = 1; // per rule
 const MULTI_REQUIRED_MISS_PENALTY = 5; // additional when ≥2 required rules missed in one session
@@ -93,7 +93,15 @@ export function evaluateViolations(
   const violations: TradeViolation[] = [];
 
   // --- Quantitative: Risk per trade ---
-  if (trade.riskPct > ctx.maxRiskPerTrade) {
+  // When a risk cap is active (e.g. 75% of limit), the effective ceiling is
+  // maxRiskPerTrade × riskCapPct. Exceeding the cap counts as a breach even
+  // if the raw riskPct is still within the uncapped limit.
+  const effectiveRiskLimit =
+    ctx.activeConstraints.riskCapPct !== null
+      ? ctx.maxRiskPerTrade * ctx.activeConstraints.riskCapPct
+      : ctx.maxRiskPerTrade;
+
+  if (trade.riskPct > effectiveRiskLimit) {
     const breachNumber = ctx.riskBreachesToday + 1;
     const severity =
       breachNumber === 1
@@ -102,12 +110,16 @@ export function evaluateViolations(
           ? RISK_PENALTY.SECOND
           : RISK_PENALTY.THIRD_PLUS;
 
+    const capNote =
+      ctx.activeConstraints.riskCapPct !== null
+        ? ` (${ctx.activeConstraints.riskCapPct * 100}% cap active)`
+        : "";
     violations.push({
       type: ViolationType.RISK_PER_TRADE,
       category: ViolationCategory.QUANTITATIVE,
       severity,
-      details: `Risk ${trade.riskPct.toFixed(2)}% exceeds limit of ${ctx.maxRiskPerTrade}% (breach #${breachNumber} today)`,
-      threshold: ctx.maxRiskPerTrade,
+      details: `Risk ${trade.riskPct.toFixed(2)}% exceeds limit of ${effectiveRiskLimit.toFixed(2)}%${capNote} (breach #${breachNumber} today)`,
+      threshold: effectiveRiskLimit,
       actual: trade.riskPct,
     });
   }
@@ -167,7 +179,7 @@ export function evaluateViolations(
         type: ViolationType.MAX_TRADES_PER_DAY,
         category: ViolationCategory.QUANTITATIVE,
         severity: MAX_TRADES_PENALTY,
-        details: `Trade #${newCount} exceeds daily limit of ${ctx.maxTradesPerDay}`,
+        details: `Trade #${newCount} exceeds daily limit of ${ctx.maxTradesPerDay} — no-trade lockout applied for tomorrow`,
         threshold: ctx.maxTradesPerDay,
         actual: newCount,
       });

@@ -1,5 +1,18 @@
 # Changelog
 
+## [4.6.1] - 2026-05-23
+
+Discipline engine bug fixes: history chart baseline, risk-cap detection, and overtrading severity.
+
+### Fixes
+- **Discipline Score History chart**: chart was using the live (post-penalty) score as the starting baseline, making the "+X pts this period" delta always near zero. Now reads the most recent `violationLog` entry *before* the selected range to establish a true baseline; falls back to 100 for brand-new pulses.
+- **Risk-cap enforcement**: `evaluateViolations` was comparing trade risk against `maxRiskPerTrade` (the raw pulse limit), ignoring the active `riskCapPct` constraint. A 75% cap was invisible to the engine — the real-time form indicator showed the cap, but server-side detection missed it. Now resolves `effectiveRiskLimit = maxRiskPerTrade × riskCapPct` before comparison; violation details include `(75% cap active)` for clarity.
+
+### Behaviour changes
+- **Overtrading consequences strengthened**: `MAX_TRADES_PENALTY` bumped −8 → −20 (matches `NO_TRADE_DAY_VIOLATED`). Every `MAX_TRADES_PER_DAY` breach now sets `noTradeDays = 1` immediately, blocking further trades today and tomorrow. The existing first-weekly `tradeCapCount` logic still applies.
+
+---
+
 ## [4.5.0] - 2026-05-23
 
 Pulse detail page UI/UX refinements: unified tabs + panel, new "By Day" trade view, calendar day-picker fix, and a richer Trade Details modal.

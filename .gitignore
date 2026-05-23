@@ -48,3 +48,9 @@ analysis_report.md
 # /specs
 
 /.claude/
+
+# discipline engine test seed data (local-only — must not deploy)
+/scripts/
+/src/lib/__tests__/
+/tsconfig.scripts.json
+/.scripts-dist/

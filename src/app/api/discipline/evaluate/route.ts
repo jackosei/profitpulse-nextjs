@@ -23,7 +23,7 @@
 import { NextResponse } from "next/server";
 import { adminDb } from "@/services/admin";
 import * as admin from "firebase-admin";
-import type { Pulse, Trade, TradeRule } from "@/types/pulse";
+import type { Pulse, TradeRule } from "@/types/pulse";
 import { PULSE_STATUS, isPulseLocked, PULSE_MESSAGES } from "@/types/pulse";
 import type { TradeCreateData } from "@/services/api/pulseApi";
 import {
@@ -771,7 +771,7 @@ export async function POST(request: Request) {
     }
 
     // ── Recalculate pulse stats ────────────────────────────────────────
-    await recalculateStats(firestoreId);
+    await recalculateStats(firestoreId, pulseData, tradeData);
 
     // ── Upsert session snapshot ────────────────────────────────────────
     // todayTradesSnap was fetched before this trade was written, so append
@@ -844,67 +844,43 @@ export async function POST(request: Request) {
 }
 
 // ---------------------------------------------------------------------------
-// Stats recalculation (server-side, uses adminDb)
+// Stats recalculation — incremental, no extra Firestore reads
 // ---------------------------------------------------------------------------
 
-async function recalculateStats(firestoreId: string) {
-  const tradesSnap = await adminDb
-    .collection("pulses")
-    .doc(firestoreId)
-    .collection("trades")
-    .get();
+async function recalculateStats(
+  firestoreId: string,
+  pulse: Pulse,
+  newTrade: TradeCreateData,
+) {
+  const prev = pulse.stats ?? {
+    totalTrades: 0, wins: 0, losses: 0,
+    strikeRate: 0, totalProfitLoss: 0,
+    averageWin: 0, averageLoss: 0, profitFactor: 0,
+  };
 
-  if (tradesSnap.empty) {
-    await adminDb
-      .collection("pulses")
-      .doc(firestoreId)
-      .update({
-        stats: {
-          totalTrades: 0,
-          wins: 0,
-          losses: 0,
-          strikeRate: 0,
-          totalProfitLoss: 0,
-          averageWin: 0,
-          averageLoss: 0,
-          profitFactor: 0,
-        },
-      });
-    return;
-  }
+  const pnl       = newTrade.performance.profitLoss;
+  const outcome   = newTrade.outcome;
+  const totalTrades     = prev.totalTrades + 1;
+  const wins            = prev.wins      + (outcome === "Win"  ? 1 : 0);
+  const losses          = prev.losses    + (outcome === "Loss" ? 1 : 0);
+  const totalProfitLoss = prev.totalProfitLoss + pnl;
 
-  const trades = tradesSnap.docs.map((d) => d.data()) as Trade[];
-  let wins = 0,
-    losses = 0,
-    totalProfitLoss = 0,
-    totalWinAmount = 0,
-    totalLossAmount = 0;
+  // Re-derive running win/loss totals from previous averages + new trade
+  const prevWinTotal  = prev.averageWin  * prev.wins;
+  const prevLossTotal = prev.averageLoss * prev.losses;
+  const newWinTotal   = prevWinTotal  + (outcome === "Win"  ? pnl          : 0);
+  const newLossTotal  = prevLossTotal + (outcome === "Loss" ? Math.abs(pnl) : 0);
 
-  for (const trade of trades) {
-    if (trade.outcome === "Win") {
-      wins++;
-      totalWinAmount += trade.performance.profitLoss;
-    } else if (trade.outcome === "Loss") {
-      losses++;
-      totalLossAmount += Math.abs(trade.performance.profitLoss);
-    }
-    totalProfitLoss += trade.performance.profitLoss;
-  }
-
-  const totalTrades = trades.length;
-  await adminDb
-    .collection("pulses")
-    .doc(firestoreId)
-    .update({
-      stats: {
-        totalTrades,
-        wins,
-        losses,
-        strikeRate: totalTrades > 0 ? (wins / totalTrades) * 100 : 0,
-        totalProfitLoss,
-        averageWin: wins > 0 ? totalWinAmount / wins : 0,
-        averageLoss: losses > 0 ? totalLossAmount / losses : 0,
-        profitFactor: totalLossAmount > 0 ? totalWinAmount / totalLossAmount : 0,
-      },
-    });
+  await adminDb.collection("pulses").doc(firestoreId).update({
+    stats: {
+      totalTrades,
+      wins,
+      losses,
+      strikeRate:      totalTrades > 0 ? (wins / totalTrades) * 100 : 0,
+      totalProfitLoss,
+      averageWin:      wins   > 0 ? newWinTotal  / wins   : 0,
+      averageLoss:     losses > 0 ? newLossTotal / losses : 0,
+      profitFactor:    newLossTotal > 0 ? newWinTotal / newLossTotal : 0,
+    },
+  });
 }

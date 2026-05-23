@@ -29,6 +29,7 @@ import LimitsTracker from "@/components/discipline/LimitsTracker";
 import WHYReminderBanner from "@/components/discipline/WHYReminderBanner";
 import DisciplineMeter from "@/components/discipline/DisciplineMeter";
 import StreakBadge from "@/components/discipline/StreakBadge";
+import EditWHYModal from "@/components/modals/EditWHYModal";
 
 type TimeRange = "7D" | "30D" | "90D" | "1Y" | "ALL";
 type ComparisonType = "PERIOD" | "START";
@@ -75,6 +76,7 @@ export default function PulseDetailsPage() {
   const [showArchiveModal, setShowArchiveModal] = useState(false);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [showViolationsModal, setShowViolationsModal] = useState(false);
+  const [showEditWHYModal, setShowEditWHYModal] = useState(false);
 
   // ─── Tab state — URL-synced via ?tab=… ─────────────────────────────
   const searchParams = useSearchParams();
@@ -413,6 +415,7 @@ export default function PulseDetailsPage() {
         whyStatement={discipline?.whyStatement ?? ""}
         whyDiscipline={discipline?.whyDiscipline ?? ""}
         zone={disciplineZone ?? "GREEN"}
+        onEdit={() => setShowEditWHYModal(true)}
       />
 
       {/* Vitals strip — always visible above tabs */}
@@ -499,6 +502,40 @@ export default function PulseDetailsPage() {
               </div>
               <div className="p-3 md:p-4">
                 <DisciplineChart pulseId={pulse.id} />
+              </div>
+            </div>
+
+            {/* WHY statements — always visible, editable */}
+            <div className="rounded-lg border border-gray-800 bg-dark overflow-hidden">
+              <div className="px-4 py-3 border-b border-gray-800/60 flex items-center justify-between">
+                <span className="text-xs font-semibold uppercase tracking-wider text-gray-500">Your WHY</span>
+                <button
+                  type="button"
+                  onClick={() => setShowEditWHYModal(true)}
+                  className="text-xs text-gray-500 hover:text-gray-300 transition-colors flex items-center gap-1"
+                >
+                  Edit
+                </button>
+              </div>
+              <div className="p-4 space-y-3">
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-gray-500 mb-1 font-semibold">Why I trade</p>
+                  <p className="text-sm text-gray-300 italic leading-relaxed">
+                    {discipline?.whyStatement
+                      ? `"${discipline.whyStatement}"`
+                      : <span className="text-gray-600 not-italic">Not set — <button type="button" onClick={() => setShowEditWHYModal(true)} className="text-accent hover:underline">add your why</button></span>
+                    }
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-gray-500 mb-1 font-semibold">What following my rules means to me</p>
+                  <p className="text-sm text-gray-300 italic leading-relaxed">
+                    {discipline?.whyDiscipline
+                      ? `"${discipline.whyDiscipline}"`
+                      : <span className="text-gray-600 not-italic">Not set</span>
+                    }
+                  </p>
+                </div>
               </div>
             </div>
 
@@ -590,6 +627,22 @@ export default function PulseDetailsPage() {
         isOpen={showViolationsModal}
         onClose={() => setShowViolationsModal(false)}
         pulseId={pulse.id}
+      />
+
+      <EditWHYModal
+        isOpen={showEditWHYModal}
+        onClose={() => setShowEditWHYModal(false)}
+        pulseId={pulse.id}
+        initialWhyStatement={discipline?.whyStatement ?? ""}
+        initialWhyDiscipline={discipline?.whyDiscipline ?? ""}
+        onSuccess={(stmt, disc) => {
+          setPulse(prev => prev ? {
+            ...prev,
+            discipline: prev.discipline
+              ? { ...prev.discipline, whyStatement: stmt, whyDiscipline: disc }
+              : prev.discipline,
+          } : prev);
+        }}
       />
 
       {/* Phase 2: Session Gate — constraint acknowledgement */}

@@ -1,5 +1,15 @@
 # Changelog
 
+## [4.12.0] - 2026-05-23
+
+### New Features
+- **Edit WHY statements**: traders can now update `whyStatement` and `whyDiscipline` at any time without going through the one-shot pulse update flow. Edit button appears in the Discipline tab's WHY section and on the WHY reminder banner (when zone is degraded). `PATCH /api/discipline/why` validates ownership and enforces the 30-char minimum server-side.
+
+### Performance
+- **Incremental stats update**: `recalculateStats` no longer fetches all trades on every submission. Stats are derived from the current pulse `stats` object plus the single new trade — zero extra Firestore reads per trade submission.
+
+---
+
 ## [4.11.0] - 2026-05-23
 
 ### New Features

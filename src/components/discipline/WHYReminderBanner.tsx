@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, Heart } from "lucide-react";
+import { X, Heart, Pencil } from "lucide-react";
 import type { DisciplineZone } from "@/lib/disciplineTypes";
 
 // ---------------------------------------------------------------------------
@@ -13,6 +13,7 @@ interface WHYReminderBannerProps {
   whyStatement: string;
   whyDiscipline: string;
   zone: DisciplineZone;
+  onEdit?: () => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -32,6 +33,7 @@ export default function WHYReminderBanner({
   whyStatement,
   whyDiscipline,
   zone,
+  onEdit,
 }: WHYReminderBannerProps) {
   const [dismissed, setDismissed] = useState(true); // start hidden, check on mount
 
@@ -67,15 +69,26 @@ export default function WHYReminderBanner({
       role="alert"
       aria-label="WHY Reminder"
     >
-      {/* Dismiss button */}
-      <button
-        id={`why-reminder-dismiss-${pulseId}`}
-        onClick={handleDismiss}
-        className="absolute top-3 right-3 text-gray-500 hover:text-gray-300 transition-colors"
-        aria-label="Dismiss WHY reminder"
-      >
-        <X className="w-3.5 h-3.5" />
-      </button>
+      {/* Action buttons */}
+      <div className="absolute top-3 right-3 flex items-center gap-2">
+        {onEdit && (
+          <button
+            onClick={onEdit}
+            className="text-gray-500 hover:text-gray-300 transition-colors"
+            aria-label="Edit WHY statements"
+          >
+            <Pencil className="w-3.5 h-3.5" />
+          </button>
+        )}
+        <button
+          id={`why-reminder-dismiss-${pulseId}`}
+          onClick={handleDismiss}
+          className="text-gray-500 hover:text-gray-300 transition-colors"
+          aria-label="Dismiss WHY reminder"
+        >
+          <X className="w-3.5 h-3.5" />
+        </button>
+      </div>
 
       {/* Header */}
       <div className="flex items-center gap-2 mb-3 pr-6">

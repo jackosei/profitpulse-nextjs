@@ -1,5 +1,13 @@
 # Changelog
 
+## [4.10.0] - 2026-05-23
+
+### New Features
+- **Account deletion now removes all data**: `DELETE /api/account` server route performs a full cascading delete before removing the Auth record — all pulses (+ `trades`, `violationLog` subcollections), the user document (+ `journal`, `meta` subcollections), then `adminAuth.deleteUser(uid)`. Previously `user.delete()` was called client-side, leaving all Firestore data orphaned.
+- On success the session cookie is cleared via `logout()` and the user is redirected to `/login`.
+
+---
+
 ## [4.9.2] - 2026-05-23
 
 ### Fixes

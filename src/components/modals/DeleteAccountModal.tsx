@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react';
 import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import { useAuth } from '@/context/AuthContext';
+import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 
@@ -15,7 +16,8 @@ interface DeleteAccountModalProps {
 export default function DeleteAccountModal({ isOpen, onClose }: DeleteAccountModalProps) {
   const [confirmationText, setConfirmationText] = useState('');
   const [loading, setLoading] = useState(false);
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
+  const router = useRouter();
 
   // Reset confirmation text when modal opens/closes
   useEffect(() => {
@@ -26,18 +28,26 @@ export default function DeleteAccountModal({ isOpen, onClose }: DeleteAccountMod
 
   const handleDelete = async () => {
     if (!user) return;
-    
+
     setLoading(true);
     try {
-      await user.delete();
+      const { getFirebaseToken } = await import('@/services/firebase/authService');
+      const token = await getFirebaseToken();
+      if (!token) throw new Error('Not authenticated');
+
+      const res = await fetch('/api/account', {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Failed to delete account');
+
       toast.success('Account deleted successfully');
-      onClose();
+      await logout();
+      router.replace('/login');
     } catch (error) {
-      if (error instanceof Error) {
-        toast.error(error.message);
-      } else {
-        toast.error('Failed to delete account');
-      }
+      toast.error(error instanceof Error ? error.message : 'Failed to delete account');
     } finally {
       setLoading(false);
     }

@@ -1,5 +1,19 @@
 # Changelog
 
+## [4.13.1] - 2026-07-04
+
+### UX
+- **Landing page redesigned** in an editorial, brutalist-leaning direction: light paper canvas (`#F6F4EF`/`#131512`, AAA body contrast), grotesk display type (Söhne/Untitled Sans/Neue Haas stack with Helvetica fallback), uncentered typographic hero, hairline-ruled sections, and hard-bordered screenshot frames with mono route captions. The Discipline Engine section now shows the real **penalty table** and **enforcement ladder** from the engine spec instead of icon cards. Inverted black pricing block. No gradients, glows, or shadows.
+- **Copy style**: em dashes removed from all user-facing marketing copy, metadata titles (now colon-separated), and the demo banner; sentences use periods, commas, and colons instead.
+- Marketing header/footer use a set-in-type wordmark (the SVG logo is white-only and invisible on the light canvas).
+
+### Fixes
+- **Demo login stalled in production**: the client router cached a middleware redirect (dashboard → login) issued before the session cookie existed, so `router.push` bounced back to `/login`. Demo sign-in now uses a hard `window.location.assign` after the cookie handshake.
+- **Screenshots retaken against a production server**: the turbopack dev-tools indicator was overlapping the navbar logo in the previous dev-mode captures. All five landing assets + the OG image are re-captured clean.
+- `metadataBase` set in the root layout (`NEXT_PUBLIC_SITE_URL`, defaulting to https://profitpulse.app) so OG/Twitter image URLs resolve absolutely in production.
+
+---
+
 ## [4.13.0] - 2026-07-04
 
 Public storefront release: shared demo account with auto-reset, conversion-driven SaaS landing page with real in-app screenshots, and layout isolation via route groups.

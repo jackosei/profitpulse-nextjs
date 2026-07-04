@@ -12,9 +12,12 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_SITE_URL ?? "https://profitpulse.app",
+  ),
   title: {
     template: "%s | ProfitPulse",
-    default: "ProfitPulse — The Trading Journal That Enforces Your Rules",
+    default: "ProfitPulse: The Trading Journal That Enforces Your Rules",
   },
   description:
     "Track and analyze your trading performance with ProfitPulse. The built-in Discipline Engine scores every rule violation and enforces real consequences.",

@@ -17,7 +17,7 @@ export default function DemoBanner() {
     <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 bg-accent/15 border-b border-accent/30 px-4 py-1.5 text-xs text-accent-light">
       <Sparkles size={13} aria-hidden />
       <span>
-        You&apos;re exploring the shared demo account — changes are visible to
+        You&apos;re exploring the shared demo account. Changes are visible to
         other visitors and reset every few hours.
       </span>
       <Link

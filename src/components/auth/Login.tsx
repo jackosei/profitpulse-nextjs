@@ -82,7 +82,10 @@ export default function Login() {
 				// Ensure the server session cookie exists before navigating so
 				// middleware doesn't bounce us straight back to /login.
 				await setSessionCookie()
-				router.push(APP_HOME)
+				// Hard navigation: the client router may have cached a
+				// middleware redirect (dashboard → login) from before the
+				// cookie existed; a full load re-runs middleware fresh.
+				window.location.assign(APP_HOME)
 			} else if (!res.success) {
 				setError(res.error?.message || "Demo is unavailable right now")
 			}

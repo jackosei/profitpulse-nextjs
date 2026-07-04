@@ -29,6 +29,14 @@ export async function signInWithEmail(email: string, password: string): Promise<
 }
 
 /**
+ * Sign in to the shared demo account (custom-token flow via /api/demo/login)
+ * @returns ApiResponse with Firebase User or error details
+ */
+export async function signInWithDemo(): Promise<ApiResponse<User>> {
+  return authService.signInWithDemo();
+}
+
+/**
  * Sign up with email and password
  * @param email User's email address
  * @param password User's password

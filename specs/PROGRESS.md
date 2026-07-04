@@ -101,6 +101,43 @@
 
 ## Session log
 
+### Session 13 — 2026-07-04
+**What was built (v4.13.0 — Demo account + SaaS landing page + README refresh):**
+
+*README + version sync:*
+- `README.md` rewritten to match the v4.12.1 feature set (discipline engine modes, sessions snapshots, calculator, contact form, etc.), new structure tree with route groups, and a Demo Account section. `package.json` re-synced with the changelog (was stuck at 4.7.2).
+
+*Shared demo account (writable + auto-reset):*
+- `src/lib/demoSeed.ts` — pure deterministic generator (dates relative to today, mulberry32 PRNG). Two scripted pulses: "NQ Momentum" (GREEN 100, +$5.7k, 10-day streak, rich engagement) and "Gold Scalps" (YELLOW 59, 50% risk cap + `ntdWarningPending`, 9 violation-log entries walking 100→59). Stable doc IDs (`demo-pulse-1/2`) so mid-reset visitors recover on refresh.
+- `src/lib/demoSeedWriter.ts` — `resetAndSeedDemo` (cascade-delete demo pulses incl. visitor-created + journal wipe + batch reseed) and `maybeResetDemo` (transaction-claimed 2-min lease, resets when older than `DEMO_RESET_HOURS`, default 6h).
+- `POST /api/demo/login` — public route: throttled reset → canned journal doc + `journaled` cookie (so middleware never bounces demo visitors to `/journal`) → `adminAuth.createCustomToken(DEMO_UID)`.
+- Login UI: "Try the live demo — no signup" button; auto-trigger via `/login?demo=1`. New `signInWithDemo()` through authService/authApi/useAuth.
+- Guards: 403 in `DELETE /api/account` for demo uid; firestore.rules `isDemoUser()` denies pulse delete + user-doc update; Danger Zone hidden in profile; `DemoBanner` in the app shell. `isDemo?: boolean` on `UserProfile`.
+- `scripts/seed-demo-data.ts` (`npm run seed:demo`) — idempotent Auth-user provisioning by email + reseed. Ran against live Firestore; demo uid stored in `.env.local` as `DEMO_UID`.
+
+*Screenshots (real app, seeded data):*
+- Drove the app headless (playwright-core + system Chrome) through the demo flow; captured hero/discipline/session-gate/trade-log/dashboard shots → `public/assets/images/landing/` (1600w) + `public/og-image.png` (1200×630).
+
+*Route groups + landing page:*
+- Moved dashboard/pulse/pulses/profile/journal/admin → `src/app/(app)/` with the Navbar+Sidebar shell in `(app)/layout.tsx`; root layout slimmed; `(auth)` layout made full-height; `/` rebuilt in `(marketing)/` (server component, no useAuth) with header/footer/BrowserFrame components under `src/components/marketing/`.
+- Sections: hero (+beta badge, dual CTA, glow screenshot), discipline story, 3 screenshot feature rows, 6-card grid, how-it-works, "Free during beta — first 100 lifetime free" band, footer. OpenGraph/Twitter metadata.
+
+**Verification:**
+- `tsc --noEmit`, `next build`, `next lint` all clean (after clearing stale `.next`). All URLs unchanged post-restructure.
+- Headless end-to-end: landing renders (OG tag present) → demo button → lands directly on `/dashboard` (no journal bounce) → both pulses populated → session gate fires on Gold Scalps → discipline panel shows 59/At Risk/50% cap/NTD warning → DemoBanner visible. Zero console errors. Production-mode smoke: `/api/demo/login` returns token + `journaled` cookie.
+
+**Deploy steps still owed:**
+- `firebase deploy --only firestore:rules` (demo delete/update guards).
+- Set `DEMO_UID` (+ optional `DEMO_RESET_HOURS=6`) in production env.
+- Note: `/scripts/` and `.env*` are gitignored by repo convention — `seed-demo-data.ts` and `.env.example` live locally only.
+
+**Next session should start with:**
+- Deploy rules + prod env vars; consider a Cloud Scheduler/cron reseed as a belt-and-braces reset.
+- Mobile pass on the landing page; consider capturing a mobile screenshot set.
+- Carry-overs: Twilio SMS activation, CSV import pipeline, `RESEND_API_KEY` for live email.
+
+---
+
 ### Session 8 — 2026-05-19
 **What was built (v4.1.0):**
 

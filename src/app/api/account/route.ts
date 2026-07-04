@@ -47,6 +47,14 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
+  // The shared demo account can never be deleted.
+  if (process.env.DEMO_UID && uid === process.env.DEMO_UID) {
+    return NextResponse.json(
+      { error: 'The demo account cannot be deleted' },
+      { status: 403 },
+    )
+  }
+
   try {
     // 1. Delete all pulses belonging to this user, including their subcollections
     const pulsesSnap = await adminDb

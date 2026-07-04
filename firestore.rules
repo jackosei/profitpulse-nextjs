@@ -12,9 +12,18 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      return isAuthenticated() && 
+      return isAuthenticated() &&
         exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // The shared demo account (users/{uid}.isDemo == true) is writable for
+    // trades but must not be able to deface its profile or delete the seeded
+    // pulses — the periodic reset restores everything else.
+    function isDemoUser() {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isDemo', false) == true;
     }
 
     // Users collection rules
@@ -34,8 +43,11 @@ service cloud.firestore {
                        request.resource.data.get('role', 'user') == 'user';
 
       // A user may update their own profile but may NOT change their role
-      // (no self-escalation). Admins may update any profile including role.
+      // (no self-escalation). The shared demo account may not edit its
+      // profile at all (prevents defacing it or unsetting isDemo).
+      // Admins may update any profile including role.
       allow update: if (isOwner(userId) &&
+                        !resource.data.get('isDemo', false) &&
                         request.resource.data.get('role', 'user') ==
                           resource.data.get('role', 'user')) ||
                        isAdmin();
@@ -75,8 +87,10 @@ service cloud.firestore {
                         request.resource.data.userId == resource.data.userId) || 
                        isAdmin();
       
-      // Users can delete their own pulses, admins can delete any
-      allow delete: if isOwner(resource.data.userId) || isAdmin();
+      // Users can delete their own pulses, admins can delete any.
+      // The shared demo account cannot delete pulses (reset restores data,
+      // but deletion would break the demo for concurrent visitors).
+      allow delete: if (isOwner(resource.data.userId) && !isDemoUser()) || isAdmin();
 
       // Trades subcollection rules
       match /trades/{tradeId} {

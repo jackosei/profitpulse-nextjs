@@ -1,5 +1,32 @@
 # Changelog
 
+## [4.13.0] - 2026-07-04
+
+Public storefront release: shared demo account with auto-reset, conversion-driven SaaS landing page with real in-app screenshots, and layout isolation via route groups.
+
+### New Features
+
+#### Shared demo account
+- **"Try the live demo" button on `/login`** (also auto-triggers via `/login?demo=1`): signs visitors into a pre-provisioned shared account via `POST /api/demo/login`, which mints a Firebase custom token (no public password), satisfies the daily journal gate (canned entry + `journaled` cookie), and **auto-resets stale demo data** — older than `DEMO_RESET_HOURS` (default 6h), lease-guarded in a Firestore transaction so concurrent logins can't double-seed.
+- **Deterministic sample data** (`src/lib/demoSeed.ts` + `demoSeedWriter.ts`): dates generated relative to today so the demo always looks fresh; seeded PRNG keeps prices stable across re-seeds. Two pulses tell the product story: *NQ Momentum* (GREEN, score 100, profitable, 10-day clean streak, rich journaling) and *Gold Scalps* (YELLOW, score 59, active 50% risk cap + NTD warning, 9 violation-log entries) — plus per-day session snapshots, dailyLoss/totalDrawdown runtime fields, and journal history.
+- **Demo guards**: `DELETE /api/account` returns 403 for the demo uid; Firestore rules deny pulse deletion and profile edits for `isDemo` users; profile Danger Zone hidden; persistent `DemoBanner` strip in the app shell. Trades remain fully writable — the reset restores canonical data.
+- CLI provisioning: `npm run seed:demo` (creates the Auth user idempotently by email, prints the `DEMO_UID` for `.env.local`).
+
+#### SaaS landing page (`/`)
+- Full replacement of the minimal hero page: sticky marketing header, hero with beta badge and dual CTAs ("Start free" / "Try the live demo"), Discipline-Engine story section, three alternating screenshot feature rows, 6-card feature grid, how-it-works, "Free during beta — first 100 users get a lifetime free plan" pricing band, and footer.
+- **Real in-app screenshots** captured from the seeded demo account (`public/assets/images/landing/`): equity-curve hero, At-Risk discipline panel, session-gate acknowledgement, by-day trade log, dashboard.
+- Page-level metadata with OpenGraph/Twitter cards → new `public/og-image.png` (1200×630).
+
+### Internal
+- **Route-group restructure**: app pages moved into `src/app/(app)/` (dashboard, pulse, pulses, profile, journal, admin) with the Navbar/Sidebar shell in `(app)/layout.tsx`; `/` lives in `(marketing)/` with its own full-bleed layout; root layout slimmed to html/body + providers. URLs unchanged.
+- `(auth)` layout updated to full-height flex now that it no longer rides the app shell.
+- `signInWithDemo()` added across `authService` → `authApi` → `useAuth()`.
+- `isDemo?: boolean` added to `UserProfile`.
+- README rewritten for v4.12.1+ feature set; `package.json` version re-synced with this changelog.
+- **Release steps**: `firebase deploy --only firestore:rules`; set `DEMO_UID` (+ optional `DEMO_RESET_HOURS`) in the production environment.
+
+---
+
 ## [4.12.1] - 2026-05-23
 
 ### UX

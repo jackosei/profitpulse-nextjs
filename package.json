@@ -1,6 +1,6 @@
 {
   "name": "profitpulse-nextjs",
-  "version": "4.7.2",
+  "version": "4.13.0",
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack -p 9000",
@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "seed:discipline": "tsx --tsconfig tsconfig.scripts.json scripts/seed-discipline-test-data.ts",
-    "seed:discipline:dry": "tsx --tsconfig tsconfig.scripts.json scripts/seed-discipline-test-data.ts --dry-run"
+    "seed:discipline:dry": "tsx --tsconfig tsconfig.scripts.json scripts/seed-discipline-test-data.ts --dry-run",
+    "seed:demo": "tsx --tsconfig tsconfig.scripts.json scripts/seed-demo-data.ts"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.0",

@@ -4,6 +4,7 @@ import {
   getRedirectResult,
   signOut,
   signInWithEmailAndPassword,
+  signInWithCustomToken,
   createUserWithEmailAndPassword,
   sendPasswordResetEmail,
   User,
@@ -69,6 +70,30 @@ export async function signInWithEmail(email: string, password: string): Promise<
   } catch (error) {
     console.error("Email Sign-In Error:", error);
     return createErrorResponse(ErrorCode.UNAUTHORIZED, "Invalid email or password.");
+  }
+}
+
+/**
+ * Sign in to the shared demo account.
+ * Fetches a custom token from the demo route (which also handles the daily
+ * journal gate and stale-data reset), then signs in with it.
+ */
+export async function signInWithDemo(): Promise<ApiResponse<User>> {
+  try {
+    const res = await fetch("/api/demo/login", { method: "POST" });
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      return createErrorResponse(
+        ErrorCode.UNAUTHORIZED,
+        body?.error || "Demo account is unavailable right now.",
+      );
+    }
+    const { token } = await res.json();
+    const result = await signInWithCustomToken(auth, token);
+    return createSuccessResponse(result.user);
+  } catch (error) {
+    console.error("Demo Sign-In Error:", error);
+    return createErrorResponse(ErrorCode.UNAUTHORIZED, "Failed to start the demo session.");
   }
 }
 

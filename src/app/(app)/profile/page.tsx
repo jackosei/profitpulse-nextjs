@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { updateProfile, updateEmail, updatePassword } from "firebase/auth";
 import useProtectedRoute from "@/hooks/useProtectedRoute";
+import { useAuth } from "@/context/AuthContext";
 import { usePulse } from "@/hooks/usePulse";
 import { PULSE_STATUS } from '@/types/pulse';
 import type { Pulse } from '@/types/pulse';
@@ -14,6 +15,7 @@ import ArchivePulseModal from '@/components/modals/ArchivePulseModal';
 
 export default function ProfilePage() {
   const { user, loading: authLoading } = useProtectedRoute();
+  const { userProfile } = useAuth();
   const { getUserPulses, unarchivePulse, loading: pulseLoading } = usePulse({
     onError: (message) => toast.error(message)
   });
@@ -404,19 +406,21 @@ export default function ProfilePage() {
           )}
         </div>
 
-        {/* Danger Zone */}
-        <div className="bg-dark p-6 rounded-lg border border-red-900">
-          <h2 className="text-xl font-semibold text-red-500 mb-4">Danger Zone</h2>
-          <p className="text-gray-400 mb-4">
-            Once you delete your account, there is no going back. Please be certain.
-          </p>
-          <button
-            onClick={() => setShowDeleteModal(true)}
-            className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition-colors"
-          >
-            Delete Account
-          </button>
-        </div>
+        {/* Danger Zone — hidden on the shared demo account */}
+        {!userProfile?.isDemo && (
+          <div className="bg-dark p-6 rounded-lg border border-red-900">
+            <h2 className="text-xl font-semibold text-red-500 mb-4">Danger Zone</h2>
+            <p className="text-gray-400 mb-4">
+              Once you delete your account, there is no going back. Please be certain.
+            </p>
+            <button
+              onClick={() => setShowDeleteModal(true)}
+              className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition-colors"
+            >
+              Delete Account
+            </button>
+          </div>
+        )}
       </div>
 
       <DeleteAccountModal 

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useAuth } from "@/context/AuthContext"
 import { setSessionCookie } from "@/services/api/authApi"
 import { auth } from "@/services/firebase/firestoreConfig"
@@ -11,11 +11,13 @@ import { APP_HOME } from "@/config/routes"
 
 export default function Login() {
 	const router = useRouter()
-	const { signInWithGoogle, signInWithEmail, handleRedirectResult } = useAuth()
+	const { signInWithGoogle, signInWithEmail, signInWithDemo, handleRedirectResult } = useAuth()
 	const [email, setEmail] = useState("")
 	const [password, setPassword] = useState("")
 	const [loading, setLoading] = useState(true)
+	const [demoLoading, setDemoLoading] = useState(false)
 	const [error, setError] = useState("")
+	const demoTriggered = useRef(false)
 
 	useEffect(() => {
 		const checkRedirectResult = async () => {
@@ -68,6 +70,40 @@ export default function Login() {
 			setLoading(false)
 		}
 	}
+
+	const handleDemoSignIn = async () => {
+		if (demoLoading) return
+		setDemoLoading(true)
+		setError("")
+
+		try {
+			const res = await signInWithDemo()
+			if (res.success && res.data) {
+				// Ensure the server session cookie exists before navigating so
+				// middleware doesn't bounce us straight back to /login.
+				await setSessionCookie()
+				router.push(APP_HOME)
+			} else if (!res.success) {
+				setError(res.error?.message || "Demo is unavailable right now")
+			}
+		} catch (err) {
+			setError(typeof err === "string" ? err : "Failed to start the demo")
+		} finally {
+			setDemoLoading(false)
+		}
+	}
+
+	// Landing-page CTAs link to /login?demo=1 — start the demo automatically.
+	useEffect(() => {
+		if (demoTriggered.current) return
+		if (typeof window === "undefined") return
+		const params = new URLSearchParams(window.location.search)
+		if (params.get("demo") === "1") {
+			demoTriggered.current = true
+			handleDemoSignIn()
+		}
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [])
 
 	const handleEmailSignIn = async (e: React.FormEvent) => {
 		e.preventDefault()
@@ -171,6 +207,19 @@ export default function Login() {
 								<span>Sign in with Google</span>
 							</button>
 						</div>
+
+						<button
+							type="button"
+							onClick={handleDemoSignIn}
+							disabled={demoLoading}
+							className="w-full p-3 rounded-lg border border-green-500/50 text-green-400 hover:bg-green-500/10 disabled:opacity-60 transition-colors"
+						>
+							{demoLoading ? "Preparing the demo…" : "Try the live demo — no signup"}
+						</button>
+						<p className="text-center text-xs text-white/40">
+							Explore a pre-loaded trading account. Shared demo — data resets
+							every few hours.
+						</p>
 					</div>
 
 					<p className="mt-8 text-center text-sm text-white/60">

@@ -119,6 +119,17 @@ export function useAuth() {
     [run],
   );
 
+  const signInWithDemo = useCallback(
+    () =>
+      run(async () => {
+        const res = await authApi.signInWithDemo();
+        if (!res.success)
+          setError(res.error?.message ?? "Demo is unavailable right now");
+        return res;
+      }),
+    [run],
+  );
+
   const signUpWithEmail = useCallback(
     (email: string, password: string) =>
       run(async () => {
@@ -162,6 +173,7 @@ export function useAuth() {
     error,
     signInWithGoogle,
     signInWithEmail,
+    signInWithDemo,
     signUpWithEmail,
     handleRedirectResult,
     resetPassword,

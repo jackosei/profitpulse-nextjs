@@ -1,9 +1,9 @@
 import Image from "next/image";
 
 /**
- * In-app screenshot in a hard-ruled editorial frame: hairline ink border,
- * mono caption bar, no chrome theatrics. Screenshots are 1600px-wide
- * captures of the live seeded demo account.
+ * In-app screenshot in a hard-ruled frame with browser-dot chrome and a mono
+ * route caption. Screenshots are 1600px-wide captures of the live seeded
+ * demo account.
  */
 export default function BrowserFrame({
   src,
@@ -18,10 +18,19 @@ export default function BrowserFrame({
   priority?: boolean;
 }) {
   return (
-    <figure className="border border-[#131512] bg-[#131512]">
-      <figcaption className="flex items-baseline justify-between gap-4 border-b border-[#131512] bg-[#F6F4EF] px-3 py-2 font-mono text-xs text-[#131512]">
-        <span className="truncate">{label}</span>
-        <span className="shrink-0 text-[#454B46]">live demo data</span>
+    <figure className="border border-[var(--mk-line)] bg-[#0e1420]">
+      <figcaption className="flex items-center justify-between gap-4 border-b border-[var(--mk-line)] bg-[var(--mk-surface)] px-3 py-2.5">
+        <span className="flex shrink-0 items-center gap-1.5" aria-hidden>
+          <span className="h-2.5 w-2.5 rounded-full bg-[#ec6a5e]" />
+          <span className="h-2.5 w-2.5 rounded-full bg-[#f4bf4f]" />
+          <span className="h-2.5 w-2.5 rounded-full bg-[#61c554]" />
+        </span>
+        <span className="min-w-0 flex-1 truncate text-center font-mono text-xs text-[var(--mk-ink)]">
+          {label}
+        </span>
+        <span className="shrink-0 font-mono text-xs text-[var(--mk-muted)]">
+          live demo data
+        </span>
       </figcaption>
       <Image
         src={src}

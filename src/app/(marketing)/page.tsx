@@ -106,7 +106,7 @@ export default function LandingPage() {
   return (
     <div>
       {/* Beta strip */}
-      <div className="border-b border-[#131512]">
+      <div className="border-b border-[var(--mk-line)]">
         <div className="mx-auto flex max-w-[80rem] flex-wrap items-baseline justify-between gap-x-6 gap-y-1 px-4 py-2.5 text-[0.875rem] sm:px-6">
           <p>
             Free during beta. The first 100 traders keep a{" "}
@@ -114,7 +114,7 @@ export default function LandingPage() {
           </p>
           <Link
             href="/signup"
-            className="underline underline-offset-4 decoration-[#08835A] decoration-2 hover:decoration-[#131512]"
+            className="underline underline-offset-4 decoration-[var(--mk-green)] decoration-2 hover:decoration-[var(--mk-ink)]"
           >
             Claim a spot
           </Link>
@@ -123,37 +123,37 @@ export default function LandingPage() {
 
       {/* ── Hero ─────────────────────────────────────────────────────────── */}
       <section className="mx-auto max-w-[80rem] px-4 sm:px-6">
-        <div className="grid grid-cols-12 gap-x-6 pb-16 pt-16 sm:pt-24 lg:pb-24">
-          <h1 className="col-span-12 text-[clamp(2.75rem,8.5vw,7.5rem)] font-semibold leading-[0.95] tracking-[-0.03em] lg:col-span-10">
+        <div className="pb-14 pt-16 sm:pt-24 lg:pb-20">
+          <h1 className="max-w-[60rem] text-[clamp(2.75rem,8.5vw,7.5rem)] font-semibold leading-[0.95] tracking-[-0.03em]">
             The trading journal that{" "}
-            <span className="underline decoration-[#08835A] decoration-[0.06em] underline-offset-[0.08em]">
+            <span className="underline decoration-[var(--mk-green)] decoration-[0.06em] underline-offset-[0.08em]">
               enforces
             </span>{" "}
             your rules.
           </h1>
 
-          <div className="col-span-12 mt-10 grid grid-cols-12 gap-x-6 gap-y-8 lg:mt-16">
-            <p className="col-span-12 max-w-xl text-lg leading-relaxed text-[#454B46] md:col-span-7 lg:col-span-6">
+          <div className="mt-12 grid grid-cols-12 gap-x-6 gap-y-8 border-t border-[var(--mk-line)] pt-8 lg:mt-16">
+            <p className="col-span-12 max-w-xl text-lg leading-relaxed text-[var(--mk-muted)] md:col-span-7 lg:col-span-6">
               Every journal shows you what happened. ProfitPulse governs what
               happens next. A Discipline Engine scores each rule violation and
               applies real consequences: risk caps, trade caps, no-trade days.
             </p>
-            <div className="col-span-12 md:col-span-5 md:justify-self-end lg:col-span-6">
+            <div className="col-span-12 md:col-span-5 md:justify-self-end lg:col-span-6 lg:max-w-md lg:justify-self-end">
               <div className="flex flex-col gap-3 sm:flex-row">
                 <Link
                   href="/signup"
-                  className="border border-[#131512] bg-[#131512] px-6 py-3.5 text-center font-medium text-[#F6F4EF] hover:bg-[#08835A] hover:border-[#08835A] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#131512]"
+                  className="border border-[var(--mk-ink)] bg-[var(--mk-ink)] px-6 py-3.5 text-center font-medium text-[var(--mk-bg)] hover:bg-[var(--mk-green-strong)] hover:border-[var(--mk-green-strong)] hover:text-white transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--mk-ink)]"
                 >
                   Start free
                 </Link>
                 <Link
                   href="/login?demo=1"
-                  className="border border-[#131512] px-6 py-3.5 text-center font-medium hover:bg-[#131512] hover:text-[#F6F4EF] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#131512]"
+                  className="border border-[var(--mk-ink)] px-6 py-3.5 text-center font-medium hover:bg-[var(--mk-ink)] hover:text-[var(--mk-bg)] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--mk-ink)]"
                 >
                   Try the live demo
                 </Link>
               </div>
-              <p className="mt-3 text-[0.875rem] leading-relaxed text-[#454B46]">
+              <p className="mt-3 text-[0.875rem] leading-relaxed text-[var(--mk-muted)]">
                 No card required. The demo is a real account, seeded with six
                 weeks of trading and reset every few hours.
               </p>
@@ -170,7 +170,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── Manifesto ────────────────────────────────────────────────────── */}
-      <section className="mt-20 border-y border-[#131512] sm:mt-28">
+      <section className="mt-20 border-y border-[var(--mk-line)] sm:mt-28">
         <div className="mx-auto max-w-[80rem] px-4 py-14 sm:px-6 sm:py-20">
           <p className="max-w-4xl text-[clamp(1.5rem,3.5vw,2.75rem)] font-medium leading-[1.15] tracking-[-0.01em]">
             Discipline is not a dashboard metric. It is what you are allowed to
@@ -181,31 +181,33 @@ export default function LandingPage() {
       </section>
 
       {/* ── Discipline Engine ────────────────────────────────────────────── */}
-      <section id="discipline" className="mx-auto max-w-[80rem] scroll-mt-14 px-4 py-16 sm:px-6 sm:py-24">
-        <div className="grid grid-cols-12 gap-x-6 gap-y-10">
-          <div className="col-span-12 lg:col-span-5">
-            <h2 className="text-[clamp(1.875rem,3.5vw,3rem)] font-semibold leading-tight tracking-[-0.02em]">
-              A score you can&apos;t argue with.
-            </h2>
-            <p className="mt-5 max-w-md text-[1.0625rem] leading-relaxed text-[#454B46]">
+      <section
+        id="discipline"
+        className="mx-auto max-w-[80rem] scroll-mt-14 px-4 py-16 sm:px-6 sm:py-24"
+      >
+        <div className="grid grid-cols-12 gap-x-6 gap-y-6">
+          <h2 className="col-span-12 text-[clamp(1.875rem,3.5vw,3rem)] font-semibold leading-tight tracking-[-0.02em] lg:col-span-5">
+            A score you can&apos;t argue with.
+          </h2>
+          <div className="col-span-12 lg:col-span-6 lg:col-start-7">
+            <p className="text-[1.0625rem] leading-relaxed text-[var(--mk-muted)]">
               The engine runs entirely server-side, at the moment you submit a
               trade. It reads your prices, your stop, your rule checklist, and
               it decides what your session just cost you. There is no popup to
-              dismiss and nothing to game.
-            </p>
-            <p className="mt-4 max-w-md text-[1.0625rem] leading-relaxed text-[#454B46]">
-              Recovery is earned the same way the damage was done: in the
-              market, one clean session at a time.
+              dismiss and nothing to game. Recovery is earned the same way the
+              damage was done: in the market, one clean session at a time.
             </p>
           </div>
+        </div>
 
+        <div className="mt-12 grid grid-cols-12 items-start gap-x-6 gap-y-10">
           <div className="col-span-12 lg:col-span-7">
-            <table className="w-full border border-[#131512] text-[0.9375rem]">
+            <table className="w-full border border-[var(--mk-line)] text-[0.9375rem]">
               <caption className="sr-only">
                 Discipline score penalties and recovery credits
               </caption>
               <thead>
-                <tr className="border-b border-[#131512]">
+                <tr className="border-b border-[var(--mk-line)]">
                   <th scope="col" className="px-4 py-3 text-left font-semibold">
                     What the engine sees
                   </th>
@@ -216,47 +218,38 @@ export default function LandingPage() {
               </thead>
               <tbody>
                 {penalties.map((p) => (
-                  <tr key={p.violation} className="border-b border-[#131512]/25">
-                    <td className="px-4 py-2.5 text-[#131512]">{p.violation}</td>
+                  <tr key={p.violation} className="border-b border-[var(--mk-line-soft)]">
+                    <td className="px-4 py-2.5">{p.violation}</td>
                     <td className="whitespace-nowrap px-4 py-2.5 text-right tabular-nums">
                       {p.points}
                     </td>
                   </tr>
                 ))}
                 {recoveries.map((r) => (
-                  <tr key={r.action} className="border-b border-[#131512]/25 last:border-b-0">
-                    <td className="px-4 py-2.5 text-[#131512]">{r.action}</td>
-                    <td className="whitespace-nowrap px-4 py-2.5 text-right font-medium tabular-nums text-[#075C40]">
+                  <tr
+                    key={r.action}
+                    className="border-b border-[var(--mk-line-soft)] last:border-b-0"
+                  >
+                    <td className="px-4 py-2.5">{r.action}</td>
+                    <td className="whitespace-nowrap px-4 py-2.5 text-right font-medium tabular-nums text-[var(--mk-green)]">
                       {r.points}
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
-            <p className="mt-3 font-mono text-xs text-[#454B46]">
+            <p className="mt-3 font-mono text-xs text-[var(--mk-muted)]">
               Penalties amplify in degraded zones. Recovery is capped per day.
             </p>
           </div>
-        </div>
 
-        <div className="mt-16 grid grid-cols-12 items-start gap-x-6 gap-y-10">
-          <div className="col-span-12 lg:col-span-7 lg:order-2">
-            <BrowserFrame
-              src="/assets/images/landing/discipline.png"
-              alt="Discipline tab of a degraded pulse: score 59, At Risk zone, active 50% risk cap and a no-trade-day warning"
-              label="pulse/gold-scalps · discipline"
-            />
-          </div>
-          <div className="col-span-12 lg:col-span-5 lg:order-1">
-            <h3 className="text-2xl font-semibold tracking-[-0.01em]">
-              The ladder is public. Where you stand is not negotiable.
-            </h3>
-            <table className="mt-6 w-full border border-[#131512] text-[0.9375rem]">
+          <div className="col-span-12 lg:col-span-5">
+            <table className="w-full border border-[var(--mk-line)] text-[0.9375rem]">
               <caption className="sr-only">
                 Enforcement tiers by discipline score
               </caption>
               <thead>
-                <tr className="border-b border-[#131512]">
+                <tr className="border-b border-[var(--mk-line)]">
                   <th scope="col" className="px-4 py-3 text-left font-semibold">
                     Score
                   </th>
@@ -267,33 +260,46 @@ export default function LandingPage() {
               </thead>
               <tbody>
                 {tiers.map((t) => (
-                  <tr key={t.band} className="border-b border-[#131512]/25 last:border-b-0">
+                  <tr key={t.band} className="border-b border-[var(--mk-line-soft)] last:border-b-0">
                     <td className="whitespace-nowrap px-4 py-2.5 align-top tabular-nums">
                       {t.band}
                     </td>
-                    <td className="px-4 py-2.5 text-[#454B46]">{t.consequence}</td>
+                    <td className="px-4 py-2.5 text-[var(--mk-muted)]">
+                      {t.consequence}
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
-            <p className="mt-4 max-w-md text-[0.9375rem] leading-relaxed text-[#454B46]">
-              This screenshot is not a mockup. It is the live demo account,
-              sitting at 59 after two risk breaches and a drawdown day, with the
-              50% cap applied and a no-trade day armed.
+            <p className="mt-3 font-mono text-xs text-[var(--mk-muted)]">
+              The ladder is public. Where you stand is not negotiable.
             </p>
           </div>
+        </div>
+
+        <div className="mt-14">
+          <BrowserFrame
+            src="/assets/images/landing/discipline.png"
+            alt="Discipline tab of a degraded pulse: score 59, At Risk zone, active 50% risk cap and a no-trade-day warning"
+            label="pulse/gold-scalps · discipline"
+          />
+          <p className="mx-auto mt-4 max-w-3xl text-center text-[0.9375rem] leading-relaxed text-[var(--mk-muted)]">
+            This screenshot is not a mockup. It is the live demo account,
+            sitting at 59 after two risk breaches and a drawdown day, with the
+            50% cap applied and a no-trade day armed on the next breach.
+          </p>
         </div>
       </section>
 
       {/* ── Product rows ─────────────────────────────────────────────────── */}
-      <section id="product" className="scroll-mt-14 border-t border-[#131512]">
-        <div className="mx-auto max-w-[80rem] px-4 py-16 sm:px-6 sm:py-24">
-          <div className="grid grid-cols-12 items-start gap-x-6 gap-y-8">
+      <section id="product" className="scroll-mt-14 border-t border-[var(--mk-line)]">
+        <div className="mx-auto max-w-[80rem] px-4 sm:px-6">
+          <div className="grid grid-cols-12 items-center gap-x-6 gap-y-8 py-16 sm:py-20">
             <div className="col-span-12 lg:col-span-4">
               <h2 className="text-[clamp(1.75rem,3vw,2.5rem)] font-semibold leading-tight tracking-[-0.02em]">
                 Constraints you acknowledge, or you don&apos;t trade.
               </h2>
-              <p className="mt-5 max-w-md text-[1.0625rem] leading-relaxed text-[#454B46]">
+              <p className="mt-5 max-w-md text-[1.0625rem] leading-relaxed text-[var(--mk-muted)]">
                 When caps are active, the session opens with a gate: your
                 constraints and your own WHY, before a single trade is logged.
                 Capped trades need an explicit acknowledged submit. A no-trade
@@ -310,12 +316,12 @@ export default function LandingPage() {
             </div>
           </div>
 
-          <div className="mt-20 grid grid-cols-12 items-start gap-x-6 gap-y-8">
+          <div className="grid grid-cols-12 items-center gap-x-6 gap-y-8 border-t border-[var(--mk-line-soft)] py-16 sm:py-20">
             <div className="col-span-12 lg:col-span-4 lg:order-2">
               <h2 className="text-[clamp(1.75rem,3vw,2.5rem)] font-semibold leading-tight tracking-[-0.02em]">
                 A week you can read in one column.
               </h2>
-              <p className="mt-5 max-w-md text-[1.0625rem] leading-relaxed text-[#454B46]">
+              <p className="mt-5 max-w-md text-[1.0625rem] leading-relaxed text-[var(--mk-muted)]">
                 Trades grouped by day, with win rate and P/L per session. Every
                 entry carries its execution, psychology, market context and
                 reflection, so the Sunday review takes minutes. The lesson sits
@@ -331,12 +337,12 @@ export default function LandingPage() {
             </div>
           </div>
 
-          <div className="mt-20 grid grid-cols-12 items-start gap-x-6 gap-y-8">
+          <div className="grid grid-cols-12 items-center gap-x-6 gap-y-8 border-t border-[var(--mk-line-soft)] py-16 sm:py-20">
             <div className="col-span-12 lg:col-span-4">
               <h2 className="text-[clamp(1.75rem,3vw,2.5rem)] font-semibold leading-tight tracking-[-0.02em]">
                 One strategy, one pulse, one set of rules.
               </h2>
-              <p className="mt-5 max-w-md text-[1.0625rem] leading-relaxed text-[#454B46]">
+              <p className="mt-5 max-w-md text-[1.0625rem] leading-relaxed text-[var(--mk-muted)]">
                 Each Pulse holds its own account size, risk parameters, rule
                 checklist and discipline state. The dashboard rolls it all up:
                 P/L, profit factor, strike rate, average win and loss. Your
@@ -355,21 +361,21 @@ export default function LandingPage() {
       </section>
 
       {/* ── Capability index ─────────────────────────────────────────────── */}
-      <section className="border-t border-[#131512]">
+      <section className="border-t border-[var(--mk-line)]">
         <div className="mx-auto max-w-[80rem] px-4 py-16 sm:px-6 sm:py-24">
           <h2 className="text-[clamp(1.875rem,3.5vw,3rem)] font-semibold leading-tight tracking-[-0.02em]">
             What&apos;s in the box.
           </h2>
-          <dl className="mt-10 border-t border-[#131512]">
+          <dl className="mt-10 border-t border-[var(--mk-line)]">
             {capabilities.map((c) => (
               <div
                 key={c.term}
-                className="grid grid-cols-12 gap-x-6 gap-y-2 border-b border-[#131512]/25 py-5"
+                className="grid grid-cols-12 gap-x-6 gap-y-2 border-b border-[var(--mk-line-soft)] py-5"
               >
                 <dt className="col-span-12 font-semibold md:col-span-4 lg:col-span-3">
                   {c.term}
                 </dt>
-                <dd className="col-span-12 max-w-2xl text-[0.9375rem] leading-relaxed text-[#454B46] md:col-span-8 lg:col-span-9">
+                <dd className="col-span-12 max-w-2xl text-[0.9375rem] leading-relaxed text-[var(--mk-muted)] md:col-span-8 lg:col-span-9">
                   {c.detail}
                 </dd>
               </div>
@@ -379,15 +385,15 @@ export default function LandingPage() {
       </section>
 
       {/* ── The loop ─────────────────────────────────────────────────────── */}
-      <section className="border-t border-[#131512]">
+      <section className="border-t border-[var(--mk-line)]">
         <div className="mx-auto max-w-[80rem] px-4 py-16 sm:px-6 sm:py-24">
           <div className="grid gap-10 md:grid-cols-3 md:gap-6">
             {loop.map((s) => (
-              <div key={s.lead} className="border-t-2 border-[#131512] pt-5">
+              <div key={s.lead} className="border-t-2 border-[var(--mk-line)] pt-5">
                 <h2 className="text-2xl font-semibold tracking-[-0.01em]">
                   {s.lead}
                 </h2>
-                <p className="mt-3 text-[0.9375rem] leading-relaxed text-[#454B46]">
+                <p className="mt-3 text-[0.9375rem] leading-relaxed text-[var(--mk-muted)]">
                   {s.body}
                 </p>
               </div>
@@ -397,14 +403,17 @@ export default function LandingPage() {
       </section>
 
       {/* ── Pricing ──────────────────────────────────────────────────────── */}
-      <section id="pricing" className="scroll-mt-14 border-t border-[#131512] bg-[#131512] text-[#F6F4EF]">
+      <section
+        id="pricing"
+        className="scroll-mt-14 border-t border-[var(--mk-line)] bg-[var(--mk-invert-bg)] text-[var(--mk-invert-ink)]"
+      >
         <div className="mx-auto max-w-[80rem] px-4 py-20 sm:px-6 sm:py-28">
           <div className="grid grid-cols-12 gap-x-6 gap-y-10">
             <div className="col-span-12 lg:col-span-8">
               <h2 className="text-[clamp(2.5rem,6vw,5rem)] font-semibold leading-[0.98] tracking-[-0.03em]">
                 Free during beta.
               </h2>
-              <p className="mt-6 max-w-xl text-lg leading-relaxed text-[#C9CFC9]">
+              <p className="mt-6 max-w-xl text-lg leading-relaxed text-[var(--mk-invert-muted)]">
                 ProfitPulse is free while we build in the open, and the first
                 100 beta users are grandfathered into a free lifetime plan.
                 Help shape the product. Keep it forever.
@@ -414,18 +423,18 @@ export default function LandingPage() {
               <div className="flex flex-col gap-3">
                 <Link
                   href="/signup"
-                  className="border border-[#08835A] bg-[#08835A] px-6 py-3.5 text-center font-medium text-white hover:bg-[#F6F4EF] hover:border-[#F6F4EF] hover:text-[#131512] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#F6F4EF]"
+                  className="border border-[var(--mk-green-strong)] bg-[var(--mk-green-strong)] px-6 py-3.5 text-center font-medium text-white hover:bg-[var(--mk-invert-ink)] hover:border-[var(--mk-invert-ink)] hover:text-[var(--mk-invert-bg)] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--mk-invert-ink)]"
                 >
                   Claim a lifetime spot
                 </Link>
                 <Link
                   href="/login?demo=1"
-                  className="border border-[#F6F4EF] px-6 py-3.5 text-center font-medium text-[#F6F4EF] hover:bg-[#F6F4EF] hover:text-[#131512] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#F6F4EF]"
+                  className="border border-[var(--mk-invert-ink)] px-6 py-3.5 text-center font-medium text-[var(--mk-invert-ink)] hover:bg-[var(--mk-invert-ink)] hover:text-[var(--mk-invert-bg)] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--mk-invert-ink)]"
                 >
                   Kick the tires first
                 </Link>
               </div>
-              <p className="mt-3 text-[0.875rem] text-[#C9CFC9]">
+              <p className="mt-3 text-[0.875rem] text-[var(--mk-invert-muted)]">
                 No card. No sales call. Cancel by closing the tab.
               </p>
             </div>

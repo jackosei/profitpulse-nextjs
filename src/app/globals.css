@@ -103,3 +103,31 @@ body {
 .text-loss {
   @apply text-error;
 }
+/* ── Marketing theme (scoped to .mk-root, dark default / light via data-theme) ── */
+.mk-root {
+  --mk-bg: #0e1420;
+  --mk-surface: #151f2e;
+  --mk-ink: #f2f1ec;
+  --mk-muted: #a9b1ab;
+  --mk-line: #e9e7e0;
+  --mk-line-soft: rgba(233, 231, 224, 0.22);
+  --mk-green: #00c688;
+  --mk-green-strong: #08835a;
+  --mk-invert-bg: #f2f1ec;
+  --mk-invert-ink: #131512;
+  --mk-invert-muted: #454b46;
+}
+
+.mk-root[data-theme="light"] {
+  --mk-bg: #f6f4ef;
+  --mk-surface: #f6f4ef;
+  --mk-ink: #131512;
+  --mk-muted: #454b46;
+  --mk-line: #131512;
+  --mk-line-soft: rgba(19, 21, 18, 0.22);
+  --mk-green: #075c40;
+  --mk-green-strong: #08835a;
+  --mk-invert-bg: #131512;
+  --mk-invert-ink: #f6f4ef;
+  --mk-invert-muted: #c9cfc9;
+}

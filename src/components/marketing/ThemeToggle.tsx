@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Moon, Sun } from "lucide-react";
 
 const STORAGE_KEY = "mk-theme";
 
 /**
- * Marketing-site theme toggle. Dark is the default; "light" is stored in
- * localStorage and applied as data-theme on .mk-root (a pre-paint inline
- * script in the marketing layout prevents a flash on load).
+ * Marketing-site theme toggle (icon-only). Dark is the default; "light" is
+ * stored in localStorage and applied as data-theme on .mk-root (a pre-paint
+ * inline script in the marketing layout prevents a flash on load).
  */
 export default function ThemeToggle() {
   const [theme, setTheme] = useState<"dark" | "light">("dark");
@@ -44,9 +45,14 @@ export default function ThemeToggle() {
       aria-label={
         theme === "dark" ? "Switch to light theme" : "Switch to dark theme"
       }
-      className="border border-[var(--mk-line)] px-2.5 py-1.5 font-mono text-xs text-[var(--mk-ink)] hover:bg-[var(--mk-ink)] hover:text-[var(--mk-bg)] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--mk-ink)]"
+      title={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
+      className="p-2 text-[var(--mk-muted)] hover:text-[var(--mk-ink)] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--mk-ink)]"
     >
-      {theme === "dark" ? "Light" : "Dark"}
+      {theme === "dark" ? (
+        <Sun size={17} aria-hidden />
+      ) : (
+        <Moon size={17} aria-hidden />
+      )}
     </button>
   );
 }

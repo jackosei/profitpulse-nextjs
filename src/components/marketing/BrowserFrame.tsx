@@ -10,12 +10,16 @@ export default function BrowserFrame({
   alt,
   label,
   priority = false,
+  capped = false,
 }: {
   src: string;
   alt: string;
   /** Route-style caption shown in the frame's top bar, e.g. "pulse/gold-scalps · discipline" */
   label: string;
   priority?: boolean;
+  /** Cap the frame height on tall viewports (full-width frames), cropping the
+   *  mostly-empty bottom of the screenshot rather than distorting it. */
+  capped?: boolean;
 }) {
   return (
     <figure className="border border-[var(--mk-line)] bg-[#0e1420]">
@@ -32,15 +36,19 @@ export default function BrowserFrame({
           live demo data
         </span>
       </figcaption>
-      <Image
-        src={src}
-        alt={alt}
-        width={1600}
-        height={1000}
-        priority={priority}
-        className="h-auto w-full"
-        sizes="(min-width: 1024px) 60rem, 100vw"
-      />
+      <div className={capped ? "max-h-[min(46rem,85vh)] overflow-hidden" : undefined}>
+        <Image
+          src={src}
+          alt={alt}
+          width={1600}
+          height={1000}
+          priority={priority}
+          className={
+            capped ? "h-auto w-full object-cover object-top" : "h-auto w-full"
+          }
+          sizes="(min-width: 1024px) 60rem, 100vw"
+        />
+      </div>
     </figure>
   );
 }

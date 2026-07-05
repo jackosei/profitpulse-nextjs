@@ -1,5 +1,22 @@
 # Changelog
 
+## [4.13.2] - 2026-07-05
+
+Landing page polish + dark mode, plus fixes surfaced during review.
+
+### New Features
+- **Landing dark mode, default + toggle**: the marketing site now defaults to a dark theme (aligned with the app) with an icon-only light/dark toggle in the nav. Theme is persisted to `localStorage` and applied pre-paint (no flash); all colours flow through scoped `.mk-root` CSS variables so the app chrome is unaffected. `prefers-reduced-motion` and `suppressHydrationWarning` handled.
+- **Hero animation**: added a self-hosted, green-toned Lottie (`@lottiefiles/dotlottie-react`, asset in `public/assets/lottie/`) in the hero's right column, scaled into the page margin. Autoplay is skipped under reduced-motion.
+- **Subtle entrance animations**: new `Reveal` component (IntersectionObserver, fade + rise, respects reduced motion; server HTML stays visible for SEO/no-JS) wraps the manifesto, engine tables, screenshot frames, product rows, capability list, loop columns and pricing block.
+- **Browser-dot chrome** restored to screenshot frames (traffic-light dots + centered mono route caption). Full-width hero/discipline frames gain a `capped` height (`max-h-[min(46rem,85vh)]`, top-anchored crop) so they no longer exceed the desktop viewport.
+
+### Fixes
+- **Demo banner "Create your free account" did nothing**: a signed-in demo user hitting `/signup` was bounced by middleware. It now signs out first, then hard-navigates to `/signup`. Banner icon changed from Sparkles to Info.
+- **No route home from auth pages**: login/signup/forgot-password now carry a `ProfitPulse` wordmark linking back to `/`.
+- **Landing green mismatch**: the light theme's accent now uses the app's exact `#08835a` instead of a custom darkened green.
+- **Emoji removed from the app** (project convention: use lucide-react icons): `📈`→`TrendingUp`, `⚠️`→`AlertTriangle`, `✕`→`X`.
+- **Static asset routing**: middleware matcher now also excludes `.lottie` and `.webp` (the `.lottie` request was being redirected to `/login`).
+
 ## [4.13.1] - 2026-07-04
 
 ### UX

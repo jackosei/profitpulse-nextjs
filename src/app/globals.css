@@ -125,7 +125,7 @@ body {
   --mk-muted: #454b46;
   --mk-line: #131512;
   --mk-line-soft: rgba(19, 21, 18, 0.22);
-  --mk-green: #075c40;
+  --mk-green: #08835a; /* app --accent, exact brand match */
   --mk-green-strong: #08835a;
   --mk-invert-bg: #131512;
   --mk-invert-ink: #f6f4ef;

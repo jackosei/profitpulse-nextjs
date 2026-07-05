@@ -1,6 +1,8 @@
 import { Metadata } from "next";
 import Link from "next/link";
 import BrowserFrame from "@/components/marketing/BrowserFrame";
+import Reveal from "@/components/marketing/Reveal";
+import HeroLottie from "@/components/marketing/HeroLottie";
 
 export const metadata: Metadata = {
   title: "ProfitPulse: The Trading Journal That Enforces Your Rules",
@@ -124,13 +126,22 @@ export default function LandingPage() {
       {/* ── Hero ─────────────────────────────────────────────────────────── */}
       <section className="mx-auto max-w-[80rem] px-4 sm:px-6">
         <div className="pb-14 pt-16 sm:pt-24 lg:pb-20">
-          <h1 className="max-w-[60rem] text-[clamp(2.75rem,8.5vw,7.5rem)] font-semibold leading-[0.95] tracking-[-0.03em]">
-            The trading journal that{" "}
-            <span className="underline decoration-[var(--mk-green)] decoration-[0.06em] underline-offset-[0.08em]">
-              enforces
-            </span>{" "}
-            your rules.
-          </h1>
+          <div className="grid grid-cols-12 items-center gap-x-6">
+            <h1 className="col-span-12 max-w-[60rem] text-[clamp(2.75rem,8.5vw,7.5rem)] font-semibold leading-[0.95] tracking-[-0.03em] lg:col-span-8">
+              The trading journal that{" "}
+              <span className="underline decoration-[var(--mk-green)] decoration-[0.06em] underline-offset-[0.08em]">
+                enforces
+              </span>{" "}
+              your rules.
+            </h1>
+            <div className="hidden lg:col-span-4 lg:block">
+              {/* Scale past the composition's own padding so it reads larger,
+                  origin-right so it grows into the page margin, not the copy. */}
+              <div className="origin-right scale-[1.35] xl:scale-[1.5]">
+                <HeroLottie />
+              </div>
+            </div>
+          </div>
 
           <div className="mt-12 grid grid-cols-12 gap-x-6 gap-y-8 border-t border-[var(--mk-line)] pt-8 lg:mt-16">
             <p className="col-span-12 max-w-xl text-lg leading-relaxed text-[var(--mk-muted)] md:col-span-7 lg:col-span-6">
@@ -166,17 +177,20 @@ export default function LandingPage() {
           alt="ProfitPulse pulse detail showing an equity curve, 65% win rate and 3.5 profit factor"
           label="pulse/nq-momentum · performance"
           priority
+          capped
         />
       </section>
 
       {/* ── Manifesto ────────────────────────────────────────────────────── */}
       <section className="mt-20 border-y border-[var(--mk-line)] sm:mt-28">
         <div className="mx-auto max-w-[80rem] px-4 py-14 sm:px-6 sm:py-20">
-          <p className="max-w-4xl text-[clamp(1.5rem,3.5vw,2.75rem)] font-medium leading-[1.15] tracking-[-0.01em]">
-            Discipline is not a dashboard metric. It is what you are allowed to
-            do next. Every other journal reports the damage after it is done.
-            This one pushes back.
-          </p>
+          <Reveal>
+            <p className="max-w-4xl text-[clamp(1.5rem,3.5vw,2.75rem)] font-medium leading-[1.15] tracking-[-0.01em]">
+              Discipline is not a dashboard metric. It is what you are allowed
+              to do next. Every other journal reports the damage after it is
+              done. This one pushes back.
+            </p>
+          </Reveal>
         </div>
       </section>
 
@@ -201,7 +215,7 @@ export default function LandingPage() {
         </div>
 
         <div className="mt-12 grid grid-cols-12 items-start gap-x-6 gap-y-10">
-          <div className="col-span-12 lg:col-span-7">
+          <Reveal className="col-span-12 lg:col-span-7">
             <table className="w-full border border-[var(--mk-line)] text-[0.9375rem]">
               <caption className="sr-only">
                 Discipline score penalties and recovery credits
@@ -241,9 +255,9 @@ export default function LandingPage() {
             <p className="mt-3 font-mono text-xs text-[var(--mk-muted)]">
               Penalties amplify in degraded zones. Recovery is capped per day.
             </p>
-          </div>
+          </Reveal>
 
-          <div className="col-span-12 lg:col-span-5">
+          <Reveal className="col-span-12 lg:col-span-5" delay={120}>
             <table className="w-full border border-[var(--mk-line)] text-[0.9375rem]">
               <caption className="sr-only">
                 Enforcement tiers by discipline score
@@ -274,27 +288,28 @@ export default function LandingPage() {
             <p className="mt-3 font-mono text-xs text-[var(--mk-muted)]">
               The ladder is public. Where you stand is not negotiable.
             </p>
-          </div>
+          </Reveal>
         </div>
 
-        <div className="mt-14">
+        <Reveal className="mt-14">
           <BrowserFrame
             src="/assets/images/landing/discipline.png"
             alt="Discipline tab of a degraded pulse: score 59, At Risk zone, active 50% risk cap and a no-trade-day warning"
             label="pulse/gold-scalps · discipline"
+            capped
           />
           <p className="mx-auto mt-4 max-w-3xl text-center text-[0.9375rem] leading-relaxed text-[var(--mk-muted)]">
             This screenshot is not a mockup. It is the live demo account,
             sitting at 59 after two risk breaches and a drawdown day, with the
             50% cap applied and a no-trade day armed on the next breach.
           </p>
-        </div>
+        </Reveal>
       </section>
 
       {/* ── Product rows ─────────────────────────────────────────────────── */}
       <section id="product" className="scroll-mt-14 border-t border-[var(--mk-line)]">
         <div className="mx-auto max-w-[80rem] px-4 sm:px-6">
-          <div className="grid grid-cols-12 items-center gap-x-6 gap-y-8 py-16 sm:py-20">
+          <Reveal className="grid grid-cols-12 items-center gap-x-6 gap-y-8 py-16 sm:py-20">
             <div className="col-span-12 lg:col-span-4">
               <h2 className="text-[clamp(1.75rem,3vw,2.5rem)] font-semibold leading-tight tracking-[-0.02em]">
                 Constraints you acknowledge, or you don&apos;t trade.
@@ -314,9 +329,9 @@ export default function LandingPage() {
                 label="pulse/gold-scalps · session gate"
               />
             </div>
-          </div>
+          </Reveal>
 
-          <div className="grid grid-cols-12 items-center gap-x-6 gap-y-8 border-t border-[var(--mk-line-soft)] py-16 sm:py-20">
+          <Reveal className="grid grid-cols-12 items-center gap-x-6 gap-y-8 border-t border-[var(--mk-line-soft)] py-16 sm:py-20">
             <div className="col-span-12 lg:col-span-4 lg:order-2">
               <h2 className="text-[clamp(1.75rem,3vw,2.5rem)] font-semibold leading-tight tracking-[-0.02em]">
                 A week you can read in one column.
@@ -335,9 +350,9 @@ export default function LandingPage() {
                 label="pulse/nq-momentum · trade log"
               />
             </div>
-          </div>
+          </Reveal>
 
-          <div className="grid grid-cols-12 items-center gap-x-6 gap-y-8 border-t border-[var(--mk-line-soft)] py-16 sm:py-20">
+          <Reveal className="grid grid-cols-12 items-center gap-x-6 gap-y-8 border-t border-[var(--mk-line-soft)] py-16 sm:py-20">
             <div className="col-span-12 lg:col-span-4">
               <h2 className="text-[clamp(1.75rem,3vw,2.5rem)] font-semibold leading-tight tracking-[-0.02em]">
                 One strategy, one pulse, one set of rules.
@@ -356,16 +371,18 @@ export default function LandingPage() {
                 label="dashboard"
               />
             </div>
-          </div>
+          </Reveal>
         </div>
       </section>
 
       {/* ── Capability index ─────────────────────────────────────────────── */}
       <section className="border-t border-[var(--mk-line)]">
         <div className="mx-auto max-w-[80rem] px-4 py-16 sm:px-6 sm:py-24">
-          <h2 className="text-[clamp(1.875rem,3.5vw,3rem)] font-semibold leading-tight tracking-[-0.02em]">
-            What&apos;s in the box.
-          </h2>
+          <Reveal>
+            <h2 className="text-[clamp(1.875rem,3.5vw,3rem)] font-semibold leading-tight tracking-[-0.02em]">
+              What&apos;s in the box.
+            </h2>
+          </Reveal>
           <dl className="mt-10 border-t border-[var(--mk-line)]">
             {capabilities.map((c) => (
               <div
@@ -388,15 +405,17 @@ export default function LandingPage() {
       <section className="border-t border-[var(--mk-line)]">
         <div className="mx-auto max-w-[80rem] px-4 py-16 sm:px-6 sm:py-24">
           <div className="grid gap-10 md:grid-cols-3 md:gap-6">
-            {loop.map((s) => (
-              <div key={s.lead} className="border-t-2 border-[var(--mk-line)] pt-5">
-                <h2 className="text-2xl font-semibold tracking-[-0.01em]">
-                  {s.lead}
-                </h2>
-                <p className="mt-3 text-[0.9375rem] leading-relaxed text-[var(--mk-muted)]">
-                  {s.body}
-                </p>
-              </div>
+            {loop.map((s, i) => (
+              <Reveal key={s.lead} delay={i * 120}>
+                <div className="border-t-2 border-[var(--mk-line)] pt-5">
+                  <h2 className="text-2xl font-semibold tracking-[-0.01em]">
+                    {s.lead}
+                  </h2>
+                  <p className="mt-3 text-[0.9375rem] leading-relaxed text-[var(--mk-muted)]">
+                    {s.body}
+                  </p>
+                </div>
+              </Reveal>
             ))}
           </div>
         </div>
@@ -408,7 +427,7 @@ export default function LandingPage() {
         className="scroll-mt-14 border-t border-[var(--mk-line)] bg-[var(--mk-invert-bg)] text-[var(--mk-invert-ink)]"
       >
         <div className="mx-auto max-w-[80rem] px-4 py-20 sm:px-6 sm:py-28">
-          <div className="grid grid-cols-12 gap-x-6 gap-y-10">
+          <Reveal className="grid grid-cols-12 gap-x-6 gap-y-10">
             <div className="col-span-12 lg:col-span-8">
               <h2 className="text-[clamp(2.5rem,6vw,5rem)] font-semibold leading-[0.98] tracking-[-0.03em]">
                 Free during beta.
@@ -438,7 +457,7 @@ export default function LandingPage() {
                 No card. No sales call. Cancel by closing the tab.
               </p>
             </div>
-          </div>
+          </Reveal>
         </div>
       </section>
     </div>

@@ -16,6 +16,7 @@ import {
   TableIcon,
   CalendarIcon,
   Layers,
+  X,
 } from "lucide-react";
 
 type ViewType = "by-day" | "table" | "calendar";
@@ -305,7 +306,7 @@ export default function TradeCalendar({
                 className="text-gray-500 hover:text-white"
                 aria-label="Close"
               >
-                ✕
+                <X size={16} aria-hidden />
               </button>
             </div>
             <div className="flex-1 overflow-y-auto divide-y divide-gray-800/60">

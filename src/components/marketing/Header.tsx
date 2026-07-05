@@ -37,10 +37,13 @@ export default function MarketingHeader() {
           >
             Live demo
           </Link>
+          <ThemeToggle />
         </nav>
 
         <div className="flex items-center gap-3">
-          <ThemeToggle />
+          <span className="md:hidden">
+            <ThemeToggle />
+          </span>
           <Link
             href="/login"
             className="hidden text-[0.9375rem] underline-offset-4 hover:underline sm:block focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--mk-ink)]"

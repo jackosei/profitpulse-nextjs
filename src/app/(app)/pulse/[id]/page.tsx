@@ -31,6 +31,7 @@ import DisciplineMeter from "@/components/discipline/DisciplineMeter";
 import StreakBadge from "@/components/discipline/StreakBadge";
 import EditWHYModal from "@/components/modals/EditWHYModal";
 import AddTradeFAB from "@/components/pulse/AddTradeFAB";
+import { TrendingUp, AlertTriangle } from "lucide-react";
 
 type TimeRange = "7D" | "30D" | "90D" | "1Y" | "ALL";
 type ComparisonType = "PERIOD" | "START";
@@ -465,7 +466,7 @@ export default function PulseDetailsPage() {
                   <PulseChart trades={pulse.trades} timeRange={selectedTimeRange} />
                 ) : (
                   <div className="h-full flex flex-col items-center justify-center gap-2 text-gray-600">
-                    <span className="text-3xl">📈</span>
+                    <TrendingUp size={30} aria-hidden />
                     <p className="text-sm">No trades yet — log your first trade to see the curve</p>
                   </div>
                 )}
@@ -546,7 +547,7 @@ export default function PulseDetailsPage() {
             >
               <div className="flex items-center gap-2.5">
                 <span className="w-7 h-7 rounded-full bg-amber-500/10 flex items-center justify-center">
-                  <span className="text-xs">⚠️</span>
+                  <AlertTriangle size={13} className="text-amber-400" aria-hidden />
                 </span>
                 <div className="text-left">
                   <p className="text-sm font-medium text-gray-200">Violation History</p>

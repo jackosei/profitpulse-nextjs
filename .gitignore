@@ -54,3 +54,4 @@ analysis_report.md
 /src/lib/__tests__/
 /tsconfig.scripts.json
 /.scripts-dist/
+.env.local

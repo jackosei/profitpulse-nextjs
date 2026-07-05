@@ -3,6 +3,7 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { Pulse, Trade, PulseStatus, TradeEvaluationResult } from "@/types/pulse";
 import * as pulseApiService from "@/services/api/pulseApi";
+import { track } from "@/services/analytics/track";
 import type {
   PulseCreateData,
   PulseUpdateData,
@@ -161,6 +162,7 @@ export function usePulse(props?: UsePulseProps) {
       const response = await pulseApiService.createPulse(pulseData);
 
       if (response.success && response.data) {
+        track("pulse_created", { pulseId: response.data.id });
         onSuccessRef.current?.(response.data);
         return response.data;
       } else {
@@ -219,6 +221,7 @@ export function usePulse(props?: UsePulseProps) {
       const result = await response.json();
 
       if (result.success && result.data?.trade) {
+        track("trade_logged", { pulseId: tradeData.pulseId });
         onSuccessRef.current?.(result.data.trade);
         return result.data; // Return the full payload
       } else {

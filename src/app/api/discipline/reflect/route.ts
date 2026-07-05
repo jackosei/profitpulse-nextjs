@@ -16,12 +16,13 @@
  *  6. Return updated score + state
  */
 
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { adminDb } from "@/services/admin";
 import * as admin from "firebase-admin";
 import type { Pulse } from "@/types/pulse";
 import { getZone } from "@/lib/disciplineEngine";
 import { computeStateTransition } from "@/lib/enforcementEngine";
+import { getPostHogClient } from "@/lib/posthog-server";
 
 // ---------------------------------------------------------------------------
 // Auth helper (shared pattern with evaluate route)
@@ -133,6 +134,21 @@ export async function POST(request: Request) {
         scoreAfter: newScore,
         zone: newZone,
       });
+
+    const posthog = getPostHogClient();
+    posthog.capture({
+      distinctId: authenticatedUid,
+      event: "reflection_gate_completed",
+      properties: {
+        pulseId,
+        scoreBefore: currentScore,
+        scoreAfter: newScore,
+        zone: newZone,
+        recoveryPoints: REFLECTION_GATE_RECOVERY,
+      },
+    });
+    // Flush after the response streams (serverless-safe delivery).
+    after(async () => { await posthog.flush() });
 
     return NextResponse.json({
       success: true,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useModalEscape } from '@/hooks/useModalEscape';
 import { useAuth } from '@/context/AuthContext';
 import { toast } from 'sonner';
@@ -43,6 +43,19 @@ export default function CreatePulseModal({ isOpen, onClose, onSuccess }: CreateP
 
   // --- Step state ---
   const [step, setStep] = useState<Step>('config');
+
+  // Scroll container + first WHY field, so advancing to step 2 lands the user
+  // at the top with focus already in place (rather than mid-scroll).
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const whyStatementRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    if (step === 'why') {
+      scrollRef.current?.scrollTo({ top: 0 });
+      // Focus after the step's content has painted.
+      requestAnimationFrame(() => whyStatementRef.current?.focus());
+    }
+  }, [step]);
 
   // --- Config step state ---
   const [formData, setFormData] = useState({
@@ -304,7 +317,7 @@ export default function CreatePulseModal({ isOpen, onClose, onSuccess }: CreateP
           aria-modal="true"
           aria-labelledby="create-pulse-title"
         >
-          <div className="max-h-[90vh] overflow-y-auto rounded-lg border border-gray-800 bg-dark p-6">
+          <div ref={scrollRef} className="max-h-[90vh] overflow-y-auto rounded-lg border border-gray-800 bg-dark p-6">
             {/* ── Step indicator + close ── */}
             <div className="mb-5 flex items-start justify-between gap-3">
               <div className="flex min-w-0 flex-1 items-center gap-3">
@@ -598,6 +611,7 @@ export default function CreatePulseModal({ isOpen, onClose, onSuccess }: CreateP
                         Be specific about what success means for you.
                       </p>
                       <textarea
+                        ref={whyStatementRef}
                         id="whyStatement"
                         disabled={loading}
                         className={`input-dark w-full h-28 disabled:opacity-50 disabled:cursor-not-allowed resize-none ${whyTouched.statement && whyStatement.trim().length < WHY_MIN_CHARS

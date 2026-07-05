@@ -1,5 +1,27 @@
 # Changelog
 
+## [4.14.0] - 2026-07-05
+
+Product analytics (PostHog), contact-form hardening, and sign-in / pulse UX fixes.
+
+### New Features
+- **PostHog analytics** for the sign-up funnel, demo usage, and error tracking.
+  - **Client**: the SDK initialises once in `instrumentation-client.ts` (guarded on `NEXT_PUBLIC_POSTHOG_KEY`, so it no-ops when unset); a Suspense-wrapped `PageView` captures a manual `$pageview` per App Router navigation; autocapture + exception capture enabled. `AuthContext` identifies the user and registers an `is_demo` super-property so demo traffic can be excluded from the real-user funnel. Client events: `sign_up`, `sign_in`, `demo_login`, `pulse_created`, `trade_logged`, `contact_submitted` (via the typed `track()` helper), plus captured exceptions from `ErrorBoundary`.
+  - **Server**: `posthog-node` (`src/lib/posthog-server.ts`) captures `journal_saved`, `discipline_violation_occurred`, and `reflection_gate_completed`, each flushed non-blockingly via `after()` for serverless-safe delivery.
+  - Requests are sent first-party to `/ingest/*` and reverse-proxied to PostHog in `next.config.ts` (dodges ad-blockers); `ingest` is excluded from the middleware auth gate.
+- **Contact submissions are now persisted**: every message is written to a server-only `supportMessages` Firestore collection (audit trail / support queue) before the email is attempted, so nothing is lost on delivery failure. New security rule: admin-read only, no client writes.
+
+### Fixes
+- **Contact form reported success but sent no email**: the Resend SDK resolves with `{ data, error }` rather than throwing on API-level rejections (e.g. unverified sender domain), and the route never inspected `error` — so a refused send showed the success toast. The route now checks the returned `error`, marks the persisted record `email_failed` with the reason, and returns a real error status.
+- **Blank screen after sign-in**: email and Google sign-in used `router.push`, which could replay a client-cached pre-cookie middleware redirect and strand the user on a blank auth shell until they refreshed. All sign-in paths now hard-navigate (`window.location.assign`), matching the demo flow, so middleware re-runs with the session cookie present.
+- **Create Pulse — WHY step**: advancing to step 2 kept the modal's step-1 scroll position with nothing focused. It now scrolls to top and focuses the first WHY field.
+- **No feedback when opening a pulse**: the heavy pulse detail route gave a dead ~5s gap. The clicked row now shows an immediate pending state (dimmed row, spinner on the arrow) via `useTransition`, and a route-level `loading.tsx` renders a skeleton instantly during navigation.
+- **Stray vertical scrollbar on the pulse tab strip**: `overflow-x-auto` promoted `overflow-y` to `auto` and the tabs' `-mb-px` tipped content 1px over; added `overflow-y-hidden`.
+
+### Requires
+- Set `NEXT_PUBLIC_POSTHOG_KEY` / `NEXT_PUBLIC_POSTHOG_HOST` to enable analytics.
+- Deploy the new Firestore rule: `firebase deploy --only firestore:rules`.
+
 ## [4.13.2] - 2026-07-05
 
 Landing page polish + dark mode, plus fixes surfaced during review.

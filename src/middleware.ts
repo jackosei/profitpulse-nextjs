@@ -54,11 +54,12 @@ export const config = {
     /*
      * Match all request paths except:
      * - api (API routes — the session/journal routes must stay reachable)
+     * - ingest (PostHog reverse-proxy rewrite — must not hit the auth gate)
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
      * - *.svg / *.png / *.jpg / *.jpeg / *.gif / *.webp / *.lottie (static assets)
      */
-    '/((?!api|_next/static|_next/image|favicon.ico|.*\\.svg$|.*\\.png$|.*\\.jpg$|.*\\.jpeg$|.*\\.gif$|.*\\.webp$|.*\\.lottie$).*)',
+    '/((?!api|ingest|_next/static|_next/image|favicon.ico|.*\\.svg$|.*\\.png$|.*\\.jpg$|.*\\.jpeg$|.*\\.gif$|.*\\.webp$|.*\\.lottie$).*)',
   ],
 }

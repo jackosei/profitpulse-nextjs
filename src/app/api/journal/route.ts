@@ -1,7 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse, after } from 'next/server'
 import { adminDb, adminAuth } from '@/services/admin'
 import * as admin from 'firebase-admin'
 import { utcDayKey } from '@/config/routes'
+import { getPostHogClient } from '@/lib/posthog-server'
 
 export const runtime = 'nodejs'
 
@@ -82,6 +83,17 @@ export async function POST(request: NextRequest) {
     { text: text.trim(), day, updatedAt: now, createdAt: now },
     { merge: true },
   )
+
+  const posthog = getPostHogClient()
+  posthog.capture({
+    distinctId: uid,
+    event: 'journal_saved',
+    properties: { day },
+  })
+  // Flush after the response streams — the posthog-node client is fire-and-
+  // forget, so without this a serverless invocation can terminate before the
+  // event is delivered.
+  after(async () => { await posthog.flush() })
 
   const res = NextResponse.json({ success: true })
   res.cookies.set('journaled', day, {

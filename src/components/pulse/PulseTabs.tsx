@@ -26,11 +26,14 @@ const TABS: { id: PulseTab; label: string; icon: React.ReactNode }[] = [
  * (the classic "tabs above content" pattern).
  */
 export default function PulseTabs({ active, onChange, badges }: PulseTabsProps) {
+  // overflow-y-hidden: `overflow-x-auto` alone promotes overflow-y to auto, and
+  // the tabs' `-mb-px` nudges content 1px past the box, spawning a stray
+  // vertical scrollbar. Clip the vertical axis explicitly.
   return (
     <div
       role="tablist"
       aria-label="Pulse view"
-      className="flex items-center gap-0.5 overflow-x-auto"
+      className="flex items-center gap-0.5 overflow-x-auto overflow-y-hidden"
     >
       {TABS.map((tab) => {
         const isActive = active === tab.id;

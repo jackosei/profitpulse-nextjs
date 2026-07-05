@@ -25,7 +25,7 @@ export default function Login() {
 				const result = await handleRedirectResult()
 				if (result.success && result.data) {
 					await setSessionCookie()
-					router.push(APP_HOME)
+					window.location.assign(APP_HOME)
 				} else if (result.error) {
 					setError(result.error.message || "Sign in failed")
 				}
@@ -38,7 +38,7 @@ export default function Login() {
 
 		const unsubscribe = auth.onAuthStateChanged((user) => {
 			if (user) {
-				router.push(APP_HOME)
+				window.location.assign(APP_HOME)
 			}
 			if (!user) {
 				checkRedirectResult()
@@ -60,7 +60,7 @@ export default function Login() {
 				// Ensure the server session cookie exists before navigating so
 				// middleware doesn't bounce us straight back to /login.
 				await setSessionCookie()
-				router.push(APP_HOME)
+				window.location.assign(APP_HOME)
 			} else if (!res.success) {
 				setError(res.error?.message || "Failed to sign in")
 			}
@@ -117,7 +117,7 @@ export default function Login() {
 			const res = await signInWithEmail(email, password)
 			if (res.success && res.data) {
 				await setSessionCookie()
-				router.push(APP_HOME)
+				window.location.assign(APP_HOME)
 			} else {
 				setError(res.error?.message || "Sign in failed")
 			}

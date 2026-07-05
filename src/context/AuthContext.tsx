@@ -12,6 +12,7 @@ import { User } from "firebase/auth";
 import { auth } from "@/services/firebase/firestoreConfig";
 import { getUserProfile, createUserProfile } from "@/services/api/userApi";
 import * as authApi from "@/services/api/authApi";
+import { track, identifyUser, resetUser } from "@/services/analytics/track";
 import type { UserProfile } from "@/types/user";
 
 interface AuthState {
@@ -45,6 +46,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         if (profileResponse.success && profileResponse.data) {
           setUserProfile(profileResponse.data);
+          identifyUser(user.uid, {
+            email: user.email ?? undefined,
+            is_demo: profileResponse.data.isDemo ?? false,
+          });
         } else {
           const createResponse = await createUserProfile(
             user.uid,
@@ -54,9 +59,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (createResponse.success && createResponse.data) {
             setUserProfile(createResponse.data);
           }
+          // First-ever profile creation is the ground truth for a new account
+          // (covers email AND first-time Google sign-ups). Fires exactly once.
+          identifyUser(user.uid, {
+            email: user.email ?? undefined,
+            is_demo: false,
+          });
+          track("sign_up");
         }
       } else {
         setUserProfile(null);
+        resetUser();
         // Clear the server-side session cookie whenever Firebase reports no
         // authenticated user — this prevents a stale cookie from trapping
         // signed-out users in the journal-gate redirect loop.
@@ -104,6 +117,7 @@ export function useAuth() {
       run(async () => {
         const res = await authApi.signInWithGoogle();
         if (!res.success) setError(res.error?.message ?? "Failed to sign in");
+        else track("sign_in", { method: "google" });
         return res;
       }),
     [run],
@@ -114,6 +128,7 @@ export function useAuth() {
       run(async () => {
         const res = await authApi.signInWithEmail(email, password);
         if (!res.success) setError(res.error?.message ?? "Failed to sign in");
+        else track("sign_in", { method: "email" });
         return res;
       }),
     [run],
@@ -125,6 +140,7 @@ export function useAuth() {
         const res = await authApi.signInWithDemo();
         if (!res.success)
           setError(res.error?.message ?? "Demo is unavailable right now");
+        else track("demo_login");
         return res;
       }),
     [run],

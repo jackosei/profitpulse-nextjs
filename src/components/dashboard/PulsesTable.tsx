@@ -1,9 +1,9 @@
-import { memo, useCallback, useState } from "react"
+import { memo, useCallback, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { type Pulse, isPulseLocked, PULSE_MESSAGES } from "@/types/pulse"
 import { formatCurrency, formatRatio } from "@/utils/format"
 import PulseDetailsModal from "@/components/modals/PulseDetailsModal"
-import { Lock, AlertCircle, AlertTriangle } from "lucide-react"
+import { Lock, AlertCircle, AlertTriangle, Loader2 } from "lucide-react"
 
 interface PulsesTableProps {
 	pulses: Pulse[]
@@ -13,17 +13,25 @@ interface PulsesTableProps {
 function PulseTableRow({ pulse }: { pulse: Pulse }) {
 	const router = useRouter()
 	const [showDetailsModal, setShowDetailsModal] = useState(false)
+	// Navigating to the pulse detail route pulls a heavy chunk; wrap the push in
+	// a transition so the row can show an immediate pending state instead of
+	// appearing frozen while the route loads.
+	const [isNavigating, startNavigation] = useTransition()
+
+	const navigateToPulse = useCallback(() => {
+		startNavigation(() => router.push(`/pulse/${pulse.id}`))
+	}, [router, pulse.id])
 
 	const handleRowClick = useCallback(() => {
-		router.push(`/pulse/${pulse.id}`)
-	}, [router, pulse.id])
+		navigateToPulse()
+	}, [navigateToPulse])
 
 	const handleButtonClick = useCallback(
 		(e: React.MouseEvent) => {
 			e.stopPropagation()
-			router.push(`/pulse/${pulse.id}`)
+			navigateToPulse()
 		},
-		[router, pulse.id]
+		[navigateToPulse]
 	)
 
 	const handleInfoClick = useCallback((e: React.MouseEvent) => {
@@ -77,8 +85,9 @@ function PulseTableRow({ pulse }: { pulse: Pulse }) {
 		<>
 			<tr
 				key={pulse.id}
-				className={`group hover:bg-gray-800/50 cursor-pointer ${isPulseLocked(pulse) ? 'bg-red-900/10' : ''}`}
+				className={`group hover:bg-gray-800/50 ${isNavigating ? 'cursor-wait opacity-60' : 'cursor-pointer'} ${isPulseLocked(pulse) ? 'bg-red-900/10' : ''}`}
 				onClick={handleRowClick}
+				aria-busy={isNavigating}
 			>
 				<td className="p-4 font-medium text-sm">
 					<div className="flex items-center gap-2">
@@ -129,10 +138,12 @@ function PulseTableRow({ pulse }: { pulse: Pulse }) {
 						</svg>
 					</button>
 					<button
-						className="text-sm text-gray-400 group-hover:text-white border border-gray-800 group-hover:border-gray-600 bg-transparent rounded-md px-3 py-1 transition-all duration-200 transform group-hover:translate-x-1"
+						className="text-sm text-gray-400 group-hover:text-white border border-gray-800 group-hover:border-gray-600 bg-transparent rounded-md px-3 py-1 transition-all duration-200 transform group-hover:translate-x-1 disabled:opacity-100"
 						onClick={handleButtonClick}
+						disabled={isNavigating}
+						aria-label={isNavigating ? "Opening pulse" : "Open pulse"}
 					>
-						→
+						{isNavigating ? <Loader2 className="w-4 h-4 animate-spin" /> : "→"}
 					</button>
 				</td>
 			</tr>

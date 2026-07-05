@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react';
 import { EnvelopeIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { useAuth } from '@/context/AuthContext';
+import { track } from '@/services/analytics/track';
 import { toast } from 'sonner';
 
 const SUBJECTS = [
@@ -66,6 +67,7 @@ export default function ContactModal({ isOpen, onClose }: ContactModalProps) {
         throw new Error(data.error || 'Failed to send message');
       }
 
+      track('contact_submitted', { subject });
       toast.success("Message sent — we'll get back to you soon.");
       onClose();
     } catch (err) {

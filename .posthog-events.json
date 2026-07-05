@@ -1,0 +1,47 @@
+[
+  {
+    "event_name": "sign_up",
+    "event_description": "User creates a new account (fires once per user on first profile creation).",
+    "file": "src/context/AuthContext.tsx"
+  },
+  {
+    "event_name": "sign_in",
+    "event_description": "User signs in with Google or email/password.",
+    "file": "src/context/AuthContext.tsx"
+  },
+  {
+    "event_name": "demo_login",
+    "event_description": "Visitor launches the shared demo account.",
+    "file": "src/context/AuthContext.tsx"
+  },
+  {
+    "event_name": "pulse_created",
+    "event_description": "User creates a new trading pulse (trading account).",
+    "file": "src/hooks/usePulse.ts"
+  },
+  {
+    "event_name": "trade_logged",
+    "event_description": "User logs a trade entry via the discipline evaluate API.",
+    "file": "src/hooks/usePulse.ts"
+  },
+  {
+    "event_name": "contact_submitted",
+    "event_description": "User submits the in-app contact form.",
+    "file": "src/components/modals/ContactModal.tsx"
+  },
+  {
+    "event_name": "journal_saved",
+    "event_description": "User saves their daily trading journal entry (server-side, authoritative write).",
+    "file": "src/app/api/journal/route.ts"
+  },
+  {
+    "event_name": "discipline_violation_occurred",
+    "event_description": "A trade triggers one or more discipline violations (server-side, authoritative).",
+    "file": "src/app/api/discipline/evaluate/route.ts"
+  },
+  {
+    "event_name": "reflection_gate_completed",
+    "event_description": "Trader completes the reflection gate after a discipline lockout, recovering score points.",
+    "file": "src/app/api/discipline/reflect/route.ts"
+  }
+]

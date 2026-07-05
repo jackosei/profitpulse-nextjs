@@ -64,6 +64,14 @@ service cloud.firestore {
       }
     }
 
+    // Support/contact submissions — written server-side via the Admin SDK
+    // (bypasses these rules). Clients may never write; only admins may read
+    // the queue.
+    match /supportMessages/{messageId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
     // Quotes collection rules
     match /quotes/{quoteId} {
       // Anyone can read quotes

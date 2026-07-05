@@ -20,7 +20,7 @@
  *  9. Return { trade, violations, newScore, newZone }
  */
 
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { adminDb } from "@/services/admin";
 import * as admin from "firebase-admin";
 import type { Pulse, TradeRule } from "@/types/pulse";
@@ -54,6 +54,7 @@ import {
 } from "@/lib/enforcementEngine";
 import { sendWHYReminder, sendPartnerAlert } from "@/services/notifications/emailService";
 import { sendWHYReminderSMS, sendPartnerAlertSMS } from "@/services/notifications/smsService";
+import { getPostHogClient } from "@/lib/posthog-server";
 
 // ---------------------------------------------------------------------------
 // Auth helper
@@ -768,6 +769,25 @@ export async function POST(request: Request) {
         "discipline.lastSessionDate": today,
         "discipline.disciplineState": newState,
       });
+    }
+
+    // ── Server-side analytics ──────────────────────────────────────────
+    if (violations.length > 0) {
+      const posthog = getPostHogClient();
+      posthog.capture({
+        distinctId: authenticatedUid,
+        event: "discipline_violation_occurred",
+        properties: {
+          pulseId,
+          violationCount: violations.length,
+          violationTypes: violations.map((v) => v.type),
+          newScore,
+          newZone,
+          newState,
+        },
+      });
+      // Flush after the response streams (serverless-safe delivery).
+      after(async () => { await posthog.flush() });
     }
 
     // ── Recalculate pulse stats ────────────────────────────────────────

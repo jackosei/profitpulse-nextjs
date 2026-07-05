@@ -71,6 +71,21 @@ export async function POST(request: NextRequest) {
   const name = typeof senderName === 'string' && senderName.trim() ? senderName.trim() : 'A user'
   const email = typeof senderEmail === 'string' ? senderEmail.trim() : ''
 
+  // Persist the submission BEFORE sending so nothing is lost if delivery fails.
+  // Admin SDK write — bypasses security rules; clients can never touch this
+  // collection (see firestore.rules → supportMessages).
+  const supportDoc = adminDb.collection('supportMessages').doc()
+  await supportDoc.set({
+    uid,
+    senderName: name,
+    senderEmail: email,
+    subject,
+    message: message.trim(),
+    createdAt: admin.firestore.Timestamp.now(),
+    status: 'new',
+    emailDelivered: false,
+  })
+
   const html = `
     <div style="font-family: sans-serif; max-width: 560px; margin: auto; color: #1a1a2e;">
       <h2 style="color: #0f3460; margin-bottom: 4px;">New message via ProfitPulse</h2>
@@ -101,20 +116,45 @@ ${message.trim()}
     </div>
   `
 
+  // The Resend SDK does NOT throw on API-level rejections (unverified sender
+  // domain, invalid `from`, etc.) — it resolves with `{ data, error }`. We must
+  // inspect `error` explicitly, otherwise a refused send is silently reported
+  // as success (toast shown, no mail delivered).
   try {
-    await resend.emails.send({
+    const { data, error } = await resend.emails.send({
       from: FROM_EMAIL,
       to: TO_EMAIL,
       replyTo: email || undefined,
       subject: `[ProfitPulse Contact] ${subject}`,
       html,
     })
+
+    if (error) {
+      console.error('[contact] Resend rejected send:', error)
+      await supportDoc.set(
+        { status: 'email_failed', emailError: error.message ?? String(error) },
+        { merge: true },
+      )
+      return NextResponse.json(
+        { error: 'Failed to send message. Please try again later.' },
+        { status: 502 },
+      )
+    }
+
+    await supportDoc.set(
+      { status: 'sent', emailDelivered: true, resendId: data?.id ?? null },
+      { merge: true },
+    )
   } catch (err) {
-    console.error('[contact] Resend error:', err)
+    console.error('[contact] Resend threw:', err)
+    await supportDoc.set(
+      { status: 'email_failed', emailError: err instanceof Error ? err.message : String(err) },
+      { merge: true },
+    )
     return NextResponse.json({ error: 'Failed to send message' }, { status: 500 })
   }
 
-  // Record submission time
+  // Record submission time (drives the 24h rate limit)
   await metaDoc.set(
     { lastContactAt: admin.firestore.Timestamp.now() },
     { merge: true },

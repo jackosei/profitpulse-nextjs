@@ -165,7 +165,8 @@ export default function PulseChart({ trades, timeRange }: PulseChartProps) {
         mode: "nearest",
         intersect: false,
         callbacks: {
-          label: (context) => formatCurrency(context.parsed.y),
+          label: (context) =>
+            context.parsed.y == null ? "" : formatCurrency(context.parsed.y),
         },
         backgroundColor: "#1a2536",
         titleColor: "#9ca3af",

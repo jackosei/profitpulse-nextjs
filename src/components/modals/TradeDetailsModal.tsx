@@ -142,6 +142,14 @@ function TradeDetailsBody({ trade, pulse }: { trade: TradeForBody; pulse: PulseF
           <span className={`text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full border ${outcomeStyle}`}>
             {trade.outcome}
           </span>
+          {trade.source && trade.source !== "manual" && (
+            <span
+              className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full border bg-sky-500/10 text-sky-400 border-sky-500/25"
+              title={trade.brokerSymbol ? `Synced from broker (${trade.brokerSymbol})` : "Synced from broker"}
+            >
+              Synced
+            </span>
+          )}
         </div>
         <div className="flex-1" />
         <div className="text-right">
@@ -178,6 +186,26 @@ function TradeDetailsBody({ trade, pulse }: { trade: TradeForBody; pulse: PulseF
           )}
         </Grid>
       </Section>
+
+      {/* Costs — present on synced/imported trades only */}
+      {(trade.performance.grossProfitLoss !== undefined ||
+        trade.performance.commission !== undefined ||
+        trade.performance.swap !== undefined) && (
+        <Section title="Costs">
+          <Grid>
+            {trade.performance.grossProfitLoss !== undefined && (
+              <Field label="Gross P/L" value={formatCurrency(trade.performance.grossProfitLoss)} />
+            )}
+            {trade.performance.commission !== undefined && (
+              <Field label="Commission" value={formatCurrency(trade.performance.commission)} />
+            )}
+            {trade.performance.swap !== undefined && (
+              <Field label="Swap" value={formatCurrency(trade.performance.swap)} />
+            )}
+            <Field label="Net P/L" value={formatCurrency(pl)} valueClass={plColor} />
+          </Grid>
+        </Section>
+      )}
 
       {/* Risk & R metrics — only when engine metrics are present */}
       {hasRiskMetrics && em && (
@@ -222,6 +250,13 @@ function TradeDetailsBody({ trade, pulse }: { trade: TradeForBody; pulse: PulseF
             value={trade.execution.entryReason || "—"}
             multiline
           />
+          {trade.source && trade.source !== "manual" &&
+            trade.execution.entryReason?.startsWith("Synced from") && (
+            <p className="text-xs text-gray-500 italic">
+              This trade was synced automatically — edit it to add your entry
+              reasoning and make the journal yours.
+            </p>
+          )}
           {trade.learnings && <Field label="Learnings" value={trade.learnings} multiline />}
           {trade.reflection?.wouldRepeat !== undefined && (
             <Field

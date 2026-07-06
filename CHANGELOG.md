@@ -1,10 +1,32 @@
 # Changelog
 
+## [4.15.0] - 2026-07-06
+
+MetaTrader 5 auto-sync: trades flow into a pulse automatically via a custom Expert Advisor, with a shared ingestion service underneath that will also carry future CSV import and MetaApi cloud sync.
+
+### New Features
+
+- **MT5 auto-sync**: a custom Expert Advisor (`ea/ProfitPulseSync.mq5`, downloadable from the Connect MT5 flow) backfills up to 180 days of closed-trade history on first attach, then posts every trade as it closes. A 60-second catch-up scan re-posts anything missed while the terminal was off; the server deduplicates by MT5 position id (`ext_{ticket}` document ids), so re-posts are always safe.
+  - **Connect flow**: "Connect MT5" in the pulse header menu generates a per-pulse API key (shown once), links the EA download, shows the WebRequest whitelist + install steps, and polls for the first sync. A "MT5 · synced …" chip appears in the header, and Disconnect revokes the key. Synced trades carry a "Synced" badge and a gross / commission / swap cost breakdown in the trade detail.
+  - **EA-side discipline warnings** (FTMO-Mentor-style): the EA polls `GET /api/ea/constraints` and alerts in-terminal when a new position breaches the risk-per-trade limit, has no stop, would hit the daily drawdown, or lands on a no-trade day.
+- **Shared trade-ingestion service** (`src/services/tradeIngestion.ts`): the discipline pipeline (validation, violation detection, scoring, enforcement, stats, session snapshots) was extracted from `/api/discipline/evaluate` into one service with `interactive` and `import` modes. The trade form's behavior and API contract are unchanged; synced/imported trades always land, with gate rejections (session gate, no-trade-day, risk/trade caps) recorded as scored violations instead of bouncing.
+  - **Historical backfill** is score-safe: trades dated before the pulse's last live session get violation detection, daily-loss entries, and session snapshots, but never move the live discipline score, streaks, or lifetime total drawdown (which would otherwise lock the pulse).
+
+### Data model
+
+- `Trade` gains optional `source`, `externalId`, `syncBatchId`, `brokerSymbol`; `TradePerformance` gains optional `grossProfitLoss` / `commission` / `swap` / `fees` (net `profitLoss` convention unchanged). `Pulse` gains `sync`. `ViolationLogEntry` gains `historical`. All additive — legacy trades and manual entry are unaffected.
+
+### Requires
+
+- Deploy the new Firestore rule (server-only `apiKeys` collection): `firebase deploy --only firestore:rules`.
+- Compile `ea/ProfitPulseSync.mq5` once in MetaEditor (Windows MT5) before distribution.
+
 ## [4.14.0] - 2026-07-05
 
 Product analytics (PostHog), contact-form hardening, and sign-in / pulse UX fixes.
 
 ### New Features
+
 - **PostHog analytics** for the sign-up funnel, demo usage, and error tracking.
   - **Client**: the SDK initialises once in `instrumentation-client.ts` (guarded on `NEXT_PUBLIC_POSTHOG_KEY`, so it no-ops when unset); a Suspense-wrapped `PageView` captures a manual `$pageview` per App Router navigation; autocapture + exception capture enabled. `AuthContext` identifies the user and registers an `is_demo` super-property so demo traffic can be excluded from the real-user funnel. Client events: `sign_up`, `sign_in`, `demo_login`, `pulse_created`, `trade_logged`, `contact_submitted` (via the typed `track()` helper), plus captured exceptions from `ErrorBoundary`.
   - **Server**: `posthog-node` (`src/lib/posthog-server.ts`) captures `journal_saved`, `discipline_violation_occurred`, and `reflection_gate_completed`, each flushed non-blockingly via `after()` for serverless-safe delivery.
@@ -12,6 +34,7 @@ Product analytics (PostHog), contact-form hardening, and sign-in / pulse UX fixe
 - **Contact submissions are now persisted**: every message is written to a server-only `supportMessages` Firestore collection (audit trail / support queue) before the email is attempted, so nothing is lost on delivery failure. New security rule: admin-read only, no client writes.
 
 ### Fixes
+
 - **Contact form reported success but sent no email**: the Resend SDK resolves with `{ data, error }` rather than throwing on API-level rejections (e.g. unverified sender domain), and the route never inspected `error` — so a refused send showed the success toast. The route now checks the returned `error`, marks the persisted record `email_failed` with the reason, and returns a real error status.
 - **Blank screen after sign-in**: email and Google sign-in used `router.push`, which could replay a client-cached pre-cookie middleware redirect and strand the user on a blank auth shell until they refreshed. All sign-in paths now hard-navigate (`window.location.assign`), matching the demo flow, so middleware re-runs with the session cookie present.
 - **Create Pulse — WHY step**: advancing to step 2 kept the modal's step-1 scroll position with nothing focused. It now scrolls to top and focuses the first WHY field.
@@ -19,6 +42,7 @@ Product analytics (PostHog), contact-form hardening, and sign-in / pulse UX fixe
 - **Stray vertical scrollbar on the pulse tab strip**: `overflow-x-auto` promoted `overflow-y` to `auto` and the tabs' `-mb-px` tipped content 1px over; added `overflow-y-hidden`.
 
 ### Requires
+
 - Set `NEXT_PUBLIC_POSTHOG_KEY` / `NEXT_PUBLIC_POSTHOG_HOST` to enable analytics.
 - Deploy the new Firestore rule: `firebase deploy --only firestore:rules`.
 
@@ -27,12 +51,14 @@ Product analytics (PostHog), contact-form hardening, and sign-in / pulse UX fixe
 Landing page polish + dark mode, plus fixes surfaced during review.
 
 ### New Features
+
 - **Landing dark mode, default + toggle**: the marketing site now defaults to a dark theme (aligned with the app) with an icon-only light/dark toggle in the nav. Theme is persisted to `localStorage` and applied pre-paint (no flash); all colours flow through scoped `.mk-root` CSS variables so the app chrome is unaffected. `prefers-reduced-motion` and `suppressHydrationWarning` handled.
 - **Hero animation**: added a self-hosted, green-toned Lottie (`@lottiefiles/dotlottie-react`, asset in `public/assets/lottie/`) in the hero's right column, scaled into the page margin. Autoplay is skipped under reduced-motion.
 - **Subtle entrance animations**: new `Reveal` component (IntersectionObserver, fade + rise, respects reduced motion; server HTML stays visible for SEO/no-JS) wraps the manifesto, engine tables, screenshot frames, product rows, capability list, loop columns and pricing block.
 - **Browser-dot chrome** restored to screenshot frames (traffic-light dots + centered mono route caption). Full-width hero/discipline frames gain a `capped` height (`max-h-[min(46rem,85vh)]`, top-anchored crop) so they no longer exceed the desktop viewport.
 
 ### Fixes
+
 - **Demo banner "Create your free account" did nothing**: a signed-in demo user hitting `/signup` was bounced by middleware. It now signs out first, then hard-navigates to `/signup`. Banner icon changed from Sparkles to Info.
 - **No route home from auth pages**: login/signup/forgot-password now carry a `ProfitPulse` wordmark linking back to `/`.
 - **Landing green mismatch**: the light theme's accent now uses the app's exact `#08835a` instead of a custom darkened green.
@@ -42,14 +68,16 @@ Landing page polish + dark mode, plus fixes surfaced during review.
 ## [4.13.1] - 2026-07-04
 
 ### UX
+
 - **Landing page redesigned** in an editorial, brutalist-leaning direction: light paper canvas (`#F6F4EF`/`#131512`, AAA body contrast), grotesk display type (Söhne/Untitled Sans/Neue Haas stack with Helvetica fallback), uncentered typographic hero, hairline-ruled sections, and hard-bordered screenshot frames with mono route captions. The Discipline Engine section now shows the real **penalty table** and **enforcement ladder** from the engine spec instead of icon cards. Inverted black pricing block. No gradients, glows, or shadows.
 - **Copy style**: em dashes removed from all user-facing marketing copy, metadata titles (now colon-separated), and the demo banner; sentences use periods, commas, and colons instead.
 - Marketing header/footer use a set-in-type wordmark (the SVG logo is white-only and invisible on the light canvas).
 
 ### Fixes
+
 - **Demo login stalled in production**: the client router cached a middleware redirect (dashboard → login) issued before the session cookie existed, so `router.push` bounced back to `/login`. Demo sign-in now uses a hard `window.location.assign` after the cookie handshake.
 - **Screenshots retaken against a production server**: the turbopack dev-tools indicator was overlapping the navbar logo in the previous dev-mode captures. All five landing assets + the OG image are re-captured clean.
-- `metadataBase` set in the root layout (`NEXT_PUBLIC_SITE_URL`, defaulting to https://profitpulse.app) so OG/Twitter image URLs resolve absolutely in production.
+- `metadataBase` set in the root layout (`NEXT_PUBLIC_SITE_URL`, defaulting to https://profitpulse.qzz.io) so OG/Twitter image URLs resolve absolutely in production.
 
 ---
 
@@ -60,17 +88,20 @@ Public storefront release: shared demo account with auto-reset, conversion-drive
 ### New Features
 
 #### Shared demo account
+
 - **"Try the live demo" button on `/login`** (also auto-triggers via `/login?demo=1`): signs visitors into a pre-provisioned shared account via `POST /api/demo/login`, which mints a Firebase custom token (no public password), satisfies the daily journal gate (canned entry + `journaled` cookie), and **auto-resets stale demo data** — older than `DEMO_RESET_HOURS` (default 6h), lease-guarded in a Firestore transaction so concurrent logins can't double-seed.
-- **Deterministic sample data** (`src/lib/demoSeed.ts` + `demoSeedWriter.ts`): dates generated relative to today so the demo always looks fresh; seeded PRNG keeps prices stable across re-seeds. Two pulses tell the product story: *NQ Momentum* (GREEN, score 100, profitable, 10-day clean streak, rich journaling) and *Gold Scalps* (YELLOW, score 59, active 50% risk cap + NTD warning, 9 violation-log entries) — plus per-day session snapshots, dailyLoss/totalDrawdown runtime fields, and journal history.
+- **Deterministic sample data** (`src/lib/demoSeed.ts` + `demoSeedWriter.ts`): dates generated relative to today so the demo always looks fresh; seeded PRNG keeps prices stable across re-seeds. Two pulses tell the product story: _NQ Momentum_ (GREEN, score 100, profitable, 10-day clean streak, rich journaling) and _Gold Scalps_ (YELLOW, score 59, active 50% risk cap + NTD warning, 9 violation-log entries) — plus per-day session snapshots, dailyLoss/totalDrawdown runtime fields, and journal history.
 - **Demo guards**: `DELETE /api/account` returns 403 for the demo uid; Firestore rules deny pulse deletion and profile edits for `isDemo` users; profile Danger Zone hidden; persistent `DemoBanner` strip in the app shell. Trades remain fully writable — the reset restores canonical data.
 - CLI provisioning: `npm run seed:demo` (creates the Auth user idempotently by email, prints the `DEMO_UID` for `.env.local`).
 
 #### SaaS landing page (`/`)
+
 - Full replacement of the minimal hero page: sticky marketing header, hero with beta badge and dual CTAs ("Start free" / "Try the live demo"), Discipline-Engine story section, three alternating screenshot feature rows, 6-card feature grid, how-it-works, "Free during beta — first 100 users get a lifetime free plan" pricing band, and footer.
 - **Real in-app screenshots** captured from the seeded demo account (`public/assets/images/landing/`): equity-curve hero, At-Risk discipline panel, session-gate acknowledgement, by-day trade log, dashboard.
 - Page-level metadata with OpenGraph/Twitter cards → new `public/og-image.png` (1200×630).
 
 ### Internal
+
 - **Route-group restructure**: app pages moved into `src/app/(app)/` (dashboard, pulse, pulses, profile, journal, admin) with the Navbar/Sidebar shell in `(app)/layout.tsx`; `/` lives in `(marketing)/` with its own full-bleed layout; root layout slimmed to html/body + providers. URLs unchanged.
 - `(auth)` layout updated to full-height flex now that it no longer rides the app shell.
 - `signInWithDemo()` added across `authService` → `authApi` → `useAuth()`.
@@ -83,6 +114,7 @@ Public storefront release: shared demo account with auto-reset, conversion-drive
 ## [4.12.1] - 2026-05-23
 
 ### UX
+
 - **Log Trade button moved to floating action button (FAB)**: removed from `PulseHeader` and replaced with a fixed pill (`AddTradeFAB`) in the bottom-right corner, visible only on the pulse detail page. Shows a lock icon and is disabled when the pulse is locked. On mobile it sits above the bottom nav bar.
 
 ---
@@ -90,9 +122,11 @@ Public storefront release: shared demo account with auto-reset, conversion-drive
 ## [4.12.0] - 2026-05-23
 
 ### New Features
+
 - **Edit WHY statements**: traders can now update `whyStatement` and `whyDiscipline` at any time without going through the one-shot pulse update flow. Edit button appears in the Discipline tab's WHY section and on the WHY reminder banner (when zone is degraded). `PATCH /api/discipline/why` validates ownership and enforces the 30-char minimum server-side.
 
 ### Performance
+
 - **Incremental stats update**: `recalculateStats` no longer fetches all trades on every submission. Stats are derived from the current pulse `stats` object plus the single new trade — zero extra Firestore reads per trade submission.
 
 ---
@@ -100,12 +134,14 @@ Public storefront release: shared demo account with auto-reset, conversion-drive
 ## [4.11.0] - 2026-05-23
 
 ### New Features
+
 - **Sessions subcollection** (`pulses/{id}/sessions/{YYYY-MM-DD}`): one document per trading day, written/upserted at every trade submission. Stores `tradeCount`, `wins`, `losses`, `totalPnL`, `disciplineScoreAfter`, `zone`, `hasViolations`, `engagementScore`. Enables O(1) history queries instead of scanning violations.
 - **Discipline history route** now reads from `sessions` instead of `violationLog` — two `violationLog` queries replaced by one `sessions` query per request.
 - **`SessionSnapshot` type** added to `disciplineTypes.ts`.
 - **Backfill script** at `scripts/backfill-sessions.ts`: populates session docs for all existing pulses from their trades and violation logs. Run with: `npx tsx --env-file=.env.local scripts/backfill-sessions.ts`
 
 ### Internal
+
 - Firestore security rules updated: `sessions` subcollection is read-accessible to the pulse owner; write is server-side only (`allow write: if false`).
 
 ---
@@ -113,6 +149,7 @@ Public storefront release: shared demo account with auto-reset, conversion-drive
 ## [4.10.1] - 2026-05-23
 
 ### Internal
+
 - **Firestore indexes**: added all missing composite indexes to `firestore.indexes.json`. Queries that would have thrown `FAILED_PRECONDITION` in production are now covered:
   - `pulses`: `(id, userId)` — used by pulse lookup across all discipline routes and pulseService
   - `pulses`: `(name, userId)` — used by duplicate name check on pulse creation
@@ -127,6 +164,7 @@ Public storefront release: shared demo account with auto-reset, conversion-drive
 ## [4.10.0] - 2026-05-23
 
 ### New Features
+
 - **Account deletion now removes all data**: `DELETE /api/account` server route performs a full cascading delete before removing the Auth record — all pulses (+ `trades`, `violationLog` subcollections), the user document (+ `journal`, `meta` subcollections), then `adminAuth.deleteUser(uid)`. Previously `user.delete()` was called client-side, leaving all Firestore data orphaned.
 - On success the session cookie is cleared via `logout()` and the user is redirected to `/login`.
 
@@ -135,6 +173,7 @@ Public storefront release: shared demo account with auto-reset, conversion-drive
 ## [4.9.2] - 2026-05-23
 
 ### Fixes
+
 - **Navbar buttons**: calculator button is now icon-only (label removed) and matches the icon-button style of the Help and Sign Out buttons (`bg-gray-800` resting state, `hover:bg-gray-600`).
 - **Help dropdown**: added `overflow-hidden` to prevent rounded corners being clipped by child hover backgrounds.
 
@@ -143,6 +182,7 @@ Public storefront release: shared demo account with auto-reset, conversion-drive
 ## [4.9.1] - 2026-05-23
 
 ### Fixes
+
 - **Email notifications**: removed emojis from all subject lines and headings (WHY reminder, partner alert variants). Subjects now use a plain `ProfitPulse:` prefix.
 - **Email copy**: replaced em dash in WHY reminder body with parentheses.
 
@@ -155,30 +195,36 @@ Navigation overhaul, futures calculator, journal history, auth flow fixes, and i
 ### New Features
 
 #### In-app contact form
+
 - **Help dropdown** in navbar (? icon) replaces the floating FeedbackWidget. Items: Request a feature, Report a bug, Learning Resources, Contact Developers.
 - **Contact Developers modal**: subject selector + message textarea (20-char minimum). Sends via Resend to `hello@profitpulse.app` with the sender's email as `Reply-To`. Rate-limited to one message per user per 24 hours (enforced server-side via Firestore).
 
 #### Futures market support in Lot Size Calculator
+
 - Added 8 futures contracts: ES ($12.50/tick), MES ($1.25), NQ ($5.00), MNQ ($0.50), YM ($5.00), MYM ($0.50), CL ($10.00), GC ($10.00).
 - Futures branch: `contracts = floor(riskAmount / (stopLoss × tickValue))`. Output labelled "Contracts" with tick reference displayed.
 - Instrument dropdown now grouped by category (Forex, Metals, Indices, Energy, Crypto, Futures).
 
 #### Journal history in Profile
+
 - New accordion in the Profile page: browse past gratitude journal entries with server-side cursor pagination (7 per page, `orderBy('day', 'desc')`). Client-side search filters across all loaded entries.
 
 #### Sidebar profile footer + collapsible Pulses
+
 - **Profile footer**: avatar (photo or initials), display name, email, and settings-icon-on-hover moved to sidebar bottom. Ring highlights on hover.
 - **Collapsible Pulses**: active pulses listed as sub-links under the Pulses nav item. Auto-expands when navigating to a pulse detail page.
 - Desktop collapsed state: icon-only; profile footer shows avatar circle only.
 - Mobile bottom nav updated: Dashboard | Pulses | Profile (three items).
 
 ### Fixes
+
 - **Login flash**: login page showed the form briefly even when the user was already authenticated and had journaled for the day. Guard added: `if (loading || user) return null`.
 - **Blank body post-logout**: logout now calls `router.replace('/login')` after `await logout()`, preventing the user from remaining on a protected page with an empty shell.
 - **Sign-out dialog persistence**: `confirmLogout` state now resets on auth change, so signing back in doesn't leave the dialog open.
 - **Pulse sidebar links**: sidebar was using `pulse.firestoreId` in hrefs; `getPulseById` queries by `pulse.id` (e.g. `TRAD052306`). Fixed to use `pulse.id`.
 
 ### Internal
+
 - Root layout restructured to `flex-col` (Navbar full-width → inner `flex` row for Sidebar + main).
 - `src/config/navigation.ts` exports separate `navigationLinks` (desktop) and `mobileNavLinks` (mobile).
 - `src/types/css.d.ts` added to declare `*.css` side-effect imports for TypeScript.
@@ -189,6 +235,7 @@ Navigation overhaul, futures calculator, journal history, auth flow fixes, and i
 ## [4.7.2] - 2026-05-23
 
 ### Fixes
+
 - **Build**: drop orphaned `currentScore`/`pulseData` reads in the discipline history route. The v4.6.1 baseline fix made them unused; ESLint was failing the build under `no-unused-vars`.
 
 ---
@@ -196,6 +243,7 @@ Navigation overhaul, futures calculator, journal history, auth flow fixes, and i
 ## [4.7.1] - 2026-05-23
 
 ### Fixes
+
 - **Build**: profile page failed compilation under `no-unused-expressions` because a ternary in the journal "Show more/less" toggle was used purely for its side effects. Swapped to `if/else` — same behaviour, lint-clean.
 
 ---
@@ -205,15 +253,19 @@ Navigation overhaul, futures calculator, journal history, auth flow fixes, and i
 Reward system overhaul: per-section engagement credit, rebalanced YELLOW/RED recovery caps.
 
 ### New Features
+
 - **Engagement credit**: trades earn up to +4 recovery pts/day based on which optional sections are filled (psychology, context, reflection, learnings — 1 pt each). Engagement credit applies even on days with violations, so thorough journaling on a bad day still rewards reflection. Capped at +4/day so it can't out-pace clean-session bonuses.
 
 ### Behaviour changes
+
 - **Recovery caps rebalanced**: YELLOW 10→15, RED 5→10, GREEN 13→15. A single −20 overtrading breach in RED is now recoverable in 2–3 days of clean sessions instead of 4+. Clean-session bonuses remain the fast lane to recovery.
 
 ### Fixes
+
 - **Dead-letter `whatILearned` bonus removed**: the engine was checking `trade.reflection.whatILearned` for the +3 full-journal bonus, but the form never writes that field — the bonus was unreachable. Replaced with the per-section engagement credit which reads fields the form actually collects.
 
 ### Internal
+
 - `SessionSummary.hasFullJournal` deprecated (still populated for backwards compat, but no longer drives recovery). New `engagementScore: number` field is the source of truth.
 
 ---
@@ -223,10 +275,12 @@ Reward system overhaul: per-section engagement credit, rebalanced YELLOW/RED rec
 Discipline engine bug fixes: history chart baseline, risk-cap detection, and overtrading severity.
 
 ### Fixes
-- **Discipline Score History chart**: chart was using the live (post-penalty) score as the starting baseline, making the "+X pts this period" delta always near zero. Now reads the most recent `violationLog` entry *before* the selected range to establish a true baseline; falls back to 100 for brand-new pulses.
+
+- **Discipline Score History chart**: chart was using the live (post-penalty) score as the starting baseline, making the "+X pts this period" delta always near zero. Now reads the most recent `violationLog` entry _before_ the selected range to establish a true baseline; falls back to 100 for brand-new pulses.
 - **Risk-cap enforcement**: `evaluateViolations` was comparing trade risk against `maxRiskPerTrade` (the raw pulse limit), ignoring the active `riskCapPct` constraint. A 75% cap was invisible to the engine — the real-time form indicator showed the cap, but server-side detection missed it. Now resolves `effectiveRiskLimit = maxRiskPerTrade × riskCapPct` before comparison; violation details include `(75% cap active)` for clarity.
 
 ### Behaviour changes
+
 - **Overtrading consequences strengthened**: `MAX_TRADES_PENALTY` bumped −8 → −20 (matches `NO_TRADE_DAY_VIOLATED`). Every `MAX_TRADES_PER_DAY` breach now sets `noTradeDays = 1` immediately, blocking further trades today and tomorrow. The existing first-weekly `tradeCapCount` logic still applies.
 
 ---
@@ -238,19 +292,23 @@ Pulse detail page UI/UX refinements: unified tabs + panel, new "By Day" trade vi
 ### New Features
 
 #### Unified tabs + content
+
 - Tabs (Performance / Discipline / Trade Log) and the active panel now share a single bordered card. The selected tab uses an underline indicator that visually connects to the panel below — content clearly belongs to the active tab.
 - Subtle translucent `bg-white/[0.015]` overlay on the panel area to lift the content surface without adding visual weight.
 - Performance tab's date range + comparison controls moved onto the tab row itself (only visible when the Performance tab is active). Saves a row of vertical space and creates a more compact layout.
 
 #### "By Day" trade view (new default)
+
 - New `viewType: "by-day"` is now the default in the Trade Log tab. Trades are grouped by calendar day with a collapsible header showing count, win rate, and total P/L. Most recent day auto-expands.
 - Expanded rows show compact trade entries — type badge, instrument, entry reason snippet, entry time, P/L — clickable to open the full trade details.
 - View toggle reordered: **By Day** (default) → **Table** → **Calendar**, with `Layers` icon for the new option.
 
 #### Calendar day-picker
+
 - Clicking a day with multiple trades used to open only `dayTrades[0]`. Fixed: 1 trade opens directly; 2+ trades open a small picker modal listing all trades for that day so the trader can choose which to inspect.
 
 #### Trade Details — review-grade detail
+
 - Headline summary strip: type badge + instrument + outcome pill + bold P/L with %-of-account and R-multiple.
 - **Risk & R-Multiple** section (when engine metrics present): Intended Risk %, Planned R:R, Actual R, Exit Quality with contextual hints.
 - **Discipline** section: per-trade violations in a red-bordered card with severity badges, plus the rules followed list.
@@ -261,6 +319,7 @@ Pulse detail page UI/UX refinements: unified tabs + panel, new "By Day" trade vi
 - Each section renders only when its data is present.
 
 ### Fixes
+
 - LimitsTracker collapsible header padding tightened (`py-3` → `py-2`); expanded content rebalanced (`pt-1` + bars `mt-3` → unified `pt-3`).
 
 ---
@@ -272,6 +331,7 @@ Adaptive enforcement engine: per-pulse choice between Score-based and Severity-b
 ### New Features
 
 #### Unified tier ladder driven by a per-pulse signal
+
 - Discipline engine restructured around a single tier ladder (Tier 1–5) shared across all violation types. Tier outcomes (75% cap → 50% cap + warning → NTD + 50% cap → extended NTD) are the same regardless of mode; only the trigger signal differs.
 - Each pulse picks one of two enforcement modes at creation:
   - `SCORE_BASED` (default): tier triggered by discipline score crossing thresholds (≥85, ≥70, ≥55, ≥40). Recovery is action-based via clean sessions, journal bonuses, streaks.
@@ -279,23 +339,28 @@ Adaptive enforcement engine: per-pulse choice between Score-based and Severity-b
 - `EnforcementModeDetailsModal` side-by-side comparison surfaced from both CreatePulseModal and UpdatePulseModal via "Learn more". Existing pulses default to `SCORE_BASED` via read-time fallback.
 
 #### Warn-then-lock at tier 4
+
 - First time a trader crosses into tier 4 territory the engine sets `ntdWarningPending = true` and applies only the 50% cap (no immediate NTD). The trader gets explicit advance notice via an amber "NTD on next breach" chip in the DisciplineMeter. The next tier-4 condition fires the actual no-trade day.
 - NTD now extends by 1 day when triggered during an active NTD (previously `Math.max(1, 1) = 1` left it unchanged).
 
 #### WHY reminder on first risk breach
+
 - Per spec, "breach 1 = WHY prompt only" — but the email/SMS only fired on zone degradation, so first-ever risk breaches dropping from 100 → 95 stayed silent. Now fires the WHY reminder on first weekly RISK_PER_TRADE breach regardless of zone state.
 
 #### Accountability partner alerts wired to the tier ladder
+
 - `PartnerAlertBreachType` union extended with `NTD_WARNING` and `NO_TRADE_DAY` so the partner gets notified when the engine escalates regardless of which violation type triggered it.
 - One alert per trade, picked by priority: `TOTAL_DRAWDOWN_LOCKED` > `NO_TRADE_DAY` > `DAILY_DRAWDOWN` > `NTD_WARNING`. Prevents partner inbox spam when a single trade trips multiple signals.
 - Mode-independent — works the same in Score-based and Severity-based pulses since both flow through `noTradeDays` / `ntdWarningPending` state.
 
 ### Schema
+
 - New `EnforcementMode` type in `disciplineTypes.ts`.
 - `PulseDisciplineFields` gains `enforcementMode` and `weeklySeverityTotal`.
 - `ActiveConstraints` gains `ntdWarningPending`.
 
 ### Fixes
+
 - Removed accidental "breach 1 with no cap → 75% cap" escalation introduced in v4.3 — first weekly risk breach now correctly fires WHY-only with no cap, matching the spec.
 - Severity total resets to 0 alongside `weeklyBreachCounts` on the Monday boundary.
 
@@ -308,24 +373,29 @@ Pulse Detail Page UX Refactor: tabbed layout for Performance / Discipline / Trad
 ### New Features
 
 #### Tabbed Pulse Detail Layout
+
 - New top-level navigation on the pulse detail page splits content into three focused tabs: **Performance** (KPIs + equity curve), **Discipline** (score, meter, limits, score-over-time chart, violations), and **Trade Log** (table/calendar).
 - New `PulseTabs.tsx` component — accessible tab navigation with `role="tablist"`/`role="tab"`, optional per-tab badges (used to surface the active-constraint count on the Discipline tab).
 - Tab state is persisted to the URL as `?tab=performance|discipline|trades` via `router.replace(..., { scroll: false })` — survives refresh, supports back/forward navigation, and shareable links.
 - **Smart default tab**: opens to Discipline when active constraints exist, zone ≠ GREEN, or a reflection gate is pending; otherwise defaults to Performance.
 
 #### Persistent Vitals Strip
+
 - New `PulseVitals.tsx` — always-visible compact strip above the tabs.
 - Shows zone label + score, today's P/L (color-coded), today's trade count (vs daily cap when set), consecutive clean-day streak (when > 0), and a button that jumps to the Discipline tab when constraints are active.
 - Guarantees critical discipline state never gets hidden behind a tab choice.
 
 #### Global Log Trade Button
+
 - Added a primary `+ Log Trade` CTA to `PulseHeader` so trade logging is reachable from any tab.
 - Disabled state shown when the pulse is locked.
 
 ### Removed
+
 - `ChartsCard.tsx` — the tabbed-chart pattern (Equity Curve | Discipline Score) is obsolete now that each chart lives in its own tab with a dedicated card header.
 
 ### Fixes
+
 - Removed `overflow-hidden` from the `PulseHeader` container that was clipping the actions dropdown menu.
 - Tab change no longer scrolls the page to top (`scroll: false` on `router.replace`).
 
@@ -338,6 +408,7 @@ Phase 3 - Sprint 2: Multi-session Risk Cap Countdown, DisciplineMeter UX Overhau
 ### New Features
 
 #### Multi-Session Risk Cap Countdown (Option B)
+
 - Updated `enforcementEngine.ts` to require multiple consecutive clean sessions before lifting lockouts or risk caps.
 - Caps triggered by Daily Drawdown breaches require 3 clean sessions to lift.
 - Caps triggered by Total Drawdown breaches (prior to permanent lockout) require 5 clean sessions to lift.
@@ -345,18 +416,22 @@ Phase 3 - Sprint 2: Multi-session Risk Cap Countdown, DisciplineMeter UX Overhau
 - `LimitsTracker` UI now displays a dynamic countdown warning banner when constraints are active and waiting to be lifted.
 
 #### Discipline Meter UX Redesign
+
 - Extracted `DisciplineMeter` from `PulseHeader` to clearly separate behavioural metrics from general Pulse configuration.
 - Solved cognitive dissonance by giving "Today's Execution" its own visual circular progress ring, distinctly separated from the lifetime "Discipline Score" horizontal gradient bar.
 - Constraint badges inside the meter auto-hide during clean trading, reappearing only when restrictions are triggered.
 
 #### Streak Badge
+
 - Created `StreakBadge.tsx` alongside the DisciplineMeter.
 - Automatically tracks `consecutiveCleanDays` and prominently displays a "Hot Streak" flame animation when a streak hits ≥3 days.
 
 #### Premium Empty States
+
 - Designed premium empty states for `PulsesTable.tsx` (Dashboard) and `TradeHistory.tsx` (Pulse Detail) with custom illustrations, welcoming copy, and primary CTA buttons to guide new users into the core loop.
 
 ### Fixes
+
 - Added missing `cleanSessionsToLift` default property in `evaluate/route.ts` and `disciplineTypes.ts`.
 - Removed unused props from `PulseHeader` and fixed strict TypeScript lint errors.
 - Corrected Firestore index `queryScope` for `violationLog` queries from `COLLECTION_GROUP` to `COLLECTION`.
@@ -369,6 +444,7 @@ history chart, in-app WHY reminder banner, and accountability partner settings.
 ### New Features
 
 #### Streak Tracking
+
 - Added `consecutiveCleanDays` counter to `PulseDisciplineFields`.
 - Counter increments when the previous trading session was clean (≥1 trade, 0 violations).
   Resets to 0 on any violation. No-trade days are neutral.
@@ -376,6 +452,7 @@ history chart, in-app WHY reminder banner, and accountability partner settings.
 - Counter persisted to Firestore on every trade evaluation and exposed in the API response.
 
 #### Notification Engine
+
 - **Resend (email)**: New `src/services/notifications/emailService.ts`.
   - `sendWHYReminder()` — Tier 1 reminder email sent to the trader when zone degrades.
   - `sendPartnerAlert()` — Tier 2 alert email sent to the accountability partner on daily
@@ -389,6 +466,7 @@ history chart, in-app WHY reminder banner, and accountability partner settings.
 - Notifications wired into `POST /api/discipline/evaluate` — all fire-and-forget (non-blocking).
 
 #### Discipline Score History Chart
+
 - New `GET /api/discipline/history?pulseId=&range=` endpoint.
   - Supports ranges: 7D | 30D | 90D | 1Y | ALL.
   - Queries `violationLog` subcollection, groups by date, carries forward score on empty days.
@@ -400,12 +478,14 @@ history chart, in-app WHY reminder banner, and accountability partner settings.
 - Rendered on Pulse detail page below `LimitsTracker`.
 
 #### WHY Reminder Banner
+
 - New `WHYReminderBanner.tsx` component.
   - Shown on the Pulse detail page when discipline zone is YELLOW or RED.
   - Displays the trader's `whyStatement` and `whyDiscipline`.
   - Dismissible per browser session per calendar day (sessionStorage key).
 
 #### Accountability Partner Settings
+
 - `UpdatePulseModal` now includes an "Accountability Partner Email" input.
   - Optional field with email format validation.
   - Saved to `discipline.accountabilityPartnerEmail` on the Pulse document.
@@ -538,8 +618,6 @@ A closed-loop behavioural system that scores rule violations and displays an ada
 
 - Instrument input upgraded from comma-separated text to tag-based input with inline point value editing (both Create and Update modals).
 - Consistent instrument UX across Create and Update Pulse flows.
-
-
 
 ## [2.0.0] - 2026-02-06
 

@@ -405,4 +405,10 @@ export interface ViolationLogEntry {
   scoreAfter: number;
   /** Zone at the time of the violation */
   zone: DisciplineZone;
+  /**
+   * True when the violation was detected on a backfilled (pre-cutoff) trade
+   * during a sync/import. Historical entries never moved the live score, so
+   * scoreBefore === scoreAfter.
+   */
+  historical?: boolean;
 }

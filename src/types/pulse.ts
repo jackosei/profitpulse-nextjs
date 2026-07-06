@@ -43,6 +43,22 @@ export interface TradeRule {
   isRequired: boolean;
 }
 
+/** Where a trade came from. Absent = legacy manual entry. */
+export type TradeSource =
+  | "manual"
+  | "ea:mt5"
+  | "ea:mt4"
+  | "import:csv"
+  | "metaapi";
+
+/** Live-sync connection state for a pulse (one broker account per pulse). */
+export interface PulseSyncInfo {
+  provider: "ea:mt5";
+  lastSyncAt: Timestamp;
+  /** Broker account number as reported by the EA. */
+  accountNumber?: string;
+}
+
 export interface Pulse {
   id: string;
   firestoreId?: string;
@@ -79,6 +95,8 @@ export interface Pulse {
   };
   // Discipline engine fields — optional for backward compat with pre-engine pulses
   discipline?: PulseDisciplineFields;
+  // Live-sync state — set once an EA/API connection posts its first batch
+  sync?: PulseSyncInfo;
 }
 
 // Nested data structures for better organization
@@ -96,8 +114,15 @@ export interface TradeExecution {
 }
 
 export interface TradePerformance {
+  /** Net P&L in account currency (gross + commission + swap + fees). */
   profitLoss: number;
   profitLossPercentage: number;
+  /** Broker-reported P&L before costs. Only present on synced/imported trades. */
+  grossProfitLoss?: number;
+  /** Signed as the broker reports them (typically negative). */
+  commission?: number;
+  swap?: number;
+  fees?: number;
 }
 
 export interface TradePsychology {
@@ -167,6 +192,15 @@ export interface Trade {
   // Other
   learnings?: string;
   followedRules?: string[];
+
+  // Provenance — absent on legacy manual trades
+  source?: TradeSource;
+  /** Broker ticket / MT5 position id. Doc id becomes `ext_{externalId}` for dedup. */
+  externalId?: string;
+  /** Groups trades posted in the same sync/import batch. */
+  syncBatchId?: string;
+  /** Raw broker symbol before mapping, e.g. "XAUUSD.pro". */
+  brokerSymbol?: string;
 }
 
 export interface PulseStats {

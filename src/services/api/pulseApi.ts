@@ -70,6 +70,10 @@ export interface TradeCreateData {
   performance: {
     profitLoss: number;
     profitLossPercentage: number;
+    grossProfitLoss?: number;
+    commission?: number;
+    swap?: number;
+    fees?: number;
   };
 
   psychology?: {
@@ -114,6 +118,12 @@ export interface TradeCreateData {
   learnings?: string;
   followedRules?: string[];
   engineMetrics?: import("@/lib/disciplineTypes").TradeEngineMetrics;
+
+  // Provenance — set by sync/import paths, never by the trade form
+  source?: import("@/types/pulse").TradeSource;
+  externalId?: string;
+  syncBatchId?: string;
+  brokerSymbol?: string;
 }
 
 /**

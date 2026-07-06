@@ -30,6 +30,7 @@ import WHYReminderBanner from "@/components/discipline/WHYReminderBanner";
 import DisciplineMeter from "@/components/discipline/DisciplineMeter";
 import StreakBadge from "@/components/discipline/StreakBadge";
 import EditWHYModal from "@/components/modals/EditWHYModal";
+import ConnectMt5Modal from "@/components/modals/ConnectMt5Modal";
 import AddTradeFAB from "@/components/pulse/AddTradeFAB";
 import { TrendingUp, AlertTriangle } from "lucide-react";
 
@@ -79,6 +80,7 @@ export default function PulseDetailsPage() {
   const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [showViolationsModal, setShowViolationsModal] = useState(false);
   const [showEditWHYModal, setShowEditWHYModal] = useState(false);
+  const [showConnectModal, setShowConnectModal] = useState(false);
 
   // ─── Tab state — URL-synced via ?tab=… ─────────────────────────────
   const searchParams = useSearchParams();
@@ -401,6 +403,7 @@ export default function PulseDetailsPage() {
         onArchive={() => setShowArchiveModal(true)}
         onDelete={() => setShowDeleteModal(true)}
         onUpdate={() => setShowUpdateModal(true)}
+        onConnect={() => setShowConnectModal(true)}
         maxRiskPerTrade={pulse.maxRiskPerTrade}
         maxDailyDrawdown={pulse.maxDailyDrawdown}
         maxTotalDrawdown={pulse.maxTotalDrawdown}
@@ -627,6 +630,13 @@ export default function PulseDetailsPage() {
         isOpen={showViolationsModal}
         onClose={() => setShowViolationsModal(false)}
         pulseId={pulse.id}
+      />
+
+      <ConnectMt5Modal
+        isOpen={showConnectModal}
+        onClose={() => setShowConnectModal(false)}
+        pulse={pulse}
+        onRefresh={fetchPulse}
       />
 
       <EditWHYModal

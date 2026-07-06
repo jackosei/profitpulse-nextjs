@@ -7,6 +7,8 @@ import {
   ShieldExclamationIcon,
   LockClosedIcon,
 } from '@heroicons/react/24/outline';
+import { Cable } from 'lucide-react';
+import { formatDistanceToNow } from 'date-fns';
 import { formatCurrency } from "@/utils/format"
 import { PULSE_STATUS, isPulseLocked } from "@/types/pulse"
 import type { Pulse } from "@/types/pulse";
@@ -19,6 +21,7 @@ interface PulseHeaderProps {
   onArchive: () => void;
   onDelete: () => void;
   onUpdate: () => void;
+  onConnect?: () => void;
   maxRiskPerTrade: number;
   maxDailyDrawdown: number;
   maxTotalDrawdown: number;
@@ -35,6 +38,7 @@ export default function PulseHeader({
   onArchive,
   onDelete,
   onUpdate,
+  onConnect,
   maxRiskPerTrade,
   maxDailyDrawdown,
   maxTotalDrawdown,
@@ -43,6 +47,7 @@ export default function PulseHeader({
   pulse,
 }: PulseHeaderProps) {
   const isLocked = pulse ? isPulseLocked(pulse) : false;
+  const lastSyncSeconds = (pulse?.sync?.lastSyncAt as { seconds?: number } | undefined)?.seconds;
 
   const statusConfig = (() => {
     if (isLocked) return { label: 'Locked', color: 'text-red-400 bg-red-500/10 border-red-500/25', icon: <LockClosedIcon className="w-3 h-3" /> };
@@ -68,6 +73,15 @@ export default function PulseHeader({
               {statusConfig.icon}
               {statusConfig.label}
             </span>
+            {lastSyncSeconds !== undefined && (
+              <span
+                className="shrink-0 flex items-center gap-1.5 px-2 py-0.5 text-xs font-medium rounded-full border text-sky-400 bg-sky-500/10 border-sky-500/25"
+                title={`MT5 EA connected — last sync ${formatDistanceToNow(new Date(lastSyncSeconds * 1000), { addSuffix: true })}`}
+              >
+                <Cable className="w-3 h-3" />
+                MT5 · {formatDistanceToNow(new Date(lastSyncSeconds * 1000), { addSuffix: true })}
+              </span>
+            )}
           </div>
 
           {/* Risk rules — pill row */}
@@ -110,6 +124,19 @@ export default function PulseHeader({
                   </button>
                 )}
               </MenuItem>
+              {onConnect && (
+                <MenuItem>
+                  {({ active }) => (
+                    <button
+                      onClick={onConnect}
+                      className={`${active ? 'bg-white/5' : ''} flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-gray-300 hover:text-white`}
+                    >
+                      <Cable className="w-4 h-4 text-gray-500" />
+                      Connect MT5
+                    </button>
+                  )}
+                </MenuItem>
+              )}
               <MenuItem>
                 {({ active }) => (
                   <button

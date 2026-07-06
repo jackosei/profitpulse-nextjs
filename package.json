@@ -1,6 +1,6 @@
 {
   "name": "profitpulse-nextjs",
-  "version": "4.14.0",
+  "version": "4.15.0",
   "private": true,
   "packageManager": "yarn@1.22.22",
   "scripts": {

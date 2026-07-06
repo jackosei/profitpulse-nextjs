@@ -64,6 +64,13 @@ service cloud.firestore {
       }
     }
 
+    // API keys for the MT5 sync EA (doc id = sha256 of the key). Managed
+    // exclusively server-side via /api/keys with the Admin SDK; clients must
+    // never read or write key material directly.
+    match /apiKeys/{keyHash} {
+      allow read, write: if false;
+    }
+
     // Support/contact submissions — written server-side via the Admin SDK
     // (bypasses these rules). Clients may never write; only admins may read
     // the queue.

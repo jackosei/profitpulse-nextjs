@@ -64,7 +64,8 @@ const GREEN_MIN = 75;
 const YELLOW_MIN = 40;
 
 /** Get a CSS rgba color for a score value */
-function scoreToColor(score: number): string {
+function scoreToColor(score: number | null): string {
+  if (score == null) return "rgba(100, 116, 139, 1)"; // slate-500
   if (score >= GREEN_MIN) return "rgba(16, 185, 129, 1)"; // emerald-500
   if (score >= YELLOW_MIN) return "rgba(245, 158, 11, 1)"; // amber-500
   return "rgba(239, 68, 68, 1)"; // red-500
@@ -92,7 +93,8 @@ const chartOptions: ChartOptions<"line"> = {
       padding: 10,
       callbacks: {
         title: (items) => items[0]?.label ?? "",
-        label: (item) => ` Score: ${Math.round(item.parsed.y)}/100`,
+        label: (item) =>
+          item.parsed.y == null ? "" : ` Score: ${Math.round(item.parsed.y)}/100`,
       },
     },
   },
